@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft } from '@phosphor-icons/react';
+import { ArrowLeft, SpeakerSimpleLow, HandPalm, Brain, PersonArmsSpread, Handshake, Warning, DownloadSimple } from '@phosphor-icons/react';
 
 // Breathing Guide Component
 const BreathingGuide = ({ compact = false }) => {
@@ -290,10 +290,10 @@ const BreathingGuide = ({ compact = false }) => {
 export { BreathingGuide };
 
 // Study Card Component
-const StudyCard = ({ icon, title, description, stoicAction }) => (
+const StudyCard = ({ icon: Icon, title, description, stoicAction }) => (
   <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-4">
     <div className="flex items-center gap-3 mb-3">
-      <span className="text-3xl">{icon}</span>
+      <Icon size={28} weight="bold" className="text-blue-400" />
       <h3 className="text-xl font-bold text-white">{title}</h3>
     </div>
     <p className="text-slate-300 text-sm mb-4 leading-relaxed">{description}</p>
@@ -307,31 +307,31 @@ const StudyCard = ({ icon, title, description, stoicAction }) => (
 function DeEscalation({ onBack }) {
   const studyCards = [
     {
-      icon: '🫧',
+      icon: SpeakerSimpleLow,
       title: 'External Calm',
       description: "Keep your voice low, steady, and monotone. High-pitched or loud voices can trigger an agent's 'threat' response.",
       stoicAction: 'Speak as if you are in a library.'
     },
     {
-      icon: '👐',
+      icon: HandPalm,
       title: 'Visual Transparency',
       description: 'Always keep your hands where they can be seen. Avoid putting them in pockets or making sudden movements toward bags or waistbands.',
       stoicAction: 'Hands open and visible at chest height or at your sides.'
     },
     {
-      icon: '🧠',
+      icon: Brain,
       title: 'Mental Reframing',
       description: 'The agent is part of a system, not your personal enemy. Your goal is legal protection, not winning a debate.',
       stoicAction: 'Do not argue law on the street. Assert your rights and save the argument for court.'
     },
     {
-      icon: '🚩',
+      icon: PersonArmsSpread,
       title: 'Non-Threatening Posture',
       description: 'Stand at a slight angle rather than chest-to-chest. This is perceived as less confrontational by law enforcement.',
       stoicAction: 'Maintain a respectful 5-10 foot distance if possible.'
     },
     {
-      icon: '🤝',
+      icon: Handshake,
       title: "The 'Yes, And' Technique",
       description: 'Acknowledge their presence without yielding your rights.',
       stoicAction: "Say: 'I understand you are doing your job, and I am choosing to exercise my right to remain silent.'"
@@ -403,7 +403,7 @@ function DeEscalation({ onBack }) {
       {/* Disclaimer */}
       <div className="text-center mb-6">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-amber-500">⚠️</span>
+          <Warning size={16} weight="bold" className="text-amber-500" />
           <h3 className="text-amber-400 font-medium text-xs tracking-wider">DISCLAIMER</h3>
         </div>
         <p className="text-slate-500 text-xs mb-1">
@@ -423,7 +423,7 @@ function DeEscalation({ onBack }) {
       {/* Install CTA */}
       <div className="text-center">
         <button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto">
-          <span>📲</span>
+          <DownloadSimple size={18} weight="bold" />
           INSTALL BROWSERLESS APP
         </button>
         <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
