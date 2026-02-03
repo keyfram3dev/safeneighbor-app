@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(open http://localhost:3000)",
+      "WebFetch(domain:worldpopulationreview.com)"
+    ]
+  }
+}

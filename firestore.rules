@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ICE Reports Collection - Community reporting with validation
+    match /iceReports/{reportId} {
+
+      // Anyone can read reports (needed for community awareness)
+      allow read: if true;
+
+      // Create: Validate required fields and data bounds
+      allow create: if
+        // Required fields must exist
+        request.resource.data.keys().hasAll(['timestamp', 'lat', 'lng', 'description']) &&
+
+        // Latitude must be within US bounds (24-50°N)
+        request.resource.data.lat is number &&
+        request.resource.data.lat >= 24 &&
+        request.resource.data.lat <= 50 &&
+
+        // Longitude must be within US bounds (-125 to -66°W)
+        request.resource.data.lng is number &&
+        request.resource.data.lng >= -125 &&
+        request.resource.data.lng <= -66 &&
+
+        // Description must be string with reasonable length (10-500 chars)
+        request.resource.data.description is string &&
+        request.resource.data.description.size() >= 10 &&
+        request.resource.data.description.size() <= 500 &&
+
+        // Timestamp must be string (ISO format)
+        request.resource.data.timestamp is string &&
+
+        // Optional fields validation
+        (!('agents' in request.resource.data) ||
+          (request.resource.data.agents is int &&
+           request.resource.data.agents >= 0 &&
+           request.resource.data.agents <= 50)) &&
+
+        (!('vehicles' in request.resource.data) ||
+          (request.resource.data.vehicles is int &&
+           request.resource.data.vehicles >= 0 &&
+           request.resource.data.vehicles <= 20)) &&
+
+        // Verified must be boolean if present
+        (!('verified' in request.resource.data) ||
+          request.resource.data.verified is bool) &&
+
+        // Verifiers must be list if present
+        (!('verifiers' in request.resource.data) ||
+          request.resource.data.verifiers is list);
+
+      // Update: Only allow modifying verification fields
+      allow update: if
+        // Only verifiers and verified fields can be modified
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verifiers', 'verified']) &&
+
+        // Verified must be boolean
+        request.resource.data.verified is bool &&
+
+        // Verifiers must be list
+        request.resource.data.verifiers is list &&
+
+        // Verifiers list can only grow (no removal of verifiers)
+        request.resource.data.verifiers.size() >= resource.data.verifiers.size();
+
+      // Delete: Not allowed - reports expire automatically after 8 hours
+      allow delete: if false;
+    }
+
+    // Deny all other collections by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
