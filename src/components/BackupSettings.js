@@ -270,7 +270,7 @@ ${accessPackage.instructions}
         </div>
 
         {/* Cloudflare R2 Credentials Section */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6">
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 mb-6">
           <h3 className="text-white font-bold mb-4 flex items-center gap-2">
             <Key size={18} />
             Cloudflare R2 Credentials
@@ -360,7 +360,7 @@ ${accessPackage.instructions}
         </div>
 
         {/* Encryption Key Section */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6">
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 mb-6">
           <h3 className="text-white font-bold mb-4 flex items-center gap-2">
             <Shield size={18} />
             Encryption Key
@@ -410,7 +410,7 @@ ${accessPackage.instructions}
         </div>
 
         {/* Auto Backup Toggle */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6">
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 mb-6">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-white font-bold">Auto-Backup</h3>
@@ -432,7 +432,7 @@ ${accessPackage.instructions}
         </div>
 
         {/* Trusted Contacts Section */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6">
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 mb-6">
           <h3 className="text-white font-bold mb-4 flex items-center gap-2">
             <UserPlus size={18} />
             Trusted Contacts

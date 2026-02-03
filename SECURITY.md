@@ -105,7 +105,7 @@ REACT_APP_GEMINI_PROXY_URL=https://your-worker.workers.dev
 - [x] DOMPurify for XSS sanitization
 - [x] Server-side rate limiting (Firebase Cloud Functions)
 - [x] Firebase API key restricted to your domains
-- [ ] No API keys in git history (consider using git-filter-repo if needed)
+- [x] No API keys in git history (fresh repo with .env excluded from start)
 
 ## Security Features Implemented
 

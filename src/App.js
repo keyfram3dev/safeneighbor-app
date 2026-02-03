@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Home as HomeIcon, List, MapPin, Video, Scale, Megaphone } from 'lucide-react';
-import { GearSix, WarningCircle, Door, User, Car, Shield, Trash } from '@phosphor-icons/react';
+import { GearSix, WarningCircle, Door, User, Car, Shield, Trash, LockLaminated } from '@phosphor-icons/react';
 import './App.css';
 import { clearAllRecordings } from './utils/localStorageDB';
 import Home from './components/Home';
@@ -227,9 +227,11 @@ function App() {
         isPinEnabled() ? (
           <PinEntry onUnlock={handleUnlock} />
         ) : (
-          <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center">
-            <div className="text-center px-8">
-              <div className="text-6xl mb-6">🔒</div>
+          <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-4">
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 w-full max-w-sm text-center">
+              <div className="mb-6 flex justify-center">
+                <LockLaminated size={64} weight="bold" className="text-white" />
+              </div>
               <h2 className="text-2xl font-black text-white mb-3 tracking-wide">
                 Session Locked
               </h2>
@@ -238,7 +240,7 @@ function App() {
               </p>
               <button
                 onClick={handleUnlock}
-                className="bg-red-700 hover:bg-red-600 text-white font-black py-4 px-10 rounded-2xl uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-red-900/50"
+                className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 px-10 rounded-2xl uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-red-900/50"
               >
                 Tap to Continue
               </button>

@@ -3,7 +3,7 @@
 // Includes failed attempts protection with progressive lockout
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Lock, Timer, Backspace } from '@phosphor-icons/react';
+import { LockKey, LockLaminated, Backspace } from '@phosphor-icons/react';
 import {
   verifyPin,
   checkLockout,
@@ -117,14 +117,14 @@ const PinEntry = ({ onUnlock }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center">
-      <div className="text-center px-8 w-full max-w-sm">
+    <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 w-full max-w-sm text-center">
         {/* Lock Icon */}
         <div className="mb-4 flex justify-center">
           {isLockedOut ? (
-            <Timer size={64} weight="bold" className="text-amber-500" />
+            <LockLaminated size={64} weight="bold" className="text-amber-500" />
           ) : (
-            <Lock size={64} weight="bold" className="text-white" />
+            <LockKey size={64} weight="bold" className="text-white" />
           )}
         </div>
 
@@ -192,7 +192,7 @@ const PinEntry = ({ onUnlock }) => {
                 key={num}
                 onClick={() => handleDigitPress(String(num))}
                 disabled={isVerifying}
-                className="h-16 w-16 bg-slate-800/50 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-50 rounded-full text-white text-2xl font-bold transition-all active:scale-95 mx-auto"
+                className="h-16 w-16 bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 disabled:opacity-50 rounded-full text-white text-2xl font-bold transition-all active:scale-95 mx-auto"
               >
                 {num}
               </button>
@@ -201,14 +201,14 @@ const PinEntry = ({ onUnlock }) => {
             <button
               onClick={() => handleDigitPress('0')}
               disabled={isVerifying}
-              className="h-16 w-16 bg-slate-800/50 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-50 rounded-full text-white text-2xl font-bold transition-all active:scale-95 mx-auto"
+              className="h-16 w-16 bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 disabled:opacity-50 rounded-full text-white text-2xl font-bold transition-all active:scale-95 mx-auto"
             >
               0
             </button>
             <button
               onClick={handleBackspace}
               disabled={isVerifying || pin.length === 0}
-              className="h-16 w-16 bg-slate-800/50 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-50 rounded-full text-white text-xl font-bold transition-all active:scale-95 mx-auto flex items-center justify-center"
+              className="h-16 w-16 bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 disabled:opacity-50 rounded-full text-white text-xl font-bold transition-all active:scale-95 mx-auto flex items-center justify-center"
             >
               <Backspace size={24} weight="bold" />
             </button>

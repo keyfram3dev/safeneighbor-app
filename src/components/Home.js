@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronRight, Download, Settings, AlertTriangle, Brain } from 'lucide-react';
+import { HandWaving } from '@phosphor-icons/react';
+import Welcome from './Welcome';
 import { Door, MapPin, User, Megaphone, Leaf, VideoCamera, Car, Shield, Eye, Buildings } from '@phosphor-icons/react';
 
 // Map icon string identifiers to Phosphor components
@@ -23,7 +25,23 @@ const ScenarioIcon = ({ iconName, size = 28, className = '', weight = 'bold' }) 
   return <IconComponent size={size} weight={weight} className={className} />;
 };
 
+const WELCOME_SHOWN_KEY = 'safeneighbor_welcome_shown';
+
 const Home = ({ onNavigate, onNavigateToScenario, onOpenSettings }) => {
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // Check for first visit
+  useEffect(() => {
+    const hasSeenWelcome = localStorage.getItem(WELCOME_SHOWN_KEY);
+    if (!hasSeenWelcome) {
+      setShowWelcome(true);
+      localStorage.setItem(WELCOME_SHOWN_KEY, 'true');
+    }
+  }, []);
+
+  const handleCloseWelcome = () => {
+    setShowWelcome(false);
+  };
 
   // Handle clicking a scenario card
   const handleScenarioClick = (scenario) => {
@@ -149,23 +167,34 @@ const Home = ({ onNavigate, onNavigateToScenario, onOpenSettings }) => {
         <div className="absolute inset-0 -top-20 bg-gradient-to-b from-blue-600/10 via-transparent to-transparent blur-3xl pointer-events-none" />
 
         <div className="relative">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <Brain size={40} className="text-blue-400" />
-            <h1 className="text-4xl font-black text-white tracking-tight">Know Your Rights</h1>
+          <div className="flex justify-center items-center mb-3">
+            <div className="relative">
+              <Brain size={40} className="text-blue-400 absolute right-full mr-3 top-1/2 -translate-y-1/2" />
+              <h1 className="text-4xl font-black text-white tracking-tight">Know Your Rights</h1>
+            </div>
           </div>
           <p className="text-slate-400 text-base max-w-md mx-auto">
             Empowerment through calm assertion and constitutional wisdom.
           </p>
         </div>
 
-        {/* Security Settings - smaller, positioned */}
-        <button
-          onClick={onOpenSettings}
-          className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/50 rounded-full text-slate-400 hover:text-white text-xs transition-all"
-        >
-          <Settings size={14} />
-          <span>Security</span>
-        </button>
+        {/* Security Settings & Welcome buttons */}
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <button
+            onClick={onOpenSettings}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/50 rounded-full text-slate-400 hover:text-white text-xs transition-all"
+          >
+            <Settings size={14} />
+            <span>Security</span>
+          </button>
+          <button
+            onClick={() => setShowWelcome(true)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-600/80 to-blue-500/80 hover:from-blue-500/80 hover:to-blue-400/80 border border-blue-500/50 rounded-full text-white text-xs transition-all shadow-sm shadow-blue-500/20"
+          >
+            <HandWaving size={14} weight="bold" />
+            <span>Welcome!</span>
+          </button>
+        </div>
       </div>
 
       {/* Scenario Cards - Glass Morphism Style */}
@@ -266,6 +295,9 @@ const Home = ({ onNavigate, onNavigateToScenario, onOpenSettings }) => {
           Offline & secure use
         </p>
       </div>
+
+      {/* Welcome Modal */}
+      {showWelcome && <Welcome onClose={handleCloseWelcome} />}
     </div>
   );
 };

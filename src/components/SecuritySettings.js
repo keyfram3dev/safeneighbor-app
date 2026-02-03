@@ -198,7 +198,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
           {/* Scrollable content area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* PIN Lock Section */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
               <div className="flex items-start gap-3">
                 <div className={`p-2 rounded-lg ${pinEnabled ? 'bg-green-600/20' : 'bg-amber-600/20'}`}>
                   <Lock size={20} weight="bold" className={pinEnabled ? 'text-green-400' : 'text-amber-400'} />
@@ -237,7 +237,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
 
             {/* Duress PIN (Decoy Mode) Section - Only show if PIN is enabled */}
             {pinEnabled && (
-              <div className="bg-slate-800/50 border border-amber-700/50 rounded-xl p-4">
+              <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-amber-700/50 rounded-xl p-4">
                 <div className="flex items-start gap-3">
                   <div className={`p-2 rounded-lg ${duressEnabled ? 'bg-amber-600/20' : 'bg-slate-700/50'}`}>
                     <EyeSlash size={20} weight="bold" className={duressEnabled ? 'text-amber-400' : 'text-slate-500'} />
@@ -286,7 +286,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
             )}
 
             {/* Auto-Lock Info */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-blue-600/20">
                   <Clock size={20} weight="bold" className="text-blue-400" />
@@ -305,7 +305,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
             </div>
 
             {/* Recording Privacy Settings */}
-            <div className="bg-slate-800/50 border border-emerald-700/50 rounded-xl p-4">
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-emerald-700/50 rounded-xl p-4">
               <div className="flex items-start gap-3 mb-4">
                 <div className="p-2 rounded-lg bg-emerald-600/20">
                   <FileX size={20} weight="bold" className="text-emerald-400" />
@@ -366,7 +366,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
             </div>
 
             {/* Local Encryption Section */}
-            <div className="bg-slate-800/50 border border-purple-700/50 rounded-xl p-4">
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-purple-700/50 rounded-xl p-4">
               <div className="flex items-start gap-3 mb-4">
                 <div className={`p-2 rounded-lg ${encryptionEnabled ? 'bg-purple-600/20' : 'bg-slate-700/50'}`}>
                   <Database size={20} weight="bold" className={encryptionEnabled ? 'text-purple-400' : 'text-slate-500'} />
@@ -417,7 +417,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                   onClose();
                   onOpenBackup();
                 }}
-                className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between hover:bg-slate-800 transition-colors"
+                className="w-full bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 flex items-center justify-between hover:bg-slate-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-blue-600/20">

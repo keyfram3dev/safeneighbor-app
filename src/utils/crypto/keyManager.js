@@ -142,10 +142,13 @@ const migrateFromLocalStorage = async () => {
 
 /**
  * Check if local encryption is enabled
+ * Defaults to true (enabled) if not explicitly set
  * @returns {boolean}
  */
 export const isEncryptionEnabled = () => {
-  return localStorage.getItem(ENCRYPTION_ENABLED_KEY) === 'true';
+  const value = localStorage.getItem(ENCRYPTION_ENABLED_KEY);
+  // Default to enabled if never set
+  return value === null || value === 'true';
 };
 
 /**

@@ -211,7 +211,7 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
 
   return (
     <div className="fixed inset-0 z-[110] bg-black/80 flex items-center justify-center p-4">
-      <div className="bg-slate-900 rounded-2xl w-full max-w-sm overflow-hidden border border-slate-700">
+      <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-sm overflow-hidden border border-slate-700/50">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-700">
           <div className="flex items-center gap-2">
@@ -294,7 +294,7 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
                   <button
                     key={num}
                     onClick={() => handleDigitPress(String(num))}
-                    className="h-14 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded-xl text-white text-2xl font-bold transition-colors"
+                    className="h-14 bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 rounded-xl text-white text-2xl font-bold transition-all"
                   >
                     {num}
                   </button>
@@ -302,13 +302,13 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
                 <div /> {/* Empty space */}
                 <button
                   onClick={() => handleDigitPress('0')}
-                  className="h-14 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded-xl text-white text-2xl font-bold transition-colors"
+                  className="h-14 bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 rounded-xl text-white text-2xl font-bold transition-all"
                 >
                   0
                 </button>
                 <button
                   onClick={handleBackspace}
-                  className="h-14 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded-xl text-white text-xl font-bold transition-colors flex items-center justify-center"
+                  className="h-14 bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 rounded-xl text-white text-xl font-bold transition-all flex items-center justify-center"
                 >
                   <Backspace size={22} weight="bold" />
                 </button>
