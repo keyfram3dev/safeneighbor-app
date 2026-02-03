@@ -257,12 +257,12 @@ function App() {
         <div className="flex items-center justify-between px-4 h-full">
           <button
             onClick={() => handleNavigate('home')}
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity"
           >
-            <div className="text-2xl">⚖️</div>
-            <h1 className="text-2xl font-black tracking-tight">SafeNeighbor</h1>
+            <div className="text-xl sm:text-2xl">⚖️</div>
+            <h1 className="text-lg sm:text-2xl font-black tracking-tight">SafeNeighbor</h1>
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => setShowSettings(true)}
               className="p-2 rounded-full bg-red-950/50 text-white border border-red-400/50 hover:bg-red-950 transition-all"
@@ -278,7 +278,7 @@ function App() {
                 }
                 setEmergencyMode(!emergencyMode);
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-full font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all whitespace-nowrap ${
                 emergencyMode
                   ? 'bg-white text-red-900 shadow-lg shadow-red-500/50'
                   : 'bg-red-950/50 text-white border border-red-400/50 hover:bg-red-950'

@@ -167,11 +167,9 @@ const Home = ({ onNavigate, onNavigateToScenario, onOpenSettings }) => {
         <div className="absolute inset-0 -top-20 bg-gradient-to-b from-blue-600/10 via-transparent to-transparent blur-3xl pointer-events-none" />
 
         <div className="relative">
-          <div className="flex justify-center items-center mb-3">
-            <div className="relative">
-              <Brain size={40} className="text-blue-400 absolute right-full mr-3 top-1/2 -translate-y-1/2" />
-              <h1 className="text-4xl font-black text-white tracking-tight">Know Your Rights</h1>
-            </div>
+          <div className="flex justify-center items-center gap-3 mb-3">
+            <Brain size={40} className="text-blue-400" />
+            <h1 className="text-4xl font-black text-white tracking-tight">Know Your Rights</h1>
           </div>
           <p className="text-slate-400 text-base max-w-md mx-auto">
             Empowerment through calm assertion and constitutional wisdom.
