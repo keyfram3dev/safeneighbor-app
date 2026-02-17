@@ -1,0 +1,112 @@
+# SafeNeighbor
+
+> SafeNeighbor is a free, open community safety progressive web app that helps people know their rights during encounters with ICE (Immigration and Customs Enforcement) and law enforcement in the United States.
+
+## What SafeNeighbor Does
+
+SafeNeighbor provides seven core tools for community safety and rights education:
+
+### 1. Know Your Rights — Interactive Scenario Scripts
+
+Step-by-step emergency scripts and study guides for specific situations:
+
+- **ICE Is At My Door**: Scripts for speaking through the door without opening it. Covers the difference between a judicial warrant (signed by a judge, allows entry) and an administrative warrant (signed by ICE, does NOT allow entry). Key phrases: "I do not consent to entry. I want a lawyer."
+- **Stopped on the Street**: How to exercise your right to remain silent in public. Always ask "Am I free to leave?" Do not answer questions about immigration status.
+- **Vehicle Stops**: Rights during traffic stops — keep hands visible, provide license and registration, but can remain silent beyond basic ID and refuse vehicle searches.
+- **Border Crossings**: Different rules for Ports of Entry vs Internal Checkpoints (within 100 miles of border). At internal checkpoints, you have more rights and can remain silent beyond citizenship questions.
+- **Workplace Inquiry**: Rights if ICE enters your workplace — do not run, exercise right to remain silent, ICE needs a judicial warrant for non-public areas.
+- **Protesting Rights**: First Amendment right to peacefully assemble on public property. Can photograph and record at protests. Police cannot prevent protest based on content.
+- **Recording Rights**: First Amendment right to record law enforcement in public spaces. Keep safe distance (10+ feet), do not physically interfere. Officers cannot delete recordings and need a warrant to seize your phone.
+
+Each scenario has two modes: an **Emergency Script** (quick action steps for active encounters) and a **Study Mode** (detailed information for learning).
+
+### 2. Community Reports — Real-Time ICE Activity Map
+
+Crowdsourced, anonymous incident reporting with an interactive Leaflet map:
+
+- Report ICE activity with agent count, vehicle count, activity type, and description
+- Reports appear on a real-time map with cluster markers and color-coded verification status
+- Community verification system: reports become "verified" after 2+ independent confirmations within 3 miles
+- Privacy protections: coordinates are fuzzy (~250m accuracy), timestamps are rounded to 15-minute intervals, descriptions are encrypted, reports auto-expire after 12 hours
+- No account required — uses anonymous device-based verification IDs
+- PII detection alerts if personal information is detected in descriptions
+- Rate limiting: 5 reports per hour, duplicate detection within 30 minutes/500m
+
+### 3. Secure Recording — Encrypted Video & Audio Vault
+
+Advanced recording with privacy-first design:
+
+- Video recording with front/rear camera support (1080p @ 30fps)
+- Audio recording with real-time level visualization
+- All recordings encrypted locally with AES-256-GCM
+- Secure vault protected by PIN
+- **Duress/Decoy PIN**: If forced to unlock the app, entering the decoy PIN shows an empty vault with no recordings visible
+- Optional metadata stripping (removes EXIF/location data)
+- Optional cloud backup (encrypted before upload)
+
+### 4. Legal Information — State-by-State Recording Laws & AI Q&A
+
+Comprehensive legal reference:
+
+- **All 50 states + DC** covered with specific statute citations
+- Classification of each state as One-Party Consent (31 states), Two-Party Consent (11 states), or Mixed
+- Public recording rights under the First Amendment
+- Specific penalties for unauthorized recording (varies from misdemeanor to felony by state)
+- **AI-Powered Legal Q&A**: Ask questions about your constitutional rights (powered by Gemini AI). This provides general information, not legal advice.
+- Constitutional foundation section covering 1st, 4th, 5th, 6th, and 14th Amendment protections
+
+### 5. De-escalation Techniques
+
+Guided techniques for staying calm during high-stress encounters:
+
+- **Breathing Exercise**: Guided 2-cycle breathing (Inhale 5s → Hold 4s → Exhale 5s → Pause 1s) to reduce cortisol and regain prefrontal cortex control
+- **External Calm**: Keep voice low, steady, monotone — high-pitched voices trigger threat response
+- **Visual Transparency**: Keep hands visible at chest height or sides
+- **Mental Reframing**: The agent is part of a system — goal is legal protection, not winning a debate
+- **Non-Threatening Posture**: Stand at slight angle, maintain 5-10 foot distance
+- **"Yes, And" Technique**: "I understand you're doing your job, and I'm exercising my right to remain silent"
+
+Incorporates Stoic philosophy quotes from Marcus Aurelius, Epictetus, and Viktor Frankl.
+
+### 6. Emergency Signals — Whistle Patterns & Hand Signals
+
+Community communication protocol:
+
+**Community Alert Whistle Signals (for ICE encounters):**
+- One Short (•): Alert/Attention — observe from distance
+- Two Short (••): Support Requested — move toward signal, bring recording device
+- Three Short (•••): ICE Confirmed/Emergency — activate legal support networks
+- One Long (——): Danger/Shelter — stay inside, do not open without judicial warrant
+
+**Protest Whistle Protocol:**
+- One Long Blast: "Heads Up" — stop chanting, look toward source
+- Three Short Blasts: Medical Emergency — clear a path
+- Continuous Short Blasts: Immediate Danger — move to exit/safe zone
+
+**Visual Hand Signals:**
+- Hands in "X" above head: Stop moving
+- Twinkling fingers (jazz hands): Agreement/silent consensus
+- Pointing Up: Keep moving forward
+- Fist raised: Stay still/Hold the line
+
+### 7. Security & Privacy Features
+
+- PIN lock with auto-lock after 7 minutes of inactivity
+- Duress/Decoy PIN shows empty app under coercion
+- End-to-end encryption enabled by default
+- Metadata stripping for recordings
+- All data stays on device unless explicitly backed up
+- No accounts, no personal data collection
+- Privacy-focused analytics (Umami, no cookies, GDPR compliant)
+
+## Key Facts
+
+- **URL**: https://safeneighbor.us/
+- **Cost**: Free, no account required
+- **Privacy**: No personal data collected. Reports are encrypted and auto-expire. Recordings are encrypted locally.
+- **Offline**: Works offline as an installable PWA (Progressive Web App)
+- **Contact**: SafeNeighbor.us@proton.me
+
+## Important Disclaimer
+
+SafeNeighbor provides general information about legal rights — it does not provide legal advice. Accuracy is not guaranteed. Users should consult a licensed attorney for specific legal guidance. Use this information at your own discretion.

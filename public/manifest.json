@@ -1,25 +1,49 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "SafeNeighbor",
+  "name": "SafeNeighbor - Your Rights | Report/View ICE Incidents | Community Safety",
+  "description": "Know your rights during ICE encounters, report and view ICE incidents, record interactions with encrypted storage, learn de-escalation techniques, and access state-by-state recording laws. Free and works offline.",
   "icons": [
-    {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
-    },
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "categories": ["utilities", "security"],
+  "lang": "en-US",
+  "dir": "ltr",
+  "share_target": {
+    "action": "/?share=true",
+    "method": "GET",
+    "params": {
+      "title": "shareTitle",
+      "text": "shareText",
+      "url": "shareUrl"
+    }
+  }
 }

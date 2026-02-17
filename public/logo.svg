@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- iOS-style background gradient -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <!-- Shield fill gradient -->
+    <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <!-- Glassmorphism: top shine (more pronounced) -->
+    <linearGradient id="glassShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="40%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Glassmorphism: edge highlight -->
+    <linearGradient id="edgeHighlight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="8%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background (truly square iOS rounded square) -->
+  <rect width="512" height="512" rx="108" ry="108" fill="url(#bgGrad)"/>
+
+  <!-- Top edge highlight (thin bright line at top) -->
+  <rect x="40" y="2" width="432" height="6" rx="3" ry="3" fill="url(#edgeHighlight)"/>
+
+  <!-- Inner border glow -->
+  <rect x="1" y="1" width="510" height="510" rx="107" ry="107" fill="none" stroke="#94a3b8" stroke-opacity="0.2" stroke-width="1.5"/>
+
+  <!-- Shield (scaled down and moved up to make room for text) -->
+  <g transform="translate(45, -2) scale(17.85)">
+    <path
+      d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+      fill="url(#shieldGrad)"
+      stroke="#94a3b8"
+      stroke-width="0.35"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <!-- Group people icon (noun-group-195974, solid white, scaled for logo) -->
+  <g transform="translate(150, 100) scale(0.182)" fill="#ffffff">
+    <path d="m344.4 477.6c19.199 0 38.398-3.6016 55.199-10.801-1.1992-8.3984-1.1992-16.801-1.1992-25.199 0-64.801 31.199-123.6 79.199-160.8-21.602-52.801-73.199-90-133.2-90-79.199 0-142.8 63.602-142.8 142.8 0.003906 79.199 63.602 144 142.8 144z"/>
+    <path d="m459.6 585.6c-26.398-25.199-45.602-58.801-55.199-96-20.398 7.1992-40.801 9.6016-58.801 9.6016-33.602 0-78-9.6016-104.4-37.199-91.199 34.801-160.8 147.6-180 246-6 30 15.602 54 44.398 63.602 39.602 12 93.602 20.398 152.4 25.199 42-90.004 112.8-176.41 201.6-211.2z"/>
+    <path d="m801.6 441.6c0 8.3984 0 16.801-1.1992 25.199 16.801 7.1992 36 10.801 55.199 10.801 79.199 0 142.8-63.602 142.8-142.8s-63.602-142.8-142.8-142.8c-60 0-111.6 37.199-133.2 90 47.996 36 79.199 93.602 79.199 159.6z"/>
+    <path d="m1138.8 716.4c-16.801-102-86.398-216-180-253.2-26.398 26.398-70.801 36-104.4 36-18 0-39.602-2.3984-58.801-9.6016-9.6016 37.199-28.801 69.602-55.199 96 88.801 36 159.6 121.2 201.6 212.4 69.602-4.8008 120-13.199 158.4-27.602 25.199-7.1953 43.199-27.594 38.398-53.996z"/>
+    <path d="m781.2 442.8c0 100.07-81.125 181.2-181.2 181.2s-181.2-81.125-181.2-181.2 81.125-181.2 181.2-181.2 181.2 81.125 181.2 181.2z"/>
+    <path d="m730.8 606c-33.602 33.602-90 45.602-130.8 45.602-42 0-98.398-12-132-46.801-116.4 44.398-204 186-226.8 310.8-7.1992 37.199 19.199 68.398 56.398 80.398 73.199 22.801 189.6 36 302.4 36 148.8 0 243.6-14.398 309.6-37.199 31.199-10.801 54-37.199 49.199-69.602-21.598-128.4-109.2-273.6-228-319.2z"/>
+  </g>
+
+  <!-- Glassmorphism overlay ON TOP of all elements -->
+  <rect width="512" height="270" rx="108" ry="108" fill="url(#glassShine)"/>
+
+  <!-- SafeNeighbor text (inside the square) -->
+  <text
+    x="261"
+    y="462"
+    text-anchor="middle"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    font-weight="900"
+    font-size="52"
+    letter-spacing="-1"
+    fill="#e2e8f0"
+  >SafeNeighbor</text>
+</svg>

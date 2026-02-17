@@ -275,7 +275,7 @@ export const getBackedUpRecordings = async () => {
   return allRecordings.filter(r => r.backedUp);
 };
 
-// Get backup statistics
+// Get backup statistics (includes per-provider counts)
 export const getBackupStats = async () => {
   const allRecordings = await getAllRecordings();
   return {
@@ -284,18 +284,37 @@ export const getBackupStats = async () => {
     backedUp: allRecordings.filter(r => r.backedUp).length,
     pending: allRecordings.filter(r => r.markedForBackup && !r.backedUp).length,
     failed: allRecordings.filter(r => r.backupError).length,
+    r2: allRecordings.filter(r => r.backups?.r2?.backedUp).length,
+    google_drive: allRecordings.filter(r => r.backups?.google_drive?.backedUp).length,
   };
 };
 
 // Update recording with backup status after successful upload
-export const markAsBackedUp = async (id, backupInfo) => {
-  return updateRecording(id, {
+// Supports per-provider tracking via optional provider param
+export const markAsBackedUp = async (id, backupInfo, provider) => {
+  const updates = {
     backedUp: true,
     backupKey: backupInfo.key,
     backupDate: new Date().toISOString(),
     backupSize: backupInfo.size,
     backupError: null,
-  });
+  };
+
+  // Per-provider tracking
+  if (provider) {
+    const recording = await getRecording(id, false);
+    const backups = recording?.backups || {};
+    backups[provider] = {
+      backedUp: true,
+      backupKey: backupInfo.key,
+      backupDate: new Date().toISOString(),
+      backupSize: backupInfo.size,
+      ...(backupInfo.driveFileId && { driveFileId: backupInfo.driveFileId }),
+    };
+    updates.backups = backups;
+  }
+
+  return updateRecording(id, updates);
 };
 
 // Update recording with backup error

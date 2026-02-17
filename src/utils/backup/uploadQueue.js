@@ -1,9 +1,11 @@
 // src/utils/backup/uploadQueue.js
-// Manages the queue of recordings pending backup to Cloudflare R2
+// Manages the queue of recordings pending backup to cloud providers
+// Supports multiple providers (Cloudflare R2, Google Drive)
 // Handles encryption, upload, retry logic, and status updates
 
 import { encrypt, generateRandomId } from '../crypto';
 import { createS3Client } from './s3Client';
+import { createDriveClient } from './driveClient';
 import {
   getRecording,
   updateRecording,
@@ -17,6 +19,12 @@ export const QueueStatus = {
   UPLOADING: 'uploading',
   COMPLETED: 'completed',
   FAILED: 'failed',
+};
+
+// Provider types
+export const BackupProvider = {
+  R2: 'r2',
+  GOOGLE_DRIVE: 'google_drive',
 };
 
 // IndexedDB store for queue items
@@ -49,11 +57,12 @@ const openQueueDB = () => {
 /**
  * Upload Queue Manager
  * Handles the entire backup workflow: queue → encrypt → upload → update status
+ * Supports multiple backup providers simultaneously
  */
 export class UploadQueue {
   constructor() {
     this.encryptionKey = null;
-    this.s3Client = null;
+    this.providers = {}; // { r2: S3Client, google_drive: DriveClient }
     this.isProcessing = false;
     this.onStatusChange = null; // Callback for UI updates
     this.maxRetries = 3;
@@ -61,38 +70,108 @@ export class UploadQueue {
 
   /**
    * Initialize the queue with credentials
+   * Supports both legacy (R2-only) and multi-provider formats
    * @param {CryptoKey} encryptionKey - AES key for encryption
-   * @param {Object} s3Credentials - { accountId, accessKeyId, secretAccessKey, bucket }
+   * @param {Object} providerConfigs - { r2: {...}, google_drive: true } or legacy { accountId, ... }
    */
-  async initialize(encryptionKey, s3Credentials) {
+  async initialize(encryptionKey, providerConfigs) {
     this.encryptionKey = encryptionKey;
-    this.s3Client = createS3Client(s3Credentials);
 
-    // Test connection
-    const connected = await this.s3Client.testConnection();
-    if (!connected) {
-      throw new Error('Failed to connect to R2');
+    // Backward compatible: detect legacy R2-only format
+    if (providerConfigs.accountId) {
+      try {
+        this.providers[BackupProvider.R2] = createS3Client(providerConfigs);
+        const connected = await this.providers[BackupProvider.R2].testConnection();
+        if (!connected) {
+          delete this.providers[BackupProvider.R2];
+          console.warn('R2 connection failed during init');
+        }
+      } catch (error) {
+        console.error('Failed to init R2 provider:', error);
+      }
+    } else {
+      // Multi-provider format
+      if (providerConfigs.r2) {
+        try {
+          await this.initializeProvider(BackupProvider.R2, providerConfigs.r2);
+        } catch (error) {
+          console.warn('R2 init failed:', error.message);
+        }
+      }
+      if (providerConfigs.google_drive) {
+        try {
+          await this.initializeProvider(BackupProvider.GOOGLE_DRIVE);
+        } catch (error) {
+          console.warn('Google Drive init failed:', error.message);
+        }
+      }
     }
 
     // Resume any pending uploads
-    this.processQueue();
+    if (Object.keys(this.providers).length > 0) {
+      this.processQueue();
+    }
+  }
+
+  /**
+   * Initialize a single provider
+   * @param {string} providerType - 'r2' or 'google_drive'
+   * @param {Object} config - Provider-specific config (R2 credentials, etc.)
+   */
+  async initializeProvider(providerType, config) {
+    try {
+      if (providerType === BackupProvider.R2 && config) {
+        this.providers[BackupProvider.R2] = createS3Client(config);
+        const connected = await this.providers[BackupProvider.R2].testConnection();
+        if (!connected) {
+          delete this.providers[BackupProvider.R2];
+          throw new Error('R2 connection test failed');
+        }
+      } else if (providerType === BackupProvider.GOOGLE_DRIVE) {
+        this.providers[BackupProvider.GOOGLE_DRIVE] = createDriveClient();
+        const connected = await this.providers[BackupProvider.GOOGLE_DRIVE].testConnection();
+        if (!connected) {
+          delete this.providers[BackupProvider.GOOGLE_DRIVE];
+          throw new Error('Google Drive connection test failed');
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to init ${providerType} provider:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a provider
+   */
+  removeProvider(providerType) {
+    delete this.providers[providerType];
+  }
+
+  /**
+   * Get list of active provider types
+   */
+  getActiveProviders() {
+    return Object.keys(this.providers);
   }
 
   /**
    * Add a recording to the backup queue
    * @param {string} recordingId - ID of the recording to backup
+   * @param {string} provider - Provider type ('r2' or 'google_drive')
    * @returns {Promise<Object>} Queue item
    */
-  async addToQueue(recordingId) {
+  async addToQueue(recordingId, provider = BackupProvider.R2) {
     const queueItem = {
       id: generateRandomId(),
       recordingId,
+      provider,
       status: QueueStatus.PENDING,
       createdAt: new Date().toISOString(),
       attempts: 0,
       lastAttempt: null,
       error: null,
-      s3Key: null,
+      storageKey: null,
     };
 
     await this.saveQueueItem(queueItem);
@@ -112,17 +191,24 @@ export class UploadQueue {
    * Process all pending items in the queue
    */
   async processQueue() {
-    if (this.isProcessing || !this.encryptionKey || !this.s3Client) {
+    if (this.isProcessing || !this.encryptionKey || Object.keys(this.providers).length === 0) {
       return;
     }
 
     this.isProcessing = true;
 
     try {
-      const pendingItems = await this.getPendingItems();
-
-      for (const item of pendingItems) {
-        await this.processItem(item);
+      // Loop until no more pending items (handles items added during processing)
+      let pendingItems = await this.getPendingItems();
+      while (pendingItems.length > 0) {
+        for (const item of pendingItems) {
+          if (!this.providers[item.provider]) {
+            continue;
+          }
+          await this.processItem(item);
+        }
+        // Re-check for items added while we were processing
+        pendingItems = await this.getPendingItems();
       }
     } catch (error) {
       console.error('Queue processing error:', error);
@@ -135,6 +221,15 @@ export class UploadQueue {
    * Process a single queue item
    */
   async processItem(queueItem) {
+    const client = this.providers[queueItem.provider];
+    if (!client) {
+      queueItem.status = QueueStatus.FAILED;
+      queueItem.error = `Provider ${queueItem.provider} not available`;
+      await this.saveQueueItem(queueItem);
+      this.notifyStatusChange(queueItem);
+      return;
+    }
+
     try {
       // Update status to encrypting
       queueItem.status = QueueStatus.ENCRYPTING;
@@ -175,29 +270,40 @@ export class UploadQueue {
       await this.saveQueueItem(queueItem);
       this.notifyStatusChange(queueItem);
 
-      // Generate storage key with timestamp for uniqueness
-      const fileExtension = recording.type === 'video' ? 'mp4' : 'webm';
-      const s3Key = `recordings/${queueItem.recordingId}_${Date.now()}.${fileExtension}.enc`;
+      // Generate storage key — use actual MIME type for correct extension
+      const mime = recording._mimeType || (recording.blob instanceof Blob ? recording.blob.type : '') || 'video/webm';
+      const fileExtension = mime.includes('mp4') ? 'mp4' : 'webm';
+      const storageKey = `recordings/${queueItem.recordingId}_${Date.now()}.${fileExtension}.enc`;
 
-      // Upload to R2
-      const uploadResult = await this.s3Client.uploadFile(
-        s3Key,
+      // Upload using the provider client
+      const uploadResult = await client.uploadFile(
+        storageKey,
         encryptedData,
         'application/octet-stream'
       );
 
-      // Update recording with backup info
-      await updateRecording(queueItem.recordingId, {
+      // Update recording with backup info (per-provider)
+      const backups = recording.backups || {};
+      backups[queueItem.provider] = {
         backedUp: true,
-        backupKey: s3Key,
+        backupKey: storageKey,
         backupDate: new Date().toISOString(),
         backupSize: uploadResult.size,
+        ...(uploadResult.driveFileId && { driveFileId: uploadResult.driveFileId }),
+      };
+
+      await updateRecording(queueItem.recordingId, {
+        backedUp: true, // Legacy — true if any provider has backup
+        backupKey: storageKey,
+        backupDate: new Date().toISOString(),
+        backupSize: uploadResult.size,
+        backups,
       });
 
       // Mark queue item complete
       queueItem.status = QueueStatus.COMPLETED;
       queueItem.completedAt = new Date().toISOString();
-      queueItem.s3Key = s3Key;
+      queueItem.storageKey = storageKey;
       queueItem.error = null;
       await this.saveQueueItem(queueItem);
       this.notifyStatusChange(queueItem);
@@ -377,15 +483,25 @@ export const getUploadQueue = () => {
 };
 
 /**
- * Queue all recordings marked for backup
+ * Queue all recordings marked for backup to all active providers
+ * @param {string[]} providers - Optional list of providers to queue for
  */
-export const queuePendingBackups = async () => {
+export const queuePendingBackups = async (providers) => {
   const queue = getUploadQueue();
+  const activeProviders = providers || queue.getActiveProviders();
   const pendingRecordings = await getRecordingsPendingBackup();
 
+  let queued = 0;
   for (const recording of pendingRecordings) {
-    await queue.addToQueue(recording.id);
+    for (const provider of activeProviders) {
+      // Skip if already backed up to this provider
+      const providerBackup = recording.backups?.[provider];
+      if (providerBackup?.backedUp) continue;
+
+      await queue.addToQueue(recording.id, provider);
+      queued++;
+    }
   }
 
-  return pendingRecordings.length;
+  return queued;
 };

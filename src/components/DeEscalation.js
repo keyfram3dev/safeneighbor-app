@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, SpeakerSimpleLow, HandPalm, Brain, PersonArmsSpread, Handshake, Warning, DownloadSimple } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
+import InstallHelp from './InstallHelp';
 
 // Breathing Guide Component
 const BreathingGuide = ({ compact = false }) => {
+  const { t } = useTranslation();
   const [phase, setPhase] = useState('ready'); // ready, inhale, hold, exhale, complete
   const [isActive, setIsActive] = useState(false);
-  const [cycleCount, setCycleCount] = useState(0);
+  const [, setCycleCount] = useState(0);
   const [countdown, setCountdown] = useState(0);
 
   // Use refs to track current values and timers
@@ -157,15 +160,15 @@ const BreathingGuide = ({ compact = false }) => {
     setCountdown(0);
   };
 
-  const getPhaseText = () => {
+  const getPhaseText = (t) => {
     switch (phase) {
-      case 'ready': return 'Press to Start';
-      case 'inhale': return `Breathe In\n${countdown}`;
-      case 'hold': return `Hold\n${countdown}`;
-      case 'exhale': return `Breathe Out\n${countdown}`;
+      case 'ready': return t('breathing.pressToStart');
+      case 'inhale': return `${t('breathing.breatheIn')}\n${countdown}`;
+      case 'hold': return `${t('breathing.hold')}\n${countdown}`;
+      case 'exhale': return `${t('breathing.breatheOut')}\n${countdown}`;
       case 'pause': return `...\n`;
-      case 'complete': return 'Well Done';
-      default: return 'Press to Start';
+      case 'complete': return t('breathing.wellDone');
+      default: return t('breathing.pressToStart');
     }
   };
 
@@ -195,7 +198,7 @@ const BreathingGuide = ({ compact = false }) => {
           onClick={!isActive && phase !== 'complete' ? startBreathing : phase === 'complete' ? resetGuide : undefined}
         >
           <p className="text-white text-xl font-medium text-center whitespace-pre-line">
-            {getPhaseText()}
+            {getPhaseText(t)}
           </p>
         </div>
 
@@ -206,7 +209,7 @@ const BreathingGuide = ({ compact = false }) => {
               onClick={startBreathing}
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-blue-900/30"
             >
-              Begin Breathing
+              {t('breathing.beginBreathing')}
             </button>
           )}
           {isActive && (
@@ -214,7 +217,7 @@ const BreathingGuide = ({ compact = false }) => {
               onClick={resetGuide}
               className="text-slate-400 hover:text-white text-sm underline"
             >
-              Reset
+              {t('breathing.reset')}
             </button>
           )}
           {phase === 'complete' && (
@@ -222,14 +225,14 @@ const BreathingGuide = ({ compact = false }) => {
               onClick={resetGuide}
               className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-green-900/30"
             >
-              Start Again
+              {t('breathing.startAgain')}
             </button>
           )}
         </div>
 
         {/* Explanation */}
         <p className="text-slate-400 text-xs text-center mt-4 px-4">
-          Breathing reduces cortisol and allows your prefrontal cortex to regain control during high-stress encounters.
+          {t('breathing.explanation')}
         </p>
       </div>
     );
@@ -245,7 +248,7 @@ const BreathingGuide = ({ compact = false }) => {
           onClick={!isActive && phase !== 'complete' ? startBreathing : phase === 'complete' ? resetGuide : undefined}
         >
           <p className="text-white text-xl font-medium text-center whitespace-pre-line">
-            {getPhaseText()}
+            {getPhaseText(t)}
           </p>
         </div>
 
@@ -256,7 +259,7 @@ const BreathingGuide = ({ compact = false }) => {
               onClick={startBreathing}
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-blue-900/30"
             >
-              Begin Breathing
+              {t('breathing.beginBreathing')}
             </button>
           )}
           {isActive && (
@@ -264,7 +267,7 @@ const BreathingGuide = ({ compact = false }) => {
               onClick={resetGuide}
               className="text-slate-400 hover:text-white text-sm underline"
             >
-              Reset
+              {t('breathing.reset')}
             </button>
           )}
           {phase === 'complete' && (
@@ -272,7 +275,7 @@ const BreathingGuide = ({ compact = false }) => {
               onClick={resetGuide}
               className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-green-900/30"
             >
-              Start Again
+              {t('breathing.startAgain')}
             </button>
           )}
         </div>
@@ -280,7 +283,7 @@ const BreathingGuide = ({ compact = false }) => {
 
       {/* Explanation */}
       <p className="text-slate-400 text-xs text-center">
-        Breathing reduces cortisol and allows your prefrontal cortex to regain control during high-stress encounters.
+        {t('breathing.explanation')}
       </p>
     </div>
   );
@@ -290,7 +293,7 @@ const BreathingGuide = ({ compact = false }) => {
 export { BreathingGuide };
 
 // Study Card Component
-const StudyCard = ({ icon: Icon, title, description, stoicAction }) => (
+const StudyCard = ({ icon: Icon, title, description, stoicAction, wiseActionsLabel }) => (
   <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-4">
     <div className="flex items-center gap-3 mb-3">
       <Icon size={28} weight="bold" className="text-blue-400" />
@@ -298,43 +301,46 @@ const StudyCard = ({ icon: Icon, title, description, stoicAction }) => (
     </div>
     <p className="text-slate-300 text-sm mb-4 leading-relaxed">{description}</p>
     <div className="bg-red-950/30 border border-red-900/50 rounded-lg p-4">
-      <p className="text-red-400 text-xs font-bold uppercase tracking-wider mb-2">WISE ACTIONS</p>
+      <p className="text-red-400 text-xs font-bold uppercase tracking-wider mb-2">{wiseActionsLabel}</p>
       <p className="text-white font-medium">{stoicAction}</p>
     </div>
   </div>
 );
 
 function DeEscalation({ onBack }) {
+  const { t } = useTranslation();
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+
   const studyCards = [
     {
       icon: SpeakerSimpleLow,
-      title: 'External Calm',
-      description: "Keep your voice low, steady, and monotone. High-pitched or loud voices can trigger an agent's 'threat' response.",
-      stoicAction: 'Speak as if you are in a library.'
+      title: t('deescalation.card1Title'),
+      description: t('deescalation.card1Desc'),
+      stoicAction: t('deescalation.card1Action')
     },
     {
       icon: HandPalm,
-      title: 'Visual Transparency',
-      description: 'Always keep your hands where they can be seen. Avoid putting them in pockets or making sudden movements toward bags or waistbands.',
-      stoicAction: 'Hands open and visible at chest height or at your sides.'
+      title: t('deescalation.card2Title'),
+      description: t('deescalation.card2Desc'),
+      stoicAction: t('deescalation.card2Action')
     },
     {
       icon: Brain,
-      title: 'Mental Reframing',
-      description: 'The agent is part of a system, not your personal enemy. Your goal is legal protection, not winning a debate.',
-      stoicAction: 'Do not argue law on the street. Assert your rights and save the argument for court.'
+      title: t('deescalation.card3Title'),
+      description: t('deescalation.card3Desc'),
+      stoicAction: t('deescalation.card3Action')
     },
     {
       icon: PersonArmsSpread,
-      title: 'Non-Threatening Posture',
-      description: 'Stand at a slight angle rather than chest-to-chest. This is perceived as less confrontational by law enforcement.',
-      stoicAction: 'Maintain a respectful 5-10 foot distance if possible.'
+      title: t('deescalation.card4Title'),
+      description: t('deescalation.card4Desc'),
+      stoicAction: t('deescalation.card4Action')
     },
     {
       icon: Handshake,
-      title: "The 'Yes, And' Technique",
-      description: 'Acknowledge their presence without yielding your rights.',
-      stoicAction: "Say: 'I understand you are doing your job, and I am choosing to exercise my right to remain silent.'"
+      title: t('deescalation.card5Title'),
+      description: t('deescalation.card5Desc'),
+      stoicAction: t('deescalation.card5Action')
     }
   ];
 
@@ -345,25 +351,25 @@ function DeEscalation({ onBack }) {
         onClick={onBack}
         className="text-slate-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors mb-6"
       >
-        <ArrowLeft size={18} weight="bold" />
-        Back to Home
+        <ArrowLeft size={18} weight="bold" className="rtl:scale-x-[-1]" />
+        {t('deescalation.backToHome')}
       </button>
 
       {/* Header */}
       <div className="text-center mb-6">
-        <h1 className="text-3xl font-black text-white tracking-wide mb-4">DE-ESCALATION</h1>
+        <h1 className="text-3xl font-black text-white tracking-wide mb-4">{t('deescalation.title')}</h1>
 
         {/* Marcus Aurelius Quote */}
         <div className="bg-blue-950/30 border border-blue-900/50 rounded-xl p-5 mb-4">
           <p className="text-blue-300 italic text-sm">
-            "You have power over your mind - not outside events. Realize this, and you will find strength."
+            {t('deescalation.aureliusQuote')}
           </p>
-          <p className="text-blue-400 text-xs mt-2 font-medium">— MARCUS AURELIUS</p>
+          <p className="text-blue-400 text-xs mt-2 font-medium">{t('deescalation.aureliusAuthor')}</p>
         </div>
 
         {/* Intro Text */}
         <p className="text-slate-400 text-sm">
-          When faced with authority, the goal is not to win an argument, but to safely survive the encounter and preserve your legal rights.
+          {t('deescalation.intro')}
         </p>
       </div>
 
@@ -379,57 +385,80 @@ function DeEscalation({ onBack }) {
             title={card.title}
             description={card.description}
             stoicAction={card.stoicAction}
+            wiseActionsLabel={t('deescalation.wiseActions')}
           />
         ))}
       </div>
 
       {/* Final Stoic Principle */}
       <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5 mb-6 text-center">
-        <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-3">A FINAL STOIC PRINCIPLE</p>
+        <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-3">{t('deescalation.finalPrinciple')}</p>
         <p className="text-slate-300 italic text-sm mb-4">
-          "It's not what happens to you, but how you react to it that matters."
+          {t('deescalation.epictetusQuote')}
         </p>
-        <p className="text-slate-500 text-xs">— EPICTETUS</p>
+        <p className="text-slate-500 text-xs">{t('deescalation.epictetusAuthor')}</p>
       </div>
 
       {/* Viktor Frankl Quote */}
       <div className="text-center mb-8">
         <p className="text-slate-400 italic text-sm mb-2">
-          "Between stimulus and response there is a space. In that space is our power to choose our response."
+          {t('deescalation.franklQuote')}
         </p>
-        <p className="text-slate-500 text-xs">— VIKTOR FRANKL</p>
+        <p className="text-slate-500 text-xs">{t('deescalation.franklAuthor')}</p>
       </div>
 
       {/* Disclaimer */}
       <div className="text-center mb-6">
         <div className="flex items-center justify-center gap-2 mb-2">
           <Warning size={16} weight="bold" className="text-amber-500" />
-          <h3 className="text-amber-400 font-medium text-xs tracking-wider">DISCLAIMER</h3>
+          <h3 className="text-amber-400 font-medium text-xs tracking-wider">{t('disclaimer.title')}</h3>
         </div>
         <p className="text-slate-500 text-xs mb-1">
-          This app shares general info on your rights — not legal advice.
+          {t('disclaimer.line1')}
         </p>
         <p className="text-slate-500 text-xs mb-1">
-          I'm not a lawyer, and accuracy isn't guaranteed.
+          {t('disclaimer.line2')}
         </p>
         <p className="text-slate-500 text-xs mb-1">
-          For legal help, talk to a licensed attorney.
+          {t('disclaimer.line3')}
         </p>
         <p className="text-slate-500 text-xs">
-          Use this info at your own discretion.
+          {t('disclaimer.line4')}
         </p>
       </div>
 
       {/* Install CTA */}
       <div className="text-center">
-        <button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto">
+        <button
+          onClick={() => {
+            if (window.deferredPrompt) {
+              window.deferredPrompt.prompt();
+              window.deferredPrompt.userChoice.then((choice) => {
+                if (choice.outcome === 'accepted') {
+                  console.log('User accepted install');
+                }
+                window.deferredPrompt = null;
+              });
+            } else {
+              alert(t('home.installAlert'));
+            }
+          }}
+          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto"
+        >
           <DownloadSimple size={18} weight="bold" />
-          INSTALL BROWSERLESS APP
+          {t('emergency.installButton')}
         </button>
         <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
-          Recommended for offline & secure use
+          {t('emergency.installRecommended')}
         </p>
+        <button
+          onClick={() => setShowInstallHelp(true)}
+          className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
+        >
+          {t('emergency.installHelp')}
+        </button>
       </div>
+      <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>
   );
 }

@@ -14,10 +14,22 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "headers": [
+      {
+        "source": "/service-worker.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        ]
+      }
+    ],
     "rewrites": [
       {
         "source": "/api/gemini",
         "function": "geminiProxy"
+      },
+      {
+        "source": "/api/ip-location",
+        "function": "ipLocation"
       },
       {
         "source": "**",

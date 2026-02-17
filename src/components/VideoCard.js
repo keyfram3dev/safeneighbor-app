@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Trash2, Copy, Play, Download } from 'lucide-react';
 
 const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
+  const { t } = useTranslation();
   const [isDeleting, setIsDeleting] = useState(false);
   const [blobUrl, setBlobUrl] = useState(null);
 
@@ -10,7 +12,7 @@ const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
     if (recording?.blob) {
       const url = URL.createObjectURL(recording.blob);
       setBlobUrl(url);
-      
+
       // Cleanup
       return () => URL.revokeObjectURL(url);
     }
@@ -18,8 +20,8 @@ const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
 
   const handleDelete = async () => {
     if (!recording?.id) return;
-    
-    if (window.confirm('Are you sure you want to delete this recording?')) {
+
+    if (window.confirm(t('record.confirmDelete'))) {
       setIsDeleting(true);
       await onDelete(recording.id);
     }
@@ -32,8 +34,8 @@ const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
   };
 
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'Unknown date';
-    
+    if (!timestamp) return t('record.unknownDate');
+
     const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
     const diffMs = now - date;
@@ -41,13 +43,13 @@ const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) return t('record.justNow');
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
       day: 'numeric',
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
     });
@@ -60,9 +62,9 @@ const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
         <div className="relative flex-shrink-0">
           <div className="w-32 h-20 bg-slate-900 rounded overflow-hidden flex items-center justify-center">
             {recording?.thumbnailUrl ? (
-              <img 
-                src={recording.thumbnailUrl} 
-                alt="Recording thumbnail" 
+              <img
+                src={recording.thumbnailUrl}
+                alt="Recording thumbnail"
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -72,7 +74,7 @@ const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
             )}
           </div>
           {recording?.duration && (
-            <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">
+            <div className="absolute bottom-1 end-1 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">
               {formatDuration(recording.duration)}
             </div>
           )}
@@ -83,14 +85,14 @@ const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1 min-w-0">
               <h3 className="text-white font-medium truncate">
-                {recording?.title || 'Untitled Recording'}
+                {recording?.title || t('record.untitledRecording')}
               </h3>
               <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
                 <span>{formatDate(recording?.createdAt)}</span>
                 {recording?.location && (
                   <>
                     <span>•</span>
-                    <span className="truncate">{recording.location?.address || 'Location recorded'}</span>
+                    <span className="truncate">{recording.location?.address || t('record.locationRecorded')}</span>
                   </>
                 )}
               </div>
@@ -104,17 +106,17 @@ const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
             >
               <Play size={14} />
-              <span>Play</span>
+              <span>{t('record.play')}</span>
             </button>
-            
+
             <button
               onClick={() => onCopy(blobUrl)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded transition-colors"
-              title="Copy link"
+              title={t('record.copyLink')}
             >
               <Copy size={14} />
             </button>
-            
+
             <button
               onClick={() => {
                 if (blobUrl) {
@@ -125,16 +127,16 @@ const VideoCard = ({ recording, onPlay, onDelete, onCopy }) => {
                 }
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded transition-colors"
-              title="Download"
+              title={t('record.download')}
             >
               <Download size={14} />
             </button>
-            
+
             <button
               onClick={handleDelete}
               disabled={isDeleting}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm rounded transition-colors disabled:opacity-50"
-              title="Delete"
+              title={t('record.delete')}
             >
               <Trash2 size={14} />
             </button>

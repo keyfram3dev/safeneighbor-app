@@ -92,7 +92,72 @@ body {
   scrollbar-width: none;
 }
 
+/* Emergency button flash animation */
+.emergency-flash {
+  animation: emergencyPulse 2s ease-in-out infinite;
+}
+
+@keyframes emergencyPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Fix native date/time inputs on mobile */
+input[type="date"],
+input[type="time"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  min-width: 0;
+}
+
 /* Leaflet map fixes */
 .leaflet-container {
   font-family: inherit;
+}
+
+/* Zoom-based marker scaling — --marker-scale is set by JS on zoomend */
+.custom-report-marker,
+.custom-resource-marker,
+.report-cluster-icon,
+.resource-cluster-icon {
+  transform: scale(var(--marker-scale, 1));
+  transform-origin: center;
+  transition: transform 0.2s ease-out;
+}
+
+/* Safe area inset support for notched devices */
+.safe-top-nav {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-content-top {
+  padding-top: calc(80px + env(safe-area-inset-top, 0px));
+}
+
+.safe-footer-bottom {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Community resource marker popups (dark theme) */
+.resource-popup .leaflet-popup-content-wrapper {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  color: #e2e8f0;
+}
+.resource-popup .leaflet-popup-tip {
+  background: rgba(15, 23, 42, 0.95);
+}
+.resource-popup .leaflet-popup-content {
+  margin: 10px 12px;
 }

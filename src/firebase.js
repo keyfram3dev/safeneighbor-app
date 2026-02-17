@@ -7,8 +7,7 @@ const firebaseConfig = {
   projectId: "safeneighbor-33bb0",
   storageBucket: "safeneighbor-33bb0.firebasestorage.app",
   messagingSenderId: "970840753955",
-  appId: "1:970840753955:web:a6af142d9970476ad0ae96",
-  measurementId: "G-T5RMDXKQJH"
+  appId: "1:970840753955:web:a6af142d9970476ad0ae96"
 };
 
 const app = initializeApp(firebaseConfig);

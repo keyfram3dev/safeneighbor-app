@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { LockKey, LockLaminated, Backspace } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import {
   verifyPin,
   checkLockout,
@@ -14,7 +15,8 @@ import {
 
 const MAX_ATTEMPTS = 5;
 
-const PinEntry = ({ onUnlock }) => {
+const PinEntry = ({ onUnlock, inline = false, title: customTitle, subtitle: customSubtitle }) => {
+  const { t } = useTranslation();
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -66,6 +68,7 @@ const PinEntry = ({ onUnlock }) => {
       }, delay);
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
   const handleDigitPress = (digit) => {
@@ -91,8 +94,8 @@ const PinEntry = ({ onUnlock }) => {
       if (result.valid) {
         // Clear failed attempts on successful login
         clearFailedAttempts();
-        // Pass duress state to parent - if true, app shows decoy/empty state
-        onUnlock(result.isDuress);
+        // Pass duress state and raw PIN to parent
+        onUnlock(result.isDuress, pin);
       } else {
         // Record failed attempt and check for lockout
         const lockoutResult = recordFailedAttempt();
@@ -117,38 +120,41 @@ const PinEntry = ({ onUnlock }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 w-full max-w-sm text-center">
+    <div className={inline
+      ? "flex flex-col items-center justify-center p-4"
+      : "fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-4"
+    }>
+      <div className={`bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl w-full max-w-sm text-center ${inline ? 'p-5' : 'p-8'}`}>
         {/* Lock Icon */}
-        <div className="mb-4 flex justify-center">
+        <div className={`${inline ? 'mb-2' : 'mb-4'} flex justify-center`}>
           {isLockedOut ? (
-            <LockLaminated size={64} weight="bold" className="text-amber-500" />
+            <LockLaminated size={inline ? 48 : 64} weight="bold" className="text-amber-500" />
           ) : (
-            <LockKey size={64} weight="bold" className="text-white" />
+            <LockKey size={inline ? 48 : 64} weight="bold" className={inline ? "text-red-400" : "text-white"} />
           )}
         </div>
 
         {/* Title */}
         <h2 className="text-2xl font-black text-white mb-2 tracking-wide">
-          {isLockedOut ? 'Temporarily Locked' : 'Session Locked'}
+          {isLockedOut ? t('pinEntry.temporarilyLocked') : (customTitle || t('pinEntry.sessionLocked'))}
         </h2>
 
         {/* Lockout Message */}
         {isLockedOut ? (
           <div className="mb-8">
             <p className="text-red-400 text-sm mb-2">
-              Too many failed attempts
+              {t('pinEntry.tooManyAttempts')}
             </p>
             <div className="bg-red-950/50 border border-red-900 rounded-xl p-4">
-              <p className="text-slate-400 text-sm mb-1">Try again in</p>
+              <p className="text-slate-400 text-sm mb-1">{t('pinEntry.tryAgainIn')}</p>
               <p className="text-3xl font-mono font-bold text-red-400">
                 {lockoutRemaining}
               </p>
             </div>
           </div>
         ) : (
-          <p className="text-slate-400 text-sm mb-8">
-            Enter your PIN to unlock
+          <p className={`text-slate-400 text-sm ${inline ? 'mb-4' : 'mb-8'}`}>
+            {customSubtitle || t('pinEntry.enterPinToUnlock')}
           </p>
         )}
 
@@ -174,11 +180,11 @@ const PinEntry = ({ onUnlock }) => {
         {error && !isLockedOut && (
           <div className="mb-4">
             <p className="text-red-400 text-sm animate-pulse">
-              Incorrect PIN
+              {t('pinEntry.incorrectPin')}
             </p>
             {attemptsRemaining <= 3 && attemptsRemaining > 0 && (
               <p className="text-amber-500 text-xs mt-1">
-                {attemptsRemaining} attempt{attemptsRemaining !== 1 ? 's' : ''} remaining before lockout
+                {t('pinEntry.attemptsRemaining', { count: attemptsRemaining })}
               </p>
             )}
           </div>
@@ -186,13 +192,13 @@ const PinEntry = ({ onUnlock }) => {
 
         {/* Number Keypad - Disabled during lockout */}
         {!isLockedOut && (
-          <div className="grid grid-cols-3 gap-4 mb-8 max-w-[280px] mx-auto">
+          <div className={`grid grid-cols-3 gap-3 ${inline ? 'mb-4' : 'mb-8'} max-w-[280px] mx-auto`}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
               <button
                 key={num}
                 onClick={() => handleDigitPress(String(num))}
                 disabled={isVerifying}
-                className="h-16 w-16 bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 disabled:opacity-50 rounded-full text-white text-2xl font-bold transition-all active:scale-95 mx-auto"
+                className={`${inline ? 'h-14 w-14' : 'h-16 w-16'} bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 disabled:opacity-50 rounded-full text-white text-2xl font-bold transition-all active:scale-95 mx-auto`}
               >
                 {num}
               </button>
@@ -201,14 +207,14 @@ const PinEntry = ({ onUnlock }) => {
             <button
               onClick={() => handleDigitPress('0')}
               disabled={isVerifying}
-              className="h-16 w-16 bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 disabled:opacity-50 rounded-full text-white text-2xl font-bold transition-all active:scale-95 mx-auto"
+              className={`${inline ? 'h-14 w-14' : 'h-16 w-16'} bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 disabled:opacity-50 rounded-full text-white text-2xl font-bold transition-all active:scale-95 mx-auto`}
             >
               0
             </button>
             <button
               onClick={handleBackspace}
               disabled={isVerifying || pin.length === 0}
-              className="h-16 w-16 bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 disabled:opacity-50 rounded-full text-white text-xl font-bold transition-all active:scale-95 mx-auto flex items-center justify-center"
+              className={`${inline ? 'h-14 w-14' : 'h-16 w-16'} bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/60 hover:to-slate-700/60 active:from-slate-500/60 active:to-slate-600/60 disabled:opacity-50 rounded-full text-white text-xl font-bold transition-all active:scale-95 mx-auto flex items-center justify-center`}
             >
               <Backspace size={24} weight="bold" />
             </button>
@@ -219,15 +225,14 @@ const PinEntry = ({ onUnlock }) => {
         {isLockedOut && (
           <div className="mb-8 p-4 bg-slate-900/50 rounded-xl border border-slate-800">
             <p className="text-slate-500 text-xs">
-              For your security, PIN entry has been temporarily disabled.
-              The lockout duration increases with each successive lockout.
+              {t('pinEntry.lockoutMessage')}
             </p>
           </div>
         )}
 
         {/* Footer */}
         <p className="text-slate-600 text-xs uppercase tracking-wider">
-          SafeNeighbor Security
+          {t('app.security')}
         </p>
       </div>
 

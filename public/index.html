@@ -1,18 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html style="background-color: #0f172a;">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="SafeNeighbor - Community Safety App"
-    />
+    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+
+    <!-- SEO Meta Tags -->
+    <title>SafeNeighbor - Your Rights | Report/View ICE Incidents | Community Safety</title>
+    <meta name="description" content="SafeNeighbor (Safe Neighbor) is a free community safety app that helps you know your rights during ICE encounters, report and view ICE incidents in your area, record interactions with encrypted storage, learn de-escalation techniques, and access state-by-state recording laws. Works offline. No account needed." />
+    <meta name="keywords" content="Community Reports, ICE Tracking, ICE Incidents, DHS reports, ICE area reports, Rights Education, Stoic, Civil Rights, Community Education, ICE Heat Map, Constitution, Your Rights, Detained, Lawyer Search, Civil Protection, 1st Amendment, 2nd Amendment, 4th Amendment, 5th Amendment, 6th Amendment, 14th Amendment, Know your Rights, Scenario Scripts, What to say to ICE, ICE Scripts, Record ICE, Record DHS, Border Patrol, Judicial Warrant, Administrative Warrant, ICE is at my door, ICE is at my house, ICE is pulling me over, Right to Record, Right to record ICE, State Guide, ICE encounters, ICE activity tracker, ICE sightings map, report ICE activity, immigration rights, community safety app, constitutional rights, right to remain silent, deportation defense, record police, de-escalation techniques, emergency whistle signals, community incident reporting, two-party consent states, one-party consent states, recording laws by state, immigrant rights app, sanctuary community, border checkpoint rights, workplace raid rights, protest rights, first amendment recording, ICE reporting tool, free safety app, PWA, offline safety app, encrypted video recording, duress PIN, decoy PIN, ICE at work, ICE workplace raid, am I being detained, am I free to go, do not open the door, right to a lawyer, right to remain silent, what are my rights, community safety, neighborhood watch, ICE alert, ICE notification, ICE activity near me, SafeNeighbor, Safe Neighbor, safe neighbor app, safe neighbor community" />
+    <meta name="author" content="SafeNeighbor" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://safeneighbor.us/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://safeneighbor.us/" />
+    <meta property="og:title" content="SafeNeighbor - Your Rights | Report/View ICE Incidents | Community Safety" />
+    <meta property="og:description" content="Free community safety app: know your rights during ICE encounters, report and view ICE incidents in your area, record interactions with encrypted storage, learn de-escalation techniques, and access state-by-state recording laws. Works offline." />
+    <meta property="og:image" content="https://safeneighbor.us/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="SafeNeighbor - Your Rights, Community Safety" />
+    <meta property="og:site_name" content="SafeNeighbor" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SafeNeighbor - Your Rights | Report/View ICE Incidents | Community Safety" />
+    <meta name="twitter:description" content="Free community safety app: know your rights during ICE encounters, report and view ICE incidents in your area, record interactions with encrypted storage, and access state-by-state recording laws." />
+    <meta name="twitter:image" content="https://safeneighbor.us/og-image.png" />
+    <meta name="twitter:image:alt" content="SafeNeighbor - Your Rights, Community Safety" />
+
     <!-- Content Security Policy: Restricts where resources can be loaded from -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self' https://unpkg.com;
+      script-src 'self' https://unpkg.com https://cloud.umami.is https://accounts.google.com;
       style-src 'self' 'unsafe-inline' https://unpkg.com;
       img-src 'self' data: blob: https://*.tile.openstreetmap.org;
       connect-src 'self'
@@ -21,45 +48,124 @@
         https://firestore.googleapis.com
         https://nominatim.openstreetmap.org
         https://*.workers.dev
-        https://*.cloudfunctions.net;
+        https://*.cloudfunctions.net
+        https://cloud.umami.is
+        https://api-gateway.umami.dev
+        https://accounts.google.com
+        https://overpass-api.de;
       font-src 'self';
+      frame-src 'self' https://accounts.google.com;
       object-src 'none';
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none';
       upgrade-insecure-requests;
     "/>
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png" />
+    <!-- iOS startup splash screens -->
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-15.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-16-pro.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-16-pm.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-15-max.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-12.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-12-max.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-x.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-xr.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-xs-max.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-8.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/iphone-se.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/ipad-pro-11.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/ipad-pro-13.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="%PUBLIC_URL%/splash/ipad-10.png" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2)" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
+    <!-- Preconnect hints for external resources -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin />
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://unpkg.com" />
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+    <link rel="dns-prefetch" href="https://cloud.umami.is" />
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <title>React App</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <!-- Umami Analytics (privacy-focused, no cookies, GDPR compliant) -->
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="a3ffe10e-a303-4bca-b41f-02f24f3433bc"></script>
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "SafeNeighbor",
+      "url": "https://safeneighbor.us/",
+      "description": "A free community safety app that helps people know their rights during ICE and law enforcement encounters, report and view ICE activity in their area, securely record interactions, and learn de-escalation techniques.",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires a modern web browser with JavaScript enabled",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Know your rights guides for ICE encounters (door, street, vehicle, border, workplace, protest, recording)",
+        "Real-time community ICE activity reporting with interactive map",
+        "Encrypted video and audio recording with secure vault",
+        "Duress/decoy PIN for coerced unlock situations",
+        "De-escalation techniques with guided breathing exercises",
+        "State-by-state recording and consent law guide for all 50 states",
+        "AI-powered legal Q&A about constitutional rights",
+        "Emergency whistle signals and hand signal protocols",
+        "Works offline as an installable PWA",
+        "No account required, no personal data collected"
+      ],
+      "author": {
+        "@type": "Organization",
+        "name": "SafeNeighbor",
+        "url": "https://safeneighbor.us/"
+      }
+    }
+    </script>
   </head>
-  <body>
+  <body style="background-color: #0f172a;">
+    <!-- PWA Splash Screen — renders instantly before JS loads -->
+    <div id="splash" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);">
+      <img src="%PUBLIC_URL%/logo512.png" alt="" width="120" height="120" style="border-radius:24px;margin-bottom:24px;box-shadow:0 8px 32px rgba(0,0,0,0.4);" />
+      <h1 style="color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:28px;font-weight:900;letter-spacing:-0.5px;margin:0 0 8px 0;">SafeNeighbor</h1>
+      <p style="color:#64748b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:3px;margin:0;">Community Safety</p>
+    </div>
+    <style>
+      @keyframes splashFadeOut { from { opacity: 1; } to { opacity: 0; } }
+      #splash.splash-hide { animation: splashFadeOut 0.4s ease-out forwards; pointer-events: none; }
+    </style>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
+    <script>
+      // Pre-fetch IP location before React mounts
+      // Uses same-origin endpoint first (works through any service worker version)
+      (function() {
+        var urls = ['/api/ip-location', 'https://ipwho.is/', 'https://ipapi.co/json/'];
+        function tryNext(i) {
+          if (i >= urls.length) return;
+          fetch(urls[i], { cache: 'no-store' })
+            .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+            .then(function(d) {
+              var lat = d.lat || d.latitude, lng = d.lng || d.longitude;
+              if (lat && lng) {
+                window.__ipLocation = { lat: lat, lng: lng };
+              } else {
+                tryNext(i + 1);
+              }
+            })
+            .catch(function() { tryNext(i + 1); });
+        }
+        tryNext(0);
+      })();
+    </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   </body>
 </html>

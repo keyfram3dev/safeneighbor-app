@@ -1,6 +1,19 @@
 import React, { useState } from 'react';
-import { CaretRight, ChatCircle, Scroll, Warning, Lightbulb, Check, X, DownloadSimple } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CaretRight, ChatCircle, Scroll, Warning, Lightbulb, Check, X, DownloadSimple, House, Car, Briefcase, MapPin, FileText, Eye, ShieldWarning, IdentificationCard, User, CreditCard, Lifebuoy, ProhibitInset } from '@phosphor-icons/react';
+import Disclaimer from './Disclaimer';
+import InstallHelp from './InstallHelp';
+import LegalDirectory from './LegalDirectory';
 import { Scale } from 'lucide-react';
+import {
+  STATUS_PERSONAS,
+  NEVER_SIGN_WARNING,
+  UNDOCUMENTED_SECTIONS,
+  GREEN_CARD_SECTIONS,
+  ASYLUM_SECTIONS,
+  SHARED_SECTIONS,
+} from '../data/immigrationRightsData';
 
 // State-specific recording and consent law data
 const stateGuides = {
@@ -956,16 +969,73 @@ const stateGuides = {
   }
 };
 
+// Rate limiting constants
+const RATE_LIMIT_KEY = 'safeneighbor_ai_requests';
+const MAX_REQUESTS_PER_MINUTE = 5;
+const MAX_REQUESTS_PER_HOUR = 30;
+
+// Check if user is rate limited
+const checkRateLimit = () => {
+  const now = Date.now();
+  const stored = localStorage.getItem(RATE_LIMIT_KEY);
+  let requests = stored ? JSON.parse(stored) : [];
+
+  // Clean up old requests (older than 1 hour)
+  requests = requests.filter(timestamp => now - timestamp < 60 * 60 * 1000);
+
+  // Count requests in last minute and last hour
+  const lastMinute = requests.filter(timestamp => now - timestamp < 60 * 1000).length;
+  const lastHour = requests.length;
+
+  if (lastMinute >= MAX_REQUESTS_PER_MINUTE) {
+    return { limited: true, messageKey: 'legal.rateLimitMinute' };
+  }
+  if (lastHour >= MAX_REQUESTS_PER_HOUR) {
+    return { limited: true, messageKey: 'legal.rateLimitHour' };
+  }
+
+  return { limited: false };
+};
+
+// Record a new request
+const recordRequest = () => {
+  const now = Date.now();
+  const stored = localStorage.getItem(RATE_LIMIT_KEY);
+  let requests = stored ? JSON.parse(stored) : [];
+
+  // Clean up old requests and add new one
+  requests = requests.filter(timestamp => now - timestamp < 60 * 60 * 1000);
+  requests.push(now);
+
+  localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(requests));
+};
+
 function Legal() {
-  const [view, setView] = useState('chat');
+  const { t } = useTranslation();
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const [view, setView] = useState('constitution');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [expandedAmendments, setExpandedAmendments] = useState(new Set());
   const [selectedState, setSelectedState] = useState('california');
+  const [selectedStatus, setSelectedStatus] = useState(null);
+  const [expandedStatus, setExpandedStatus] = useState(new Set());
+  const [neverSignExpanded, setNeverSignExpanded] = useState(false);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
+
+    // Check rate limit before sending
+    const rateCheck = checkRateLimit();
+    if (rateCheck.limited) {
+      setMessages(prev => [...prev,
+        { role: 'user', content: input },
+        { role: 'assistant', content: t(rateCheck.messageKey) }
+      ]);
+      setInput('');
+      return;
+    }
 
     const userMessage = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
@@ -973,14 +1043,15 @@ function Legal() {
     setLoading(true);
 
     try {
-      // Use Cloudflare Worker proxy to keep API key secure
-      // Set REACT_APP_GEMINI_PROXY_URL in .env to your worker URL
-      const proxyUrl = process.env.REACT_APP_GEMINI_PROXY_URL || '/api/gemini';
+      // Record this request for rate limiting
+      recordRequest();
+      // Use Firebase Cloud Function proxy to keep Gemini API key secure
+      const proxyUrl = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/geminiProxy';
       const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `You are a constitutional rights assistant helping people understand their rights during encounters with ICE and law enforcement. Provide accurate, helpful information based on US constitutional law. Be concise and actionable.
+          prompt: `You are a constitutional rights assistant helping people understand their rights during encounters with ICE and law enforcement. Provide accurate, helpful information based on US constitutional law. Be concise and actionable. Keep responses under 200 words unless the question requires more detail.
 
 User question: ${input}`
         })
@@ -991,7 +1062,7 @@ User question: ${input}`
       }
 
       const data = await response.json();
-      const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response received';
+      const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || t('legal.aiNoResponse');
 
       setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
     } catch (error) {
@@ -1000,7 +1071,7 @@ User question: ${input}`
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, I encountered an error. Please try again.'
+          content: t('legal.aiError')
         }
       ]);
     } finally {
@@ -1014,30 +1085,50 @@ User question: ${input}`
         <div className="mb-4 flex justify-center">
           <Scale size={64} className="text-blue-400" />
         </div>
-        <h1 className="text-3xl font-black text-white tracking-wide mb-2">Legal Assistant</h1>
-        <p className="text-slate-400">Ask questions about your constitutional rights</p>
+        <h1 className="text-3xl font-black text-white tracking-wide mb-2">{t('legal.title')}</h1>
+        <p className="text-slate-400">{t('legal.subtitle')}</p>
       </div>
 
-      <div className="flex gap-4 mb-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm p-2 rounded-2xl border border-slate-700/50">
+      <div className="flex gap-1.5 mb-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-700/50">
         <button
           onClick={() => setView('chat')}
-          className={`flex-1 py-4 rounded-xl font-black uppercase tracking-widest text-sm transition-all flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
             view === 'chat'
               ? 'bg-blue-600 text-white shadow-lg'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <ChatCircle size={16} weight="bold" /> AI Assistant
+          <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap"><ChatCircle size={14} weight="bold" className="shrink-0" />{t('legal.tabAskAi')}</span>
         </button>
         <button
           onClick={() => setView('constitution')}
-          className={`flex-1 py-4 rounded-xl font-black uppercase tracking-widest text-sm transition-all flex items-center justify-center gap-1 ${
+          className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
             view === 'constitution'
               ? 'bg-purple-600 text-white shadow-lg'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Scroll size={25} weight="bold" className="ml-3 -mr-1" /> Constitutional Foundation
+          <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap"><Scroll size={14} weight="bold" className="shrink-0" />{t('legal.tabRights')}</span>
+        </button>
+        <button
+          onClick={() => setView('status')}
+          className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
+            view === 'status'
+              ? 'bg-rose-600 text-white shadow-lg'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap"><IdentificationCard size={14} weight="bold" className="shrink-0" />{t('legal.tabByStatus')}</span>
+        </button>
+        <button
+          onClick={() => setView('directory')}
+          className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
+            view === 'directory'
+              ? 'bg-emerald-600 text-white shadow-lg'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap"><MapPin size={14} weight="bold" className="shrink-0" />{t('legal.tabFindHelp')}</span>
         </button>
       </div>
 
@@ -1047,10 +1138,9 @@ User question: ${input}`
             <div className="flex items-start gap-4">
               <Warning size={28} weight="bold" className="text-amber-500 flex-shrink-0 mt-1" />
               <div>
-                <h3 className="text-amber-400 font-black text-lg uppercase mb-2">Disclaimer</h3>
+                <h3 className="text-amber-400 font-black text-lg uppercase mb-2">{t('legal.aiDisclaimerTitle')}</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  This AI provides general information about constitutional rights — not legal advice. 
-                  For specific legal help, consult a licensed attorney.
+                  {t('legal.aiDisclaimerText')}
                 </p>
               </div>
             </div>
@@ -1062,25 +1152,25 @@ User question: ${input}`
                 <div className="mb-4 opacity-30 flex justify-center">
                   <ChatCircle size={64} weight="bold" className="text-slate-400" />
                 </div>
-                <p className="text-slate-500 font-bold">Ask a question about your constitutional rights</p>
+                <p className="text-slate-500 font-bold">{t('legal.aiEmptyPrompt')}</p>
                 <div className="mt-8 grid gap-3">
                   <button
-                    onClick={() => setInput("What is the difference between a judicial and administrative warrant?")}
-                    className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl text-left text-sm text-slate-300 transition-all flex items-start gap-2"
+                    onClick={() => setInput(t('legal.aiSuggestion1'))}
+                    className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl text-start text-sm text-slate-300 transition-all flex items-start gap-2"
                   >
-                    <Lightbulb size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> What is the difference between a judicial and administrative warrant?
+                    <Lightbulb size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> {t('legal.aiSuggestion1')}
                   </button>
                   <button
-                    onClick={() => setInput("Do I have to answer questions from ICE?")}
-                    className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl text-left text-sm text-slate-300 transition-all flex items-start gap-2"
+                    onClick={() => setInput(t('legal.aiSuggestion2'))}
+                    className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl text-start text-sm text-slate-300 transition-all flex items-start gap-2"
                   >
-                    <Lightbulb size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> Do I have to answer questions from ICE?
+                    <Lightbulb size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> {t('legal.aiSuggestion2')}
                   </button>
                   <button
-                    onClick={() => setInput("Can I record police and ICE in public?")}
-                    className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl text-left text-sm text-slate-300 transition-all flex items-start gap-2"
+                    onClick={() => setInput(t('legal.aiSuggestion3'))}
+                    className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl text-start text-sm text-slate-300 transition-all flex items-start gap-2"
                   >
-                    <Lightbulb size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> Can I record police and ICE in public?
+                    <Lightbulb size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> {t('legal.aiSuggestion3')}
                   </button>
                 </div>
               </div>
@@ -1106,7 +1196,7 @@ User question: ${input}`
             {loading && (
               <div className="flex justify-start">
                 <div className="bg-slate-800 text-slate-100 p-4 rounded-2xl">
-                  <p className="text-sm">Thinking...</p>
+                  <p className="text-sm">{t('legal.aiThinking')}</p>
                 </div>
               </div>
             )}
@@ -1118,7 +1208,7 @@ User question: ${input}`
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Ask about your rights..."
+              placeholder={t('legal.aiPlaceholder')}
               className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-blue-600 outline-none transition-all"
               disabled={loading}
             />
@@ -1127,7 +1217,7 @@ User question: ${input}`
               disabled={loading || !input.trim()}
               className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-slate-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-wide transition-all disabled:cursor-not-allowed"
             >
-              Send
+              {t('legal.aiSend')}
             </button>
           </div>
         </div>
@@ -1135,8 +1225,8 @@ User question: ${input}`
 
       {view === 'constitution' && (
         <div className="space-y-4">
-          <h2 className="text-2xl font-black text-white mb-2">Constitutional Rights</h2>
-          <p className="text-slate-400 text-sm mb-6">Click an amendment to explore detailed protections and court cases.</p>
+          <h2 className="text-2xl font-black text-white mb-2">{t('legal.constitutionalRightsTitle')}</h2>
+          <p className="text-slate-400 text-sm mb-6">{t('legal.constitutionalRightsSubtitle')}</p>
 
           {/* 1st Amendment - Collapsible */}
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
@@ -1150,46 +1240,147 @@ User question: ${input}`
               className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
             >
               <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white">1st Amendment</h3>
-                <p className="text-slate-400 text-sm">Right to Record</p>
+                <h3 className="text-xl font-bold text-white">{t('legal.amendment1st')}</h3>
+                <p className="text-slate-400 text-sm">{t('legal.amendment1stDesc')}</p>
               </div>
-              <CaretRight
-                size={24}
-                weight="bold"
-                className={`text-slate-400 transition-transform duration-200 ${expandedAmendments.has('1st') ? 'rotate-90' : ''}`}
-              />
+              <motion.div
+                animate={{ rotate: expandedAmendments.has('1st') ? 90 : 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              >
+                <CaretRight size={24} weight="bold" className="text-slate-400" />
+              </motion.div>
             </button>
-            {expandedAmendments.has('1st') && (
-              <div className="bg-gradient-to-br from-purple-950 to-purple-900 p-6 border-t border-purple-800">
-                <div className="space-y-3">
-                  <h4 className="text-white font-black mb-3">What This Means for You:</h4>
-                  <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
-                    <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
-                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>You Can Record:</strong> You have the right to record police and ICE in public spaces.</span>
-                    </p>
-                  </div>
-                  <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
-                    <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
-                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Stay at Distance:</strong> Record from a safe distance (8-10 feet). Do not interfere.</span>
-                    </p>
-                  </div>
-                  <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
-                    <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
-                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Document:</strong> Record badge numbers, vehicle details, time, and location.</span>
-                    </p>
+            <AnimatePresence>
+              {expandedAmendments.has('1st') && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-gradient-to-br from-purple-950 to-purple-900 p-6 border-t border-purple-800">
+                <div className="bg-purple-950/50 p-4 rounded-xl border border-purple-800/50 mb-4">
+                  <p className="text-white italic text-sm leading-relaxed">
+                    "Congress shall make no law... abridging the freedom of speech, or of the press; or the right of the people peaceably to assemble, and to petition the Government for a redress of grievances."
+                  </p>
+                </div>
+
+                {/* Right to Record */}
+                <div className="mb-6">
+                  <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                    <span className="text-purple-400">{t('legal.recordingRights')}</span>
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>You Can Record:</strong> You have the right to record police and ICE in public spaces where you are legally present.</span>
+                      </p>
+                    </div>
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Stay at Distance:</strong> Record from a safe distance (8-10 feet). Do not physically interfere with officers.</span>
+                      </p>
+                    </div>
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Document Everything:</strong> Record badge numbers, vehicle plates, time, location, and number of officers.</span>
+                      </p>
+                    </div>
                   </div>
                 </div>
+
+                {/* Right to Protest */}
+                <div className="mb-6">
+                  <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                    <span className="text-purple-400">{t('legal.rightToProtestAssemble')}</span>
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Peaceful Assembly:</strong> You have the right to gather peacefully in public spaces like sidewalks, parks, and plazas.</span>
+                      </p>
+                    </div>
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Permits:</strong> Permits may be required for large gatherings but cannot be denied based on message content. Spontaneous protests in response to events are typically protected.</span>
+                      </p>
+                    </div>
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Counter-Protests:</strong> Counter-protesters have the same rights. Police must keep groups separated but cannot favor one side's message.</span>
+                      </p>
+                    </div>
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> <span><strong>Dispersal Orders:</strong> If police issue a lawful dispersal order, you must leave or risk arrest. Document the order if possible.</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Freedom of Speech */}
+                <div className="mb-6">
+                  <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                    <span className="text-purple-400">{t('legal.freedomOfSpeech')}</span>
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Protected Speech:</strong> You can criticize the government, police, and immigration policies. Political speech receives the highest protection.</span>
+                      </p>
+                    </div>
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Signs & Symbols:</strong> You can carry signs, wear message clothing, and display symbols. Content-based restrictions are presumptively unconstitutional.</span>
+                      </p>
+                    </div>
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> <span><strong>Not Protected:</strong> True threats, incitement to imminent lawless action, and "fighting words" are not protected. Avoid language that could be construed as threats.</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Press Freedom */}
+                <div className="mb-4">
+                  <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                    <span className="text-purple-400">{t('legal.freedomOfPress')}</span>
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Journalist Protections:</strong> Journalists have the same access rights as the public but no special access beyond that. Press credentials don't grant extra rights but may help identify you.</span>
+                      </p>
+                    </div>
+                    <div className="bg-purple-950/30 p-4 rounded-xl border border-purple-800/30">
+                      <p className="text-purple-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Anyone Can Document:</strong> In the digital age, courts recognize that anyone with a phone can act as citizen press. You don't need credentials to document newsworthy events.</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mt-4 pt-4 border-t border-purple-800/50">
-                  <p className="text-purple-300 text-xs font-bold uppercase tracking-wider mb-2">Learn More</p>
-                  <a href="https://www.uscourts.gov/about-federal-courts/educational-resources/about-educational-outreach/activity-resources/what-does" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 text-sm underline block mb-1">
-                    U.S. Courts: First Amendment Rights →
+                  <p className="text-purple-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                  <a href="https://constitution.congress.gov/constitution/amendment-1/" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 text-sm underline block mb-1">
+                    {t('legal.link1stAmendmentText')}
                   </a>
-                  <a href="https://www.justice.gov/crt/freedom-information-act-0" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 text-sm underline block">
-                    DOJ: Civil Rights & Recording →
+                  <a href="https://www.uscourts.gov/about-federal-courts/educational-resources/about-educational-outreach/activity-resources/what-does" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 text-sm underline block mb-1">
+                    {t('legal.link1stAmendmentRights')}
+                  </a>
+                  <a href="https://www.justice.gov/crt/addressing-police-misconduct-laws-enforced-department-justice" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 text-sm underline block mb-1">
+                    {t('legal.linkDojMisconduct')}
+                  </a>
+                  <a href="https://www.aclu.org/know-your-rights/protesters-rights" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 text-sm underline block">
+                    {t('legal.linkAcluProtesters')}
                   </a>
                 </div>
-              </div>
-            )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* 4th Amendment - Collapsible */}
@@ -1204,17 +1395,26 @@ User question: ${input}`
               className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
             >
               <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white">4th Amendment</h3>
-                <p className="text-slate-400 text-sm">Unreasonable Search & Seizure</p>
+                <h3 className="text-xl font-bold text-white">{t('legal.amendment4th')}</h3>
+                <p className="text-slate-400 text-sm">{t('legal.amendment4thDesc')}</p>
               </div>
-              <CaretRight
-                size={24}
-                weight="bold"
-                className={`text-slate-400 transition-transform duration-200 ${expandedAmendments.has('4th') ? 'rotate-90' : ''}`}
-              />
+              <motion.div
+                animate={{ rotate: expandedAmendments.has('4th') ? 90 : 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              >
+                <CaretRight size={24} weight="bold" className="text-slate-400" />
+              </motion.div>
             </button>
-            {expandedAmendments.has('4th') && (
-              <div className="bg-gradient-to-br from-red-950 to-red-900 p-6 border-t border-red-800">
+            <AnimatePresence>
+              {expandedAmendments.has('4th') && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-gradient-to-br from-red-950 to-red-900 p-6 border-t border-red-800">
                 <div className="bg-red-950/50 p-4 rounded-xl border border-red-800/50 mb-4">
                   <p className="text-white italic text-sm leading-relaxed">
                     "The right of the people to be secure in their persons, houses, papers, and effects,
@@ -1222,7 +1422,7 @@ User question: ${input}`
                   </p>
                 </div>
                 <div className="space-y-3">
-                  <h4 className="text-white font-black mb-3">What This Means for You:</h4>
+                  <h4 className="text-white font-black mb-3">{t('legal.whatThisMeansForYou')}</h4>
                   <div className="bg-red-950/30 p-4 rounded-xl border border-red-800/30">
                     <p className="text-red-100 text-sm leading-relaxed flex items-start gap-2">
                       <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Your Home:</strong> ICE needs a judicial warrant signed by a judge to enter your home or private workplace areas.</span>
@@ -1240,16 +1440,18 @@ User question: ${input}`
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-red-800/50">
-                  <p className="text-red-300 text-xs font-bold uppercase tracking-wider mb-2">Learn More</p>
+                  <p className="text-red-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.learnMore')}</p>
                   <a href="https://constitution.congress.gov/constitution/amendment-4/" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 text-sm underline block mb-1">
-                    Constitution.gov: Fourth Amendment Text →
+                    {t('legal.link4thAmendmentText')}
                   </a>
                   <a href="https://www.uscourts.gov/about-federal-courts/educational-resources/about-educational-outreach/activity-resources/what-does-0" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 text-sm underline block">
-                    U.S. Courts: Search & Seizure Explained →
+                    {t('legal.link4thAmendmentRights')}
                   </a>
                 </div>
-              </div>
-            )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* 5th Amendment - Collapsible */}
@@ -1264,24 +1466,33 @@ User question: ${input}`
               className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
             >
               <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white">5th Amendment</h3>
-                <p className="text-slate-400 text-sm">Right to Remain Silent</p>
+                <h3 className="text-xl font-bold text-white">{t('legal.amendment5th')}</h3>
+                <p className="text-slate-400 text-sm">{t('legal.amendment5thDesc')}</p>
               </div>
-              <CaretRight
-                size={24}
-                weight="bold"
-                className={`text-slate-400 transition-transform duration-200 ${expandedAmendments.has('5th') ? 'rotate-90' : ''}`}
-              />
+              <motion.div
+                animate={{ rotate: expandedAmendments.has('5th') ? 90 : 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              >
+                <CaretRight size={24} weight="bold" className="text-slate-400" />
+              </motion.div>
             </button>
-            {expandedAmendments.has('5th') && (
-              <div className="bg-gradient-to-br from-blue-950 to-blue-900 p-6 border-t border-blue-800">
+            <AnimatePresence>
+              {expandedAmendments.has('5th') && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-gradient-to-br from-blue-950 to-blue-900 p-6 border-t border-blue-800">
                 <div className="bg-blue-950/50 p-4 rounded-xl border border-blue-800/50 mb-4">
                   <p className="text-white italic text-sm leading-relaxed">
                     "No person... shall be compelled in any criminal case to be a witness against himself..."
                   </p>
                 </div>
                 <div className="space-y-3">
-                  <h4 className="text-white font-black mb-3">What This Means for You:</h4>
+                  <h4 className="text-white font-black mb-3">{t('legal.whatThisMeansForYou')}</h4>
                   <div className="bg-blue-950/30 p-4 rounded-xl border border-blue-800/30">
                     <p className="text-blue-100 text-sm leading-relaxed flex items-start gap-2">
                       <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>You Can Stay Silent:</strong> You do not have to answer questions from ICE or police.</span>
@@ -1299,27 +1510,1312 @@ User question: ${input}`
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-blue-800/50">
-                  <p className="text-blue-300 text-xs font-bold uppercase tracking-wider mb-2">Learn More</p>
+                  <p className="text-blue-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.learnMore')}</p>
                   <a href="https://constitution.congress.gov/constitution/amendment-5/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-sm underline block mb-1">
-                    Constitution.gov: Fifth Amendment Text →
+                    {t('legal.link5thAmendmentText')}
                   </a>
                   <a href="https://www.uscourts.gov/about-federal-courts/educational-resources/about-educational-outreach/activity-resources/what-does-1" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-sm underline block">
-                    U.S. Courts: Right to Remain Silent →
+                    {t('legal.link5thAmendmentRights')}
                   </a>
                 </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* 6th Amendment - Collapsible */}
+          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+            <button
+              onClick={() => setExpandedAmendments(prev => {
+                const next = new Set(prev);
+                if (next.has('6th')) next.delete('6th');
+                else next.add('6th');
+                return next;
+              })}
+              className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <h3 className="text-xl font-bold text-white">{t('legal.amendment6th')}</h3>
+                <p className="text-slate-400 text-sm">{t('legal.amendment6thDesc')}</p>
               </div>
-            )}
+              <motion.div
+                animate={{ rotate: expandedAmendments.has('6th') ? 90 : 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              >
+                <CaretRight size={24} weight="bold" className="text-slate-400" />
+              </motion.div>
+            </button>
+            <AnimatePresence>
+              {expandedAmendments.has('6th') && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-gradient-to-br from-emerald-950 to-emerald-900 p-6 border-t border-emerald-800">
+                <div className="bg-emerald-950/50 p-4 rounded-xl border border-emerald-800/50 mb-4">
+                  <p className="text-white italic text-sm leading-relaxed">
+                    "In all criminal prosecutions, the accused shall enjoy the right... to have the Assistance of Counsel for his defence."
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-white font-black mb-3">{t('legal.whatThisMeansForYou')}</h4>
+                  <div className="bg-emerald-950/30 p-4 rounded-xl border border-emerald-800/30">
+                    <p className="text-emerald-100 text-sm leading-relaxed flex items-start gap-2">
+                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Right to a Lawyer:</strong> You have the right to an attorney during any criminal proceeding, including immigration-related criminal charges.</span>
+                    </p>
+                  </div>
+                  <div className="bg-emerald-950/30 p-4 rounded-xl border border-emerald-800/30">
+                    <p className="text-emerald-100 text-sm leading-relaxed flex items-start gap-2">
+                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>How to Assert:</strong> Say: "I want to speak to a lawyer before answering any questions."</span>
+                    </p>
+                  </div>
+                  <div className="bg-emerald-950/30 p-4 rounded-xl border border-emerald-800/30">
+                    <p className="text-emerald-100 text-sm leading-relaxed flex items-start gap-2">
+                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Public Defender:</strong> If you cannot afford an attorney, one may be appointed for criminal charges (not civil immigration proceedings).</span>
+                    </p>
+                  </div>
+                  <div className="bg-emerald-950/30 p-4 rounded-xl border border-emerald-800/30">
+                    <p className="text-emerald-100 text-sm leading-relaxed flex items-start gap-2">
+                      <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> <span><strong>Immigration Court:</strong> There is no guaranteed right to a free attorney in immigration court—seek pro bono legal help if needed.</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-emerald-800/50">
+                  <p className="text-emerald-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                  <a href="https://constitution.congress.gov/constitution/amendment-6/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 text-sm underline block mb-1">
+                    {t('legal.link6thAmendmentText')}
+                  </a>
+                  <a href="https://www.uscourts.gov/about-federal-courts/educational-resources/about-educational-outreach/activity-resources/what-does-2" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 text-sm underline block mb-1">
+                    {t('legal.link6thAmendmentRights')}
+                  </a>
+                  <a href="https://www.justice.gov/eoir/legal-orientation-program" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 text-sm underline block">
+                    {t('legal.linkDojLegalOrientation')}
+                  </a>
+                </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* 14th Amendment - Collapsible */}
+          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+            <button
+              onClick={() => setExpandedAmendments(prev => {
+                const next = new Set(prev);
+                if (next.has('14th')) next.delete('14th');
+                else next.add('14th');
+                return next;
+              })}
+              className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <h3 className="text-xl font-bold text-white">{t('legal.amendment14th')}</h3>
+                <p className="text-slate-400 text-sm">{t('legal.amendment14thDesc')}</p>
+              </div>
+              <motion.div
+                animate={{ rotate: expandedAmendments.has('14th') ? 90 : 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              >
+                <CaretRight size={24} weight="bold" className="text-slate-400" />
+              </motion.div>
+            </button>
+            <AnimatePresence>
+              {expandedAmendments.has('14th') && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-gradient-to-br from-amber-950 to-amber-900 p-6 border-t border-amber-800">
+                <div className="bg-amber-950/50 p-4 rounded-xl border border-amber-800/50 mb-4">
+                  <p className="text-white italic text-sm leading-relaxed">
+                    "...nor shall any State deprive any person of life, liberty, or property, without due process of law; nor deny to any person within its jurisdiction the equal protection of the laws."
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-white font-black mb-3">{t('legal.whyThisMattersImmigration')}</h4>
+                  <div className="bg-amber-950/30 p-4 rounded-xl border border-amber-800/30">
+                    <p className="text-amber-100 text-sm leading-relaxed flex items-start gap-2">
+                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Applies to Everyone:</strong> The Constitution says "any person"—not just citizens. These rights apply to all people on U.S. soil regardless of immigration status.</span>
+                    </p>
+                  </div>
+                  <div className="bg-amber-950/30 p-4 rounded-xl border border-amber-800/30">
+                    <p className="text-amber-100 text-sm leading-relaxed flex items-start gap-2">
+                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Due Process:</strong> You cannot be detained or deported without proper legal proceedings. The government must follow established procedures.</span>
+                    </p>
+                  </div>
+                  <div className="bg-amber-950/30 p-4 rounded-xl border border-amber-800/30">
+                    <p className="text-amber-100 text-sm leading-relaxed flex items-start gap-2">
+                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Equal Protection:</strong> The government cannot single you out based on race, ethnicity, or national origin alone.</span>
+                    </p>
+                  </div>
+                  <div className="bg-amber-950/30 p-4 rounded-xl border border-amber-800/30">
+                    <p className="text-amber-100 text-sm leading-relaxed flex items-start gap-2">
+                      <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Court Access:</strong> You have the right to appear before an immigration judge and present your case, including asylum claims.</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-amber-800/50">
+                  <p className="text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                  <a href="https://constitution.congress.gov/constitution/amendment-14/" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 text-sm underline block mb-1">
+                    {t('legal.link14thAmendmentText')}
+                  </a>
+                  <a href="https://www.uscis.gov/citizenship/learn-about-citizenship/the-constitution-and-you" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 text-sm underline block mb-1">
+                    {t('legal.linkUscisConstitution')}
+                  </a>
+                  <a href="https://www.aclu.org/know-your-rights/immigrants-rights" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 text-sm underline block">
+                    {t('legal.linkAcluImmigrants')}
+                  </a>
+                </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Civil Disobedience: Know Your Rights */}
+          <div className="mt-12 pt-8 border-t border-slate-700">
+            <h2 className="text-2xl font-black text-white mb-2">{t('legal.civilDisobedienceTitle')}</h2>
+            <p className="text-slate-400 text-sm mb-4">{t('legal.civilDisobedienceSubtitle')}</p>
+
+            {/* Disclaimer */}
+            <div className="bg-amber-950/30 border border-amber-900/50 rounded-2xl p-5 mb-6">
+              <div className="flex items-start gap-3">
+                <Warning size={22} weight="bold" className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-amber-200 text-sm font-bold mb-1">{t('legal.importantDisclaimer')}</p>
+                  <p className="text-slate-300 text-xs leading-relaxed">
+                    This section provides general legal information about your constitutional rights during acts of civil disobedience. It is not legal advice and is not encouragement to break any law. Civil disobedience by definition involves accepting legal consequences for one's actions. Always consult with an attorney before, during, and after any legal situation.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+
+            {/* History & Legal Framework */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('cd-history')) next.delete('cd-history');
+                  else next.add('cd-history');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <h3 className="text-xl font-bold text-white">{t('legal.historyLegalFramework')}</h3>
+                  <p className="text-slate-400 text-sm hidden sm:block">{t('legal.constitutionalProtections')}</p>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('cd-history') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('cd-history') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+
+                      <div className="mb-6">
+                        <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                          <span className="text-teal-400">{t('legal.firstAmendmentProtections')}</span>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Right to Assemble:</strong> The First Amendment protects the right of people to peacefully assemble. This includes marches, sit-ins, vigils, rallies, and other forms of collective expression on public property.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Right to Petition:</strong> You have the constitutional right to petition the government for redress of grievances. This includes protests, demonstrations, and organized acts of nonviolent resistance.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Freedom of Speech:</strong> Peaceful protest is a form of protected speech. Signs, chants, leaflets, and symbolic expression (like armbands or silent vigils) are all constitutionally protected activities.</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                          <span className="text-teal-400">{t('legal.landmarkCourtCases')}</span>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>NAACP v. Claiborne Hardware (1982):</strong> The Supreme Court ruled that nonviolent elements of a protest (boycotts, marches, speeches) are constitutionally protected even if some participants engage in violence. Peaceful participants cannot be held liable for others' actions.
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>Edwards v. South Carolina (1963):</strong> The Court overturned the convictions of 187 Black students arrested for peacefully protesting segregation at the state capitol. Peaceful protest on public grounds is protected by the 1st and 14th Amendments.
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>Tinker v. Des Moines (1969):</strong> The Court held that wearing black armbands to protest the Vietnam War was protected symbolic speech. "Students do not shed their constitutional rights at the schoolhouse gate."
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>Cox v. Louisiana (1965):</strong> The Court ruled that peaceful picketing and parading are protected forms of expression. However, the government may impose reasonable time, place, and manner restrictions.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                          <span className="text-teal-400">{t('legal.protectedVsUnprotected')}</span>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Generally Protected:</strong> Marching on sidewalks and public spaces, holding signs, chanting, leafleting, silent vigils, boycotts, human chains on public property, symbolic speech (armbands, flags).</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>May Cross Legal Lines:</strong> Blocking roads or entrances, occupying private property, refusing to disperse after lawful order, interfering with government operations. These acts may result in arrest — know the potential consequences before participating.</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                          <span className="text-teal-400">{t('legal.historicalMovements')}</span>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>Civil Rights Movement (1950s-60s):</strong> Lunch counter sit-ins, Freedom Rides, the Montgomery Bus Boycott, and the March on Washington used nonviolent civil disobedience to challenge segregation and secure the Civil Rights Act of 1964 and Voting Rights Act of 1965.
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>Women's Suffrage (1848-1920):</strong> Suffragists organized marches, picket lines at the White House, and hunger strikes. Many were arrested and imprisoned before the 19th Amendment was ratified.
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>Labor Movement (1880s-1940s):</strong> Strikes, sit-downs, and picket lines fought for the 8-hour workday, workplace safety, and the right to organize. These actions led to the National Labor Relations Act and Fair Labor Standards Act.
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>Sanctuary Movement (1980s-present):</strong> Churches and communities have provided sanctuary to refugees and undocumented immigrants, drawing on religious and moral traditions of offering refuge to those facing persecution.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-teal-800/50">
+                        <p className="text-teal-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                        <a href="https://constitution.congress.gov/constitution/amendment-1/" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block mb-1">
+                          {t('legal.link1stAmendmentText')}
+                        </a>
+                        <a href="https://www.aclu.org/know-your-rights/protesters-rights" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block mb-1">
+                          {t('legal.linkAcluKnowYourRights')}
+                        </a>
+                        <a href="https://www.oyez.org/cases/1981/81-202" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block">
+                          {t('legal.linkOyezNaacp')}
+                        </a>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Your Rights If Arrested */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('cd-arrested')) next.delete('cd-arrested');
+                  else next.add('cd-arrested');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <h3 className="text-xl font-bold text-white">{t('legal.yourRightsIfArrested')}</h3>
+                  <p className="text-slate-400 text-sm hidden sm:block">{t('legal.whatToKnowAndDo')}</p>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('cd-arrested') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('cd-arrested') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+
+                      <div className="space-y-3 mb-6">
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                            <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                            <span><strong>Right to Remain Silent:</strong> Say clearly: <em>"I am exercising my right to remain silent."</em> You do not have to answer any questions. Anything you say can and will be used against you. Silence cannot be used as evidence of guilt.</span>
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                            <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                            <span><strong>Right to an Attorney:</strong> Say clearly: <em>"I want to speak to a lawyer."</em> Once you invoke this right, police must stop questioning you. If you cannot afford an attorney, one will be appointed. Do not answer questions until your attorney is present.</span>
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                            <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                            <span><strong>Right to Know Charges:</strong> You have the right to be told what you are being charged with. Ask: <em>"What am I being charged with?"</em> You are entitled to a prompt arraignment (typically within 48-72 hours).</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                          <span className="text-teal-400">{t('legal.whatHappensAtBooking')}</span>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>The Process:</strong> You will be fingerprinted, photographed, and your personal belongings will be inventoried. You are typically allowed at least one phone call. You may be held until arraignment or until bail is posted.
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed">
+                              <strong>Bail:</strong> A judge sets bail based on the charges, flight risk, and community ties. Options include: <strong>Cash bail</strong> (pay full amount, refunded after case), <strong>bail bond</strong> (pay 10% to a bondsman, non-refundable), or <strong>OR release</strong> (released on your own recognizance, no payment required — common for minor protest-related charges).
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                          <span className="text-amber-400">{t('legal.whatNotToDo')}</span>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Do not explain yourself:</strong> Do not try to justify your actions, tell your story, or "clear things up" with police. Save it for your attorney.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Do not consent to searches:</strong> Say: <em>"I do not consent to a search."</em> They may search you anyway incident to arrest, but your verbal non-consent preserves your rights for court.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Do not physically resist:</strong> Even if you believe the arrest is unlawful, do not physically resist. Resisting can add additional charges. Stay calm, comply physically, but assert your rights verbally.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Do not sign anything</strong> without your attorney present. Do not agree to any deals, plea bargains, or statements without legal counsel.</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-teal-800/50">
+                        <p className="text-teal-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                        <a href="https://www.aclu.org/know-your-rights/stopped-by-police" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block mb-1">
+                          {t('legal.linkAcluStoppedByPolice')}
+                        </a>
+                        <a href="https://www.nlg.org/know-your-rights/" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block">
+                          {t('legal.linkNlgKnowYourRights')}
+                        </a>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Common Charges at Protests */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('cd-charges')) next.delete('cd-charges');
+                  else next.add('cd-charges');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <h3 className="text-xl font-bold text-white">{t('legal.commonChargesAtProtests')}</h3>
+                  <p className="text-slate-400 text-sm hidden sm:block">{t('legal.knowWhatYouMayFace')}</p>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('cd-charges') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('cd-charges') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+
+                      <div className="space-y-3">
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>Trespassing:</strong> Entering or remaining on property without permission. Common during sit-ins or building occupations. Typically a misdemeanor. Penalties vary by state but often include fines of $100-$1,000 and up to 30 days in jail. Defense: you may argue the property was open to the public or that you were exercising First Amendment rights on public property.
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>Disorderly Conduct:</strong> A broad, catch-all charge often used at protests. Typically covers "disturbing the peace," "unreasonable noise," or "tumultuous behavior." This is the most common protest arrest charge. Usually a misdemeanor with fines and possible short jail time. These charges are frequently dropped or dismissed.
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>Unlawful Assembly:</strong> When authorities declare a gathering unlawful — typically when they determine it poses a "clear and present danger" of violence or property destruction. A formal dispersal order must be given before this charge applies. You must be given a reasonable opportunity to leave.
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>Failure to Disperse:</strong> Remaining after a lawful dispersal order is given. The order must be audible and clear. You must be given a reasonable amount of time to leave. If exit routes are blocked by police, this can be a defense. Document the time the order was given and whether you had a clear path to leave.
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>Obstruction / Resisting Arrest:</strong> Physically interfering with an officer or resisting a lawful arrest. Simply going limp (passive resistance) may or may not constitute resisting depending on state law. Verbal challenges to police are generally protected speech. Physical resistance always adds charges — stay calm and comply physically while asserting rights verbally.
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                            <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" />
+                            <span><strong>Federal vs. State Charges:</strong> Most protest arrests are state or local charges. However, federal charges can apply on federal property (courthouses, federal buildings, national parks), when crossing state lines to incite a riot (Anti-Riot Act), or when protests target federal operations. Federal charges carry more serious penalties and are prosecuted in federal court.</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-teal-800/50">
+                        <p className="text-teal-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                        <a href="https://www.aclu.org/know-your-rights/protesters-rights" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block mb-1">
+                          {t('legal.linkAcluProtesters')}
+                        </a>
+                        <a href="https://www.nlg.org/" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block">
+                          {t('legal.linkNlg')}
+                        </a>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Practical Safety */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('cd-safety')) next.delete('cd-safety');
+                  else next.add('cd-safety');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <h3 className="text-xl font-bold text-white">{t('legal.practicalSafety')}</h3>
+                  <p className="text-slate-400 text-sm hidden sm:block">{t('legal.beforeDuringAfter')}</p>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('cd-safety') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('cd-safety') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+
+                      <div className="mb-6">
+                        <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                          <span className="text-teal-400">{t('legal.beforeYouGo')}</span>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Buddy System:</strong> Never go alone. Pair up with someone you trust. Agree on a meeting point if separated. Share your plans with someone who is NOT attending.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Legal Support Contact:</strong> Write a lawyer's phone number on your arm in permanent marker (phones can be confiscated). The National Lawyers Guild hotline: <strong>(212) 679-5100</strong>. Designate a "jail support" person who can post bail and coordinate with attorneys.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>What to Bring:</strong> Government-issued ID, any required medications (in original containers), water, snacks, cash for bail or transportation, a charged phone with emergency contacts.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>What NOT to Bring:</strong> Weapons of any kind, drugs or alcohol, valuables or jewelry, unnecessary electronics, anything you wouldn't want confiscated, contact lenses (tear gas — bring glasses instead).</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Know Local Laws:</strong> Research permit requirements, local curfew laws, and any specific ordinances. Know which areas are public property vs. private. Understand your state's specific laws on unlawful assembly and failure to disperse.</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                          <span className="text-teal-400">{t('legal.duringTheAction')}</span>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>De-escalation:</strong> Remain calm and non-threatening. Keep hands visible. Speak in a calm, steady voice. Do not make sudden movements. Comply with lawful orders while verbally asserting your rights.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Document Everything:</strong> Record video when safe to do so (this is your First Amendment right). Note badge numbers, agency names, vehicle numbers, and timestamps. If you witness misconduct, get contact information from other witnesses.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Medical Awareness:</strong> Know where street medics are stationed (look for red cross symbols). If you take prescription medication, carry it with you. If tear gas is deployed: move upwind, do not rub your eyes, rinse with water or saline solution.</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="text-white font-black mb-3 flex items-center gap-2">
+                          <span className="text-teal-400">{t('legal.afterTheAction')}</span>
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Document While Fresh:</strong> Write down everything you remember as soon as possible: who was there, what happened, when and where events occurred, badge numbers, witness names, and any use of force. Details fade quickly.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Finding Legal Support:</strong> Contact the <strong>National Lawyers Guild (NLG)</strong> at (212) 679-5100 for referrals. Local legal aid organizations often have protest-specific resources. If arrested, you qualify for a public defender if you cannot afford private counsel.</span>
+                            </p>
+                          </div>
+                          <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                            <p className="text-teal-100 text-sm leading-relaxed flex items-start gap-2">
+                              <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <span><strong>Filing Complaints:</strong> If you experienced police misconduct, file a complaint with the department's internal affairs division, your local civilian complaint board, and the ACLU. Photograph any injuries. Keep copies of all documentation.</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-teal-800/50">
+                        <p className="text-teal-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                        <a href="https://www.nlg.org/know-your-rights/" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block mb-1">
+                          {t('legal.linkNlgKnowYourRightsSafety')}
+                        </a>
+                        <a href="https://www.aclu.org/know-your-rights/protesters-rights" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block">
+                          {t('legal.linkAcluProtesters')}
+                        </a>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* The Philosophical Tradition */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('cd-philosophy')) next.delete('cd-philosophy');
+                  else next.add('cd-philosophy');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <h3 className="text-xl font-bold text-white">{t('legal.philosophicalTradition')}</h3>
+                  <p className="text-slate-400 text-sm hidden sm:block">{t('legal.stoicsKingsConscience')}</p>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('cd-philosophy') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('cd-philosophy') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+
+                      <div className="bg-teal-950/50 p-4 rounded-xl border border-teal-800/50 mb-6">
+                        <p className="text-white italic text-sm leading-relaxed">
+                          {t('legal.mlkQuote')}
+                        </p>
+                        <p className="text-teal-400 text-xs mt-2 text-end">{t('legal.mlkAttribution')}</p>
+                      </div>
+
+                      <div className="space-y-3 mb-6">
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>Stoic Duty to Community:</strong> The Stoics taught that we are citizens of the world first, and that justice demands action — not mere observation. Marcus Aurelius wrote: <em>"That which is not good for the bee-hive, cannot be good for the bee."</em> Epictetus taught that the powers of organizing the whole are within each person. When laws harm the community, Stoic philosophy holds that conscience and duty to others may call for principled action.
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>Henry David Thoreau — "Civil Disobedience" (1849):</strong> Thoreau argued that individuals have a duty to follow their conscience over unjust laws. He went to jail rather than pay a tax supporting slavery and the Mexican-American War. His essay became the foundational text of nonviolent resistance, directly influencing Gandhi and King.
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>Martin Luther King Jr. — Letter from Birmingham Jail (1963):</strong> King distinguished between just and unjust laws: <em>"A just law is a man-made code that squares with the moral law. An unjust law is a code that is out of harmony with the moral law."</em> He argued that nonviolent direct action creates the tension necessary for change, and that those who break unjust laws must do so "openly, lovingly, and with a willingness to accept the penalty."
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>Mahatma Gandhi — Satyagraha:</strong> Gandhi's philosophy of "truth-force" or "soul-force" held that nonviolent resistance is the most powerful weapon against injustice. His principles: never harm your opponent, accept suffering without retaliation, always be truthful, and recognize the humanity in your adversary. The Salt March of 1930 demonstrated how mass civil disobedience can shift public consciousness.
+                          </p>
+                        </div>
+                        <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
+                          <p className="text-teal-100 text-sm leading-relaxed">
+                            <strong>The Common Thread:</strong> From the Stoics to Thoreau to King to Gandhi, the tradition of civil disobedience rests on a shared conviction: that individuals have a moral obligation to act when laws or systems cause harm to others, and that nonviolent action — undertaken openly and with acceptance of consequences — is the most powerful force for justice.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-teal-800/50">
+                        <p className="text-teal-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.readPrimarySources')}</p>
+                        <a href="https://www.africa.upenn.edu/Articles_Gen/Letter_Birmingham.html" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block mb-1">
+                          {t('legal.linkMlkLetter')}
+                        </a>
+                        <a href="https://www.gutenberg.org/files/71/71-h/71-h.htm" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block mb-1">
+                          {t('legal.linkThoreauCivilDisobedience')}
+                        </a>
+                        <a href="https://www.mkgandhi.org/nonviolence/phil8.htm" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 text-sm underline block">
+                          {t('legal.linkGandhiNonviolence')}
+                        </a>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            </div>
+          </div>
+
+          {/* Know Your Rights Scenarios Section */}
+          <div className="mt-12 pt-8 border-t border-slate-700">
+            <h2 className="text-2xl font-black text-white mb-2">{t('legal.commonScenariosTitle')}</h2>
+            <p className="text-slate-400 text-sm mb-6">{t('legal.commonScenariosSubtitle')}</p>
+
+            {/* At Your Door */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('door')) next.delete('door');
+                  else next.add('door');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <House size={24} weight="bold" className="text-cyan-400" />
+                  <h3 className="text-xl font-bold text-white">{t('legal.scenarioAtYourDoor')}</h3>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('door') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('door') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-cyan-950 to-cyan-900 p-6 border-t border-cyan-800">
+                  <div className="space-y-3">
+                    <div className="bg-cyan-950/30 p-4 rounded-xl border border-cyan-800/30">
+                      <p className="text-cyan-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Do NOT Open the Door:</strong> You are not required to open your door to ICE or police unless they have a valid judicial warrant.</span>
+                      </p>
+                    </div>
+                    <div className="bg-cyan-950/30 p-4 rounded-xl border border-cyan-800/30">
+                      <p className="text-cyan-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Ask for Warrant:</strong> Say: "Please slide the warrant under the door." A valid warrant must be signed by a judge, not ICE.</span>
+                      </p>
+                    </div>
+                    <div className="bg-cyan-950/30 p-4 rounded-xl border border-cyan-800/30">
+                      <p className="text-cyan-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Stay Silent:</strong> You can communicate through the door: "I am exercising my right to remain silent."</span>
+                      </p>
+                    </div>
+                    <div className="bg-cyan-950/30 p-4 rounded-xl border border-cyan-800/30">
+                      <p className="text-cyan-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> <span><strong>Do NOT Sign Anything:</strong> Never sign documents without speaking to a lawyer first.</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-cyan-800/50">
+                    <p className="text-cyan-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                    <a href="https://www.ice.gov/sites/default/files/documents/Document/2017/adminWarrantvJudicialWarrant.pdf" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 text-sm underline block mb-1">
+                      {t('legal.linkIceWarrants')}
+                    </a>
+                    <a href="https://www.aclu.org/know-your-rights/immigrants-rights" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 text-sm underline block">
+                      {t('legal.linkAcluKnowYourRightsDoor')}
+                    </a>
+                  </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* In Public */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('public')) next.delete('public');
+                  else next.add('public');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <MapPin size={24} weight="bold" className="text-green-400" />
+                  <h3 className="text-xl font-bold text-white">{t('legal.scenarioInPublic')}</h3>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('public') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('public') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-green-950 to-green-900 p-6 border-t border-green-800">
+                  <div className="space-y-3">
+                    <div className="bg-green-950/30 p-4 rounded-xl border border-green-800/30">
+                      <p className="text-green-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Stay Calm:</strong> You have the right to remain silent. Do not run, argue, or resist.</span>
+                      </p>
+                    </div>
+                    <div className="bg-green-950/30 p-4 rounded-xl border border-green-800/30">
+                      <p className="text-green-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Ask if Free to Leave:</strong> Say: "Am I being detained, or am I free to go?" If free, walk away calmly.</span>
+                      </p>
+                    </div>
+                    <div className="bg-green-950/30 p-4 rounded-xl border border-green-800/30">
+                      <p className="text-green-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Do NOT Provide Documents:</strong> You do not have to show immigration papers or ID to ICE (except in specific border situations).</span>
+                      </p>
+                    </div>
+                    <div className="bg-green-950/30 p-4 rounded-xl border border-green-800/30">
+                      <p className="text-green-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Do NOT Lie:</strong> If you choose to speak, do not provide false information. It's better to stay silent.</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-green-800/50">
+                    <p className="text-green-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                    <a href="https://www.uscis.gov/about-us/find-a-uscis-office/field-offices" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300 text-sm underline block mb-1">
+                      {t('legal.linkUscisFieldOffices')}
+                    </a>
+                    <a href="https://www.nilc.org/issues/immigration-enforcement/everyone-has-certain-basic-rights/" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300 text-sm underline block">
+                      {t('legal.linkNilcBasicRights')}
+                    </a>
+                  </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* At Work */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('work')) next.delete('work');
+                  else next.add('work');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <Briefcase size={24} weight="bold" className="text-orange-400" />
+                  <h3 className="text-xl font-bold text-white">{t('legal.scenarioAtWork')}</h3>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('work') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('work') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-orange-950 to-orange-900 p-6 border-t border-orange-800">
+                  <div className="space-y-3">
+                    <div className="bg-orange-950/30 p-4 rounded-xl border border-orange-800/30">
+                      <p className="text-orange-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Public vs Private Areas:</strong> ICE can enter public areas (lobbies, storefronts) but needs a warrant for private work areas.</span>
+                      </p>
+                    </div>
+                    <div className="bg-orange-950/30 p-4 rounded-xl border border-orange-800/30">
+                      <p className="text-orange-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Stay Silent:</strong> You have the right not to answer questions about your immigration status at work.</span>
+                      </p>
+                    </div>
+                    <div className="bg-orange-950/30 p-4 rounded-xl border border-orange-800/30">
+                      <p className="text-orange-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>I-9 Audits:</strong> Employers must be given 3 days notice for I-9 audits. You don't have to speak during an audit.</span>
+                      </p>
+                    </div>
+                    <div className="bg-orange-950/30 p-4 rounded-xl border border-orange-800/30">
+                      <p className="text-orange-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> <span><strong>Know Your Employer's Policy:</strong> Some employers have policies to protect workers. Ask about your workplace's policy.</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-orange-800/50">
+                    <p className="text-orange-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                    <a href="https://www.uscis.gov/i-9-central/i-9-central-questions-and-answers" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300 text-sm underline block mb-1">
+                      {t('legal.linkUscisI9')}
+                    </a>
+                    <a href="https://www.dol.gov/agencies/whd/immigration" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300 text-sm underline block">
+                      {t('legal.linkDolImmigration')}
+                    </a>
+                  </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* In a Vehicle */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('vehicle')) next.delete('vehicle');
+                  else next.add('vehicle');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <Car size={24} weight="bold" className="text-violet-400" />
+                  <h3 className="text-xl font-bold text-white">{t('legal.scenarioInVehicle')}</h3>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('vehicle') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('vehicle') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-violet-950 to-violet-900 p-6 border-t border-violet-800">
+                  <div className="space-y-3">
+                    <div className="bg-violet-950/30 p-4 rounded-xl border border-violet-800/30">
+                      <p className="text-violet-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Pull Over Safely:</strong> If signaled by law enforcement, pull over to a safe location and turn off the engine.</span>
+                      </p>
+                    </div>
+                    <div className="bg-violet-950/30 p-4 rounded-xl border border-violet-800/30">
+                      <p className="text-violet-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Driver's License:</strong> Drivers must show license, registration, and proof of insurance if asked. Passengers may not be required to ID themselves (varies by state).</span>
+                      </p>
+                    </div>
+                    <div className="bg-violet-950/30 p-4 rounded-xl border border-violet-800/30">
+                      <p className="text-violet-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>No Search Without Consent:</strong> Say: "I do not consent to a search." They may still search with probable cause, but your objection is on record.</span>
+                      </p>
+                    </div>
+                    <div className="bg-violet-950/30 p-4 rounded-xl border border-violet-800/30">
+                      <p className="text-violet-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Immigration Questions:</strong> You can remain silent about immigration status during a traffic stop.</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-violet-800/50">
+                    <p className="text-violet-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                    <a href="https://www.uscourts.gov/about-federal-courts/educational-resources/about-educational-outreach/activity-resources/what-does-0" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 text-sm underline block mb-1">
+                      {t('legal.link4thVehicleSearches')}
+                    </a>
+                    <a href="https://www.aclu.org/know-your-rights/stopped-by-police" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 text-sm underline block">
+                      {t('legal.linkAcluStoppedByPoliceDoor')}
+                    </a>
+                  </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* 100-Mile Border Zone */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('border')) next.delete('border');
+                  else next.add('border');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <ShieldWarning size={24} weight="bold" className="text-red-400" />
+                  <h3 className="text-xl font-bold text-white">{t('legal.scenario100MileBorderZone')}</h3>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('border') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('border') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-red-950 to-red-900 p-6 border-t border-red-800">
+                  <div className="bg-red-950/50 p-4 rounded-xl border border-red-800/50 mb-4">
+                    <p className="text-white text-sm leading-relaxed">
+                      <strong>What is it?</strong> CBP claims authority to operate immigration checkpoints within 100 miles of any U.S. border (including coastlines). This area covers about 2/3 of the U.S. population.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="bg-red-950/30 p-4 rounded-xl border border-red-800/30">
+                      <p className="text-red-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Interior Checkpoints:</strong> You may be stopped at checkpoints away from the actual border. You can remain silent about citizenship.</span>
+                      </p>
+                    </div>
+                    <div className="bg-red-950/30 p-4 rounded-xl border border-red-800/30">
+                      <p className="text-red-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>At the Actual Border:</strong> CBP has more authority at ports of entry and the immediate border. They can search belongings without a warrant.</span>
+                      </p>
+                    </div>
+                    <div className="bg-red-950/30 p-4 rounded-xl border border-red-800/30">
+                      <p className="text-red-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Your Rights Still Apply:</strong> Even in the border zone, you can refuse consent to searches beyond a brief immigration inspection.</span>
+                      </p>
+                    </div>
+                    <div className="bg-red-950/30 p-4 rounded-xl border border-red-800/30">
+                      <p className="text-red-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> <span><strong>Electronic Devices:</strong> CBP claims authority to search phones/laptops at border crossings. Consider legal advice before travel.</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-red-800/50">
+                    <p className="text-red-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                    <a href="https://www.cbp.gov/border-security/along-us-borders/border-patrol-sectors" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 text-sm underline block mb-1">
+                      {t('legal.linkCbpSectors')}
+                    </a>
+                    <a href="https://www.dhs.gov/sites/default/files/publications/privacy-pia-cbp-borderpatrolsurveillance-december2019.pdf" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 text-sm underline block mb-1">
+                      {t('legal.linkDhsBorderPrivacy')}
+                    </a>
+                    <a href="https://www.aclu.org/know-your-rights/border-zone" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 text-sm underline block">
+                      {t('legal.linkAcluBorderZone')}
+                    </a>
+                  </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* Warrants Explained Section */}
+          <div className="mt-12 pt-8 border-t border-slate-700">
+            <h2 className="text-2xl font-black text-white mb-2">{t('legal.understandingWarrantsTitle')}</h2>
+            <p className="text-slate-400 text-sm mb-6">{t('legal.understandingWarrantsSubtitle')}</p>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Judicial Warrant */}
+              <div className="bg-gradient-to-br from-green-950/50 to-green-900/30 border border-green-800/50 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <FileText size={28} weight="bold" className="text-green-400" />
+                  <h3 className="text-xl font-black text-green-400">{t('legal.judicialWarrant')}</h3>
+                </div>
+                <div className="space-y-3">
+                  <p className="text-green-100 text-sm flex items-start gap-2">
+                    <Check size={14} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                    <span dangerouslySetInnerHTML={{ __html: t('legal.judicialSignedByJudge') }} />
+                  </p>
+                  <p className="text-green-100 text-sm flex items-start gap-2">
+                    <Check size={14} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                    <span>{t('legal.judicialAuthorizesEntry')}</span>
+                  </p>
+                  <p className="text-green-100 text-sm flex items-start gap-2">
+                    <Check size={14} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                    <span>{t('legal.judicialMustName')}</span>
+                  </p>
+                  <p className="text-green-100 text-sm flex items-start gap-2">
+                    <Check size={14} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
+                    <span>{t('legal.judicialDistrictCourt')}</span>
+                  </p>
+                </div>
+                <div className="mt-4 p-3 bg-green-950/50 rounded-xl">
+                  <p className="text-green-200 text-xs font-bold">{t('legal.judicialIfPresented')}</p>
+                </div>
+              </div>
+
+              {/* Administrative Warrant */}
+              <div className="bg-gradient-to-br from-red-950/50 to-red-900/30 border border-red-800/50 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <FileText size={28} weight="bold" className="text-red-400" />
+                  <h3 className="text-xl font-black text-red-400">{t('legal.administrativeWarrant')}</h3>
+                </div>
+                <div className="space-y-3">
+                  <p className="text-red-100 text-sm flex items-start gap-2">
+                    <X size={14} weight="bold" className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <span dangerouslySetInnerHTML={{ __html: t('legal.adminSignedByIce') }} />
+                  </p>
+                  <p className="text-red-100 text-sm flex items-start gap-2">
+                    <X size={14} weight="bold" className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <span>{t('legal.adminDoesNotAuthorize')}</span>
+                  </p>
+                  <p className="text-red-100 text-sm flex items-start gap-2">
+                    <X size={14} weight="bold" className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <span>{t('legal.adminFormNumbers')}</span>
+                  </p>
+                  <p className="text-red-100 text-sm flex items-start gap-2">
+                    <X size={14} weight="bold" className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <span>{t('legal.adminDhsAtTop')}</span>
+                  </p>
+                </div>
+                <div className="mt-4 p-3 bg-red-950/50 rounded-xl">
+                  <p className="text-red-200 text-xs font-bold">{t('legal.adminIfPresented')}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+              <p className="text-slate-300 text-sm">
+                <strong>{t('legal.officialReference')}</strong>{' '}
+                <a href="https://www.ice.gov/sites/default/files/documents/Document/2017/adminWarrantvJudicialWarrant.pdf" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                  {t('legal.linkWarrantComparison')}
+                </a>
+              </p>
+            </div>
+          </div>
+
+          {/* For Witnesses Section */}
+          <div className="mt-12 pt-8 border-t border-slate-700">
+            <h2 className="text-2xl font-black text-white mb-2">{t('legal.forWitnessesTitle')}</h2>
+            <p className="text-slate-400 text-sm mb-6">{t('legal.forWitnessesSubtitle')}</p>
+
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+              <button
+                onClick={() => setExpandedAmendments(prev => {
+                  const next = new Set(prev);
+                  if (next.has('witness')) next.delete('witness');
+                  else next.add('witness');
+                  return next;
+                })}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <Eye size={24} weight="bold" className="text-pink-400" />
+                  <h3 className="text-xl font-bold text-white">{t('legal.witnessingEncounter')}</h3>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedAmendments.has('witness') ? 90 : 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                </motion.div>
+              </button>
+              <AnimatePresence>
+                {expandedAmendments.has('witness') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-br from-pink-950 to-pink-900 p-6 border-t border-pink-800">
+                  <div className="space-y-3">
+                    <div className="bg-pink-950/30 p-4 rounded-xl border border-pink-800/30">
+                      <p className="text-pink-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>You Can Record:</strong> The First Amendment protects your right to record police and ICE in public spaces where you are legally present.</span>
+                      </p>
+                    </div>
+                    <div className="bg-pink-950/30 p-4 rounded-xl border border-pink-800/30">
+                      <p className="text-pink-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Keep Distance:</strong> Stay at least 8-10 feet away. Do not physically interfere with the encounter.</span>
+                      </p>
+                    </div>
+                    <div className="bg-pink-950/30 p-4 rounded-xl border border-pink-800/30">
+                      <p className="text-pink-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Document Details:</strong> Note badge numbers, vehicle plates, number of agents, time, and location.</span>
+                      </p>
+                    </div>
+                    <div className="bg-pink-950/30 p-4 rounded-xl border border-pink-800/30">
+                      <p className="text-pink-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>If Ordered to Stop Recording:</strong> Calmly state: "I am exercising my First Amendment right to record in public."</span>
+                      </p>
+                    </div>
+                    <div className="bg-pink-950/30 p-4 rounded-xl border border-pink-800/30">
+                      <p className="text-pink-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Warning size={16} weight="bold" className="text-amber-400 flex-shrink-0 mt-0.5" /> <span><strong>Do NOT Delete:</strong> If agents demand you delete footage, you do not have to comply. Deleting evidence may actually harm your legal position.</span>
+                      </p>
+                    </div>
+                    <div className="bg-pink-950/30 p-4 rounded-xl border border-pink-800/30">
+                      <p className="text-pink-100 text-sm leading-relaxed flex items-start gap-2">
+                        <Check size={16} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" /> <span><strong>Backup Immediately:</strong> Upload recordings to cloud storage as soon as safely possible.</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-pink-800/50">
+                    <p className="text-pink-300 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.officialSources')}</p>
+                    <a href="https://www.justice.gov/crt/addressing-police-misconduct-laws-enforced-department-justice" target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:text-pink-300 text-sm underline block mb-1">
+                      {t('legal.linkDojMisconductWitness')}
+                    </a>
+                    <a href="https://www.uscourts.gov/about-federal-courts/educational-resources/about-educational-outreach/activity-resources/what-does" target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:text-pink-300 text-sm underline block mb-1">
+                      {t('legal.link1stAmendmentRightsWitness')}
+                    </a>
+                    <a href="https://www.aclu.org/know-your-rights/photographers-what-to-do-if-you-are-stopped-or-detained-for-taking-photographs" target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:text-pink-300 text-sm underline block">
+                      {t('legal.linkAcluPhotographers')}
+                    </a>
+                  </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* State-Specific Guides Section */}
           <div className="mt-12 pt-8 border-t border-slate-700">
-            <h2 className="text-2xl font-black text-white mb-2">State-Specific Guides</h2>
-            <p className="text-slate-400 text-sm mb-6">Select your state to view recording and consent laws.</p>
+            <h2 className="text-2xl font-black text-white mb-2">{t('legal.stateGuidesTitle')}</h2>
+            <p className="text-slate-400 text-sm mb-6">{t('legal.stateGuidesSubtitle')}</p>
 
             {/* State Selector */}
             <div className="mb-6">
               <label className="text-slate-500 text-xs font-bold uppercase tracking-wider block mb-2">
-                SELECT STATE
+                {t('legal.selectStateLabel')}
               </label>
               <select
                 value={selectedState}
@@ -1385,8 +2881,8 @@ User question: ${input}`
                 {/* State Header */}
                 <div className="p-6 flex justify-between items-start">
                   <h3 className="text-3xl font-black text-white">{stateGuides[selectedState].name}</h3>
-                  <div className="text-right">
-                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">RELEVANT STATUTES</p>
+                  <div className="text-end">
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.relevantStatutes')}</p>
                     {stateGuides[selectedState].statutes.map((statute, idx) => (
                       <p key={idx} className="text-slate-300 text-sm">{statute}</p>
                     ))}
@@ -1402,7 +2898,7 @@ User question: ${input}`
 
                 {/* Public Recording Rights */}
                 <div className="px-6 pb-6">
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">PUBLIC RECORDING RIGHTS</p>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">{t('legal.publicRecordingRightsLabel')}</p>
                   <div className="space-y-2">
                     {stateGuides[selectedState].publicRecordingRights.map((right, idx) => (
                       <p key={idx} className="text-slate-300 text-sm flex items-start gap-2">
@@ -1415,7 +2911,7 @@ User question: ${input}`
 
                 {/* Conversation Rules */}
                 <div className="px-6 pb-6">
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">CONVERSATION RULES</p>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">{t('legal.conversationRulesLabel')}</p>
                   <div className="space-y-2">
                     {stateGuides[selectedState].conversationRules.map((rule, idx) => (
                       <p key={idx} className="text-slate-300 text-sm flex items-start gap-2">
@@ -1432,7 +2928,7 @@ User question: ${input}`
 
                 {/* Critical Awareness Box */}
                 <div className="mx-6 mb-6 bg-amber-950/30 border border-amber-900/50 rounded-xl p-5">
-                  <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">CRITICAL AWARENESS</p>
+                  <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.criticalAwarenessLabel')}</p>
                   <p className="text-white text-sm leading-relaxed italic">
                     "{stateGuides[selectedState].criticalAwareness}"
                   </p>
@@ -1441,7 +2937,7 @@ User question: ${input}`
                 {/* Official Resources */}
                 {stateGuides[selectedState].links && (
                   <div className="px-6 pb-6">
-                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">OFFICIAL RESOURCES</p>
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">{t('legal.officialResourcesLabel')}</p>
                     <div className="space-y-1">
                       {stateGuides[selectedState].links.map((link, idx) => (
                         <a
@@ -1463,44 +2959,301 @@ User question: ${input}`
             {/* Nietzsche Quote */}
             <div className="text-center mt-10 mb-8">
               <p className="text-slate-400 italic text-sm mb-2">
-                "He who has a why to live can bear almost any how."
+                {t('legal.nietzscheQuote')}
               </p>
-              <p className="text-slate-500 text-xs">— FRIEDRICH NIETZSCHE</p>
+              <p className="text-slate-500 text-xs">{t('legal.nietzscheAuthor')}</p>
             </div>
 
             {/* Disclaimer */}
-            <div className="text-center mb-6">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Warning size={16} weight="bold" className="text-amber-500" />
-                <h3 className="text-amber-400 font-medium text-xs tracking-wider">DISCLAIMER</h3>
-              </div>
-              <p className="text-slate-500 text-xs mb-1">
-                This app shares general info on your rights — not legal advice.
-              </p>
-              <p className="text-slate-500 text-xs mb-1">
-                I'm not a lawyer, and accuracy isn't guaranteed.
-              </p>
-              <p className="text-slate-500 text-xs mb-1">
-                For legal help, talk to a licensed attorney.
-              </p>
-              <p className="text-slate-500 text-xs">
-                Use this info at your own discretion.
-              </p>
+            <div className="mb-6">
+              <Disclaimer>
+                {t('legal.disclaimerLine1')}
+                <br />{t('legal.disclaimerLine2')}
+                <br />{t('legal.disclaimerLine3')}
+                <br />{t('legal.disclaimerLine4')}
+              </Disclaimer>
             </div>
 
             {/* Install CTA */}
             <div className="text-center">
-              <button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto">
+              <button
+                onClick={() => {
+                  if (window.deferredPrompt) {
+                    window.deferredPrompt.prompt();
+                    window.deferredPrompt.userChoice.then((choice) => {
+                      if (choice.outcome === 'accepted') {
+                        console.log('User accepted install');
+                      }
+                      window.deferredPrompt = null;
+                    });
+                  } else {
+                    alert(t('legal.installAlert'));
+                  }
+                }}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto"
+              >
                 <DownloadSimple size={18} weight="bold" />
-                INSTALL BROWSERLESS APP
+                {t('legal.installButton')}
               </button>
               <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
-                Recommended for offline & secure use
+                {t('legal.installRecommended')}
               </p>
+              <button
+                onClick={() => setShowInstallHelp(true)}
+                className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
+              >
+                {t('legal.installHelp')}
+              </button>
             </div>
           </div>
         </div>
       )}
+      {view === 'status' && (
+        <div className="space-y-6">
+          {/* Disclaimer */}
+          <Disclaimer section="legal" />
+
+          {/* NEVER SIGN WARNING BANNER */}
+          <div
+            className="group relative bg-gradient-to-br from-red-950/60 to-red-900/40 border border-red-800/60 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 hover:-translate-y-0.5"
+            onClick={() => setNeverSignExpanded(prev => !prev)}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-transparent group-hover:from-red-500/5 group-hover:to-rose-500/5 rounded-2xl transition-all duration-300 pointer-events-none" />
+            <div className="p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ProhibitInset size={28} weight="bold" className="text-red-400 shrink-0" />
+                <div>
+                  <h3 className="text-red-300 font-black text-base uppercase tracking-wider">{NEVER_SIGN_WARNING.title}</h3>
+                  <p className="text-red-200/70 text-xs mt-0.5">{NEVER_SIGN_WARNING.summary}</p>
+                </div>
+              </div>
+              <motion.div animate={{ rotate: neverSignExpanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
+                <CaretRight size={20} weight="bold" className="text-red-400" />
+              </motion.div>
+            </div>
+            <AnimatePresence>
+              {neverSignExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-5 pb-5 space-y-3 border-t border-red-800/40 pt-4">
+                    {NEVER_SIGN_WARNING.forms.map((form, i) => (
+                      <div key={i} className="flex items-start gap-2.5">
+                        <X size={16} weight="bold" className="text-red-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-red-200 text-sm font-bold">{form.name}</p>
+                          <p className="text-red-200/60 text-xs leading-relaxed mt-0.5">{form.danger}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* PERSONA SELECTOR CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {Object.values(STATUS_PERSONAS).map(persona => {
+              const isSelected = selectedStatus === persona.id;
+              const colorMap = {
+                red: { bg: 'from-red-950/70 to-red-900/50', border: 'border-red-700/60', text: 'text-red-300', glow: 'shadow-[0_0_20px_rgba(239,68,68,0.2)]', selectedBg: 'from-red-900/80 to-red-800/60' },
+                emerald: { bg: 'from-emerald-950/70 to-emerald-900/50', border: 'border-emerald-700/60', text: 'text-emerald-300', glow: 'shadow-[0_0_20px_rgba(52,211,153,0.2)]', selectedBg: 'from-emerald-900/80 to-emerald-800/60' },
+                amber: { bg: 'from-amber-950/70 to-amber-900/50', border: 'border-amber-700/60', text: 'text-amber-300', glow: 'shadow-[0_0_20px_rgba(251,191,36,0.2)]', selectedBg: 'from-amber-900/80 to-amber-800/60' },
+              };
+              const c = colorMap[persona.color];
+              const IconComponent = persona.id === 'undocumented' ? User : persona.id === 'greenCard' ? CreditCard : Lifebuoy;
+              const hoverStyles = {
+                red: { hover: 'hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5', overlay: 'group-hover:from-red-500/5 group-hover:to-rose-500/5', iconBorder: 'group-hover:border-red-500/30' },
+                emerald: { hover: 'hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5', overlay: 'group-hover:from-emerald-500/5 group-hover:to-teal-500/5', iconBorder: 'group-hover:border-emerald-500/30' },
+                amber: { hover: 'hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5', overlay: 'group-hover:from-amber-500/5 group-hover:to-orange-500/5', iconBorder: 'group-hover:border-amber-500/30' },
+              };
+              const h = hoverStyles[persona.color];
+              return (
+                <button
+                  key={persona.id}
+                  onClick={() => {
+                    setSelectedStatus(isSelected ? null : persona.id);
+                    setExpandedStatus(new Set());
+                  }}
+                  className={`group relative text-start p-4 rounded-2xl border transition-all duration-300 active:scale-95 ${
+                    isSelected
+                      ? `bg-gradient-to-br ${c.selectedBg} ${c.border} ${c.glow} scale-[1.02]`
+                      : `bg-gradient-to-br ${c.bg} border-slate-700/40 ${h.hover} hover:-translate-y-0.5`
+                  }`}
+                >
+                  {!isSelected && <div className={`absolute inset-0 bg-gradient-to-br from-transparent to-transparent ${h.overlay} rounded-2xl transition-all duration-300 pointer-events-none`} />}
+                  <div className="relative flex items-center gap-3 mb-2">
+                    <div className={`p-2 bg-slate-800 rounded-xl border border-slate-700/50 ${!isSelected ? h.iconBorder : ''} transition-all`}>
+                      <IconComponent size={20} weight="bold" className={isSelected ? c.text : 'text-slate-400'} />
+                    </div>
+                    <h3 className={`font-black text-sm uppercase tracking-wider ${isSelected ? c.text : 'text-slate-300'}`}>
+                      {persona.label}
+                    </h3>
+                  </div>
+                  <p className={`relative text-xs leading-relaxed ${isSelected ? `${c.text} opacity-80` : 'text-slate-500'}`}>
+                    {persona.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* SELECTED PERSONA CONTENT */}
+          <AnimatePresence mode="wait">
+            {selectedStatus && (
+              <motion.div
+                key={selectedStatus}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-3"
+              >
+                {(selectedStatus === 'undocumented' ? UNDOCUMENTED_SECTIONS :
+                  selectedStatus === 'greenCard' ? GREEN_CARD_SECTIONS :
+                  ASYLUM_SECTIONS
+                ).map(section => {
+                  const persona = STATUS_PERSONAS[selectedStatus];
+                  const colorMap = {
+                    red: { bg: 'from-red-950/40 to-red-900/20', border: 'border-red-800/40', text: 'text-red-300', itemText: 'text-red-100', itemDim: 'text-red-200/60', critBg: 'from-red-950/60 to-red-900/40', critBorder: 'border-red-700/60' },
+                    emerald: { bg: 'from-emerald-950/40 to-emerald-900/20', border: 'border-emerald-800/40', text: 'text-emerald-300', itemText: 'text-emerald-100', itemDim: 'text-emerald-200/60', critBg: 'from-red-950/60 to-red-900/40', critBorder: 'border-red-700/60' },
+                    amber: { bg: 'from-amber-950/40 to-amber-900/20', border: 'border-amber-800/40', text: 'text-amber-300', itemText: 'text-amber-100', itemDim: 'text-amber-200/60', critBg: 'from-red-950/60 to-red-900/40', critBorder: 'border-red-700/60' },
+                  };
+                  const c = section.urgency === 'critical' ? { ...colorMap[persona.color], bg: colorMap[persona.color].critBg, border: colorMap[persona.color].critBorder, text: 'text-red-300', itemText: 'text-red-100', itemDim: 'text-red-200/60' } : colorMap[persona.color];
+                  const isExpanded = expandedStatus.has(section.id);
+
+                  return (
+                    <div
+                      key={section.id}
+                      className={`bg-gradient-to-br ${c.bg} border ${c.border} rounded-2xl overflow-hidden transition-all`}
+                    >
+                      <button
+                        onClick={() => setExpandedStatus(prev => {
+                          const next = new Set(prev);
+                          if (next.has(section.id)) next.delete(section.id);
+                          else next.add(section.id);
+                          return next;
+                        })}
+                        className="w-full p-4 flex items-center justify-between text-start"
+                      >
+                        <div className="flex items-center gap-3">
+                          {section.urgency === 'critical' && <ProhibitInset size={20} weight="bold" className="text-red-400 shrink-0" />}
+                          <h3 className={`font-black text-sm uppercase tracking-wider ${c.text}`}>{section.title}</h3>
+                          {section.urgency === 'critical' && (
+                            <span className="text-[9px] font-black uppercase tracking-widest bg-red-900/60 text-red-300 px-2 py-0.5 rounded-full border border-red-700/50">{t('legal.criticalBadge')}</span>
+                          )}
+                        </div>
+                        <motion.div animate={{ rotate: isExpanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
+                          <CaretRight size={18} weight="bold" className={c.text} />
+                        </motion.div>
+                      </button>
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-4 pb-4 space-y-4">
+                              {section.items.map((item, i) => (
+                                <div key={i} className="flex items-start gap-2.5">
+                                  <Check size={16} weight="bold" className={`${c.text} shrink-0 mt-0.5`} />
+                                  <div>
+                                    <p className={`${c.itemText} text-sm font-bold`}>{item.title}</p>
+                                    <p className={`${c.itemDim} text-xs leading-relaxed mt-1`}>{item.description}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* EVERYONE SHOULD KNOW — always visible */}
+          <div className="space-y-2">
+            <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest px-1 pt-4">{t('legal.everyoneShouldKnow')}</h2>
+            {SHARED_SECTIONS.map(section => {
+              const isExpanded = expandedStatus.has(section.id);
+              return (
+                <div
+                  key={section.id}
+                  className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/30 border border-slate-700/40 rounded-2xl overflow-hidden transition-all duration-300 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 hover:-translate-y-0.5"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-transparent to-transparent group-hover:from-blue-500/5 group-hover:to-purple-500/5 rounded-2xl transition-all duration-300 pointer-events-none" />
+                  <button
+                    onClick={() => setExpandedStatus(prev => {
+                      const next = new Set(prev);
+                      if (next.has(section.id)) next.delete(section.id);
+                      else next.add(section.id);
+                      return next;
+                    })}
+                    className="w-full p-4 flex items-center justify-between text-start"
+                  >
+                    <h3 className="font-black text-sm uppercase tracking-wider text-slate-300">{section.title}</h3>
+                    <motion.div animate={{ rotate: isExpanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
+                      <CaretRight size={18} weight="bold" className="text-slate-400" />
+                    </motion.div>
+                  </button>
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-4 pb-4 space-y-4">
+                          {section.items.map((item, i) => (
+                            <div key={i} className="flex items-start gap-2.5">
+                              <Check size={16} weight="bold" className="text-blue-400 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-slate-200 text-sm font-bold">{item.title}</p>
+                                <p className="text-slate-400 text-xs leading-relaxed mt-1">{item.description}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Install button */}
+          <div className="text-center mt-8 space-y-2">
+            <div className="flex items-center justify-center gap-2 text-slate-500 text-xs">
+              <DownloadSimple size={14} weight="bold" />
+              <span className="font-semibold uppercase tracking-wider">{t('legal.installOfflineAccess')}</span>
+            </div>
+            <button
+              onClick={() => setShowInstallHelp(true)}
+              className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
+            >
+              {t('legal.installHelp')}
+            </button>
+          </div>
+        </div>
+      )}
+      {view === 'directory' && (
+        <LegalDirectory />
+      )}
+      <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>
   );
 }

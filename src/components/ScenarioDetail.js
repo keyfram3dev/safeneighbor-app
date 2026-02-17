@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Copy, Check, CaretRight, CaretLeft, Shield, BookOpen, Warning, House, User, Megaphone, VideoCamera, Car, Buildings, Scales, FileText, Prohibit, Wrench, DoorOpen, X, FlowerLotus } from '@phosphor-icons/react';
+import { ArrowLeft, Copy, Check, CaretRight, CaretLeft, Shield, BookOpen, Warning, House, User, Megaphone, VideoCamera, Car, Buildings, Scales, FileText, Prohibit, Wrench, DoorOpen, X, FlowerLotus, PersonSimpleTaiChiIcon as PersonSimpleTaiChi, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit } from '@phosphor-icons/react';
 import { scenarios } from '../data/scenarioData';
 
 // Map icon string identifiers to Phosphor components
@@ -30,17 +31,10 @@ const ScenarioIcon = ({ iconName, size = 48, className = '', weight = 'bold' }) 
   return <IconComponent size={size} weight={weight} className={className} />;
 };
 
-// Stoic quotes for calm during emergency
-const stoicQuotes = [
-  { quote: "You have power over your mind — not outside events. Realize this, and you will find strength.", author: "Marcus Aurelius" },
-  { quote: "It's not what happens to you, but how you react to it that matters.", author: "Epictetus" },
-  { quote: "The soul becomes dyed with the color of its thoughts.", author: "Marcus Aurelius" },
-  { quote: "Difficulties strengthen the mind, as labor does the body.", author: "Seneca" },
-  { quote: "The impediment to action advances action. What stands in the way becomes the way.", author: "Marcus Aurelius" },
-];
 
 // Breathing Guide Component with Countdown Timer
 const BreathingGuide = ({ onComplete, onSkip }) => {
+  const { t } = useTranslation();
   const [phase, setPhase] = useState('ready'); // ready, inhale, hold, exhale, pause, complete
   const [isActive, setIsActive] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -168,13 +162,13 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
   // Get display text with countdown
   const getPhaseText = () => {
     switch (phase) {
-      case 'ready': return 'Tap to Start';
-      case 'inhale': return `Breathe In\n${countdown}`;
-      case 'hold': return `Hold\n${countdown}`;
-      case 'exhale': return `Breathe Out\n${countdown}`;
+      case 'ready': return t('scenarioDetail.tapToStart');
+      case 'inhale': return `${t('scenarioDetail.breatheIn')}\n${countdown}`;
+      case 'hold': return `${t('scenarioDetail.hold')}\n${countdown}`;
+      case 'exhale': return `${t('scenarioDetail.breatheOut')}\n${countdown}`;
       case 'pause': return '...';
-      case 'complete': return 'Well Done';
-      default: return 'Tap to Start';
+      case 'complete': return t('scenarioDetail.wellDone');
+      default: return t('scenarioDetail.tapToStart');
     }
   };
 
@@ -183,11 +177,11 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <FlowerLotus size={24} weight="bold" className="text-cyan-400" />
-        <h2 className="text-xl font-bold text-white">BREATHE FIRST</h2>
+        <h2 className="text-xl font-bold text-white">{t('scenarioDetail.breatheFirst')}</h2>
       </div>
 
       <p className="text-slate-300 text-sm mb-6">
-        Take 2-3 slow, deep breaths right now. Panic is the enemy of wisdom.
+        {t('scenarioDetail.breatheDescription')}
       </p>
 
       {/* Breathing Circle */}
@@ -200,7 +194,7 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
           <div className="text-white text-xl font-medium text-center">
             {phase === 'complete' ? (
               <div className="flex flex-col items-center gap-2">
-                <span>Well Done</span>
+                <span>{t('scenarioDetail.wellDone')}</span>
                 <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
                   <Check size={24} weight="bold" className="text-white" />
                 </div>
@@ -218,7 +212,7 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
               onClick={startBreathing}
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-blue-900/30"
             >
-              Begin Breathing
+              {t('scenarioDetail.beginBreathing')}
             </button>
           )}
           {isActive && (
@@ -226,7 +220,7 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
               onClick={resetGuide}
               className="text-slate-400 hover:text-white text-sm underline"
             >
-              Reset Guide
+              {t('scenarioDetail.resetGuide')}
             </button>
           )}
           {phase === 'complete' && (
@@ -234,7 +228,7 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
               onClick={onComplete}
               className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-green-900/30"
             >
-              I'm Ready →
+              {t('scenarioDetail.imReady')}
             </button>
           )}
         </div>
@@ -242,7 +236,7 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
 
       {/* Explanation */}
       <p className="text-slate-400 text-xs text-center mb-6">
-        Breathing reduces cortisol and allows your prefrontal cortex to regain control during high-stress encounters.
+        {t('scenarioDetail.breatheExplanation')}
       </p>
 
       {/* Skip Button */}
@@ -250,33 +244,43 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
         onClick={onSkip}
         className="w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white font-bold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2"
       >
-        Continue →
+        {t('scenarioDetail.continue')}
       </button>
 
       {/* Disclaimer */}
       <p className="text-slate-500 text-xs text-center mt-4">
-        Information is for educational purposes only. Calmly asserting rights can prevent escalation.
+        {t('scenarioDetail.breatheDisclaimer')}
       </p>
     </div>
   );
 };
 
-function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
+function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateToScenario }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState(initialMode);
   const [currentStep, setCurrentStep] = useState(0);
   const [copiedStep, setCopiedStep] = useState(null);
   const [showBreathingGuide, setShowBreathingGuide] = useState(true);
-  
+
   const scenario = scenarios[scenarioId];
+
+  // Stoic quotes for calm during emergency
+  const stoicQuotes = [
+    { quote: t('scenarioDetail.stoicQuote1'), author: t('scenarioDetail.stoicAuthor1') },
+    { quote: t('scenarioDetail.stoicQuote2'), author: t('scenarioDetail.stoicAuthor2') },
+    { quote: t('scenarioDetail.stoicQuote3'), author: t('scenarioDetail.stoicAuthor3') },
+    { quote: t('scenarioDetail.stoicQuote4'), author: t('scenarioDetail.stoicAuthor4') },
+    { quote: t('scenarioDetail.stoicQuote5'), author: t('scenarioDetail.stoicAuthor5') },
+  ];
   const randomQuote = stoicQuotes[Math.floor(Math.random() * stoicQuotes.length)];
 
   if (!scenario) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <button onClick={onBack} className="text-red-400 mb-4 flex items-center gap-2">
-          <ArrowLeft size={20} weight="bold" /> Back
+          <ArrowLeft size={20} weight="bold" className="rtl:scale-x-[-1]" /> {t('scenarioDetail.back')}
         </button>
-        <p className="text-slate-400">Scenario not found</p>
+        <p className="text-slate-400">{t('scenarioDetail.scenarioNotFound')}</p>
       </div>
     );
   }
@@ -325,12 +329,12 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
           onClick={onBack}
           className="text-slate-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"
         >
-          <ArrowLeft size={18} weight="bold" />
-          Back
+          <ArrowLeft size={18} weight="bold" className="rtl:scale-x-[-1]" />
+          {t('scenarioDetail.back')}
         </button>
         {mode === 'emergency' && (
           <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-            Active Encounter Track
+            {t('scenarioDetail.activeEncounterTrack')}
           </span>
         )}
       </div>
@@ -354,7 +358,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
             className="text-2xl font-bold text-white mb-2"
             transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
           >
-            {scenario.title}
+            {t(scenario.title)}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
@@ -362,7 +366,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
             transition={{ delay: 0.2, duration: 0.3 }}
             className="text-slate-400 text-sm"
           >
-            {scenario.description}
+            {t(scenario.description)}
           </motion.p>
         </motion.div>
       )}
@@ -383,7 +387,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
           }`}
         >
           <BookOpen size={18} weight="bold" />
-          Study Mode
+          {t('scenarioDetail.studyMode')}
         </button>
         <button
           onClick={enterEmergencyMode}
@@ -394,7 +398,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
           }`}
         >
           <Warning size={18} weight="bold" />
-          Emergency Mode
+          {t('scenarioDetail.emergencyMode')}
         </button>
       </motion.div>
 
@@ -414,19 +418,19 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5">
             <h3 className="text-lg font-bold mb-3 text-blue-400 flex items-center gap-2">
               <Shield size={20} weight="bold" />
-              Overview
+              {t('scenarioDetail.overview')}
             </h3>
-            <p className="text-slate-300 text-sm leading-relaxed">{scenario.studyContent.overview}</p>
+            <p className="text-slate-300 text-sm leading-relaxed">{t(scenario.studyContent.overview)}</p>
           </div>
 
           {/* Key Points */}
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5">
-            <h3 className="text-lg font-bold mb-3 text-green-400">Key Points</h3>
+            <h3 className="text-lg font-bold mb-3 text-green-400">{t('scenarioDetail.keyPoints')}</h3>
             <div className="space-y-2">
               {scenario.studyContent.keyPoints.map((point, idx) => (
                 <div key={idx} className="flex items-start gap-2">
                   <span className="text-green-500">•</span>
-                  <p className="text-slate-300 text-sm">{point}</p>
+                  <p className="text-slate-300 text-sm">{t(point)}</p>
                 </div>
               ))}
             </div>
@@ -438,21 +442,21 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
               <div className="mb-2">
                 <ScenarioIcon iconName={scenario.studyContent.warrantTypes.judicial.icon} size={32} className="text-red-400" />
               </div>
-              <h4 className="font-bold text-red-400 mb-2">{scenario.studyContent.warrantTypes.judicial.title}</h4>
-              <p className="text-slate-300 text-sm">{scenario.studyContent.warrantTypes.judicial.description}</p>
+              <h4 className="font-bold text-red-400 mb-2">{t(scenario.studyContent.warrantTypes.judicial.title)}</h4>
+              <p className="text-slate-300 text-sm">{t(scenario.studyContent.warrantTypes.judicial.description)}</p>
             </div>
             <div className="bg-amber-950/20 border border-amber-900/50 rounded-xl p-5">
               <div className="mb-2">
                 <ScenarioIcon iconName={scenario.studyContent.warrantTypes.administrative.icon} size={32} className="text-amber-400" />
               </div>
-              <h4 className="font-bold text-amber-400 mb-2">{scenario.studyContent.warrantTypes.administrative.title}</h4>
-              <p className="text-slate-300 text-sm">{scenario.studyContent.warrantTypes.administrative.description}</p>
+              <h4 className="font-bold text-amber-400 mb-2">{t(scenario.studyContent.warrantTypes.administrative.title)}</h4>
+              <p className="text-slate-300 text-sm">{t(scenario.studyContent.warrantTypes.administrative.description)}</p>
             </div>
           </div>
 
           {/* Step by Step Preview */}
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5">
-            <h3 className="text-lg font-bold mb-4 text-purple-400">Step-by-Step Guide</h3>
+            <h3 className="text-lg font-bold mb-4 text-purple-400">{t('scenarioDetail.stepByStepGuide')}</h3>
             <div className="space-y-3">
               {scenario.emergencyScript.map((step, idx) => (
                 <div key={idx} className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
@@ -461,11 +465,11 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
                       {step.step}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-white text-sm mb-1">{step.action}</h4>
+                      <h4 className="font-bold text-white text-sm mb-1">{t(step.action)}</h4>
                       {step.copyable && (
-                        <p className="text-blue-400 italic text-sm mb-1">"{step.script}"</p>
+                        <p className="text-blue-400 italic text-sm mb-1">"{t(step.script)}"</p>
                       )}
-                      <p className="text-slate-400 text-xs">{step.explanation}</p>
+                      <p className="text-slate-400 text-xs">{t(step.explanation)}</p>
                     </div>
                   </div>
                 </div>
@@ -508,7 +512,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <p className="text-center text-slate-500 text-xs">Step {currentStep + 1} of {totalSteps}</p>
+              <p className="text-center text-slate-500 text-xs">{t('scenarioDetail.stepProgress', { current: currentStep + 1, total: totalSteps })}</p>
 
               {/* Current Step Card */}
               <div className="bg-gradient-to-br from-slate-900/90 to-slate-950/90 backdrop-blur-sm border-2 border-red-600/50 rounded-2xl overflow-hidden">
@@ -519,7 +523,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
                       {currentStepData.step}
                     </div>
                     <h3 className="font-black text-white uppercase tracking-wide">
-                      {currentStepData.action}
+                      {t(currentStepData.action)}
                     </h3>
                   </div>
                 </div>
@@ -529,14 +533,14 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
                   {/* Script */}
                   <div className="bg-gradient-to-br from-slate-950 to-slate-900 rounded-xl p-5 mb-4 border border-slate-700/50">
                     <p className="text-xl text-white font-medium leading-relaxed">
-                      "{currentStepData.script}"
+                      {currentStepData.copyable ? `"${t(currentStepData.script)}"` : t(currentStepData.script)}
                     </p>
                   </div>
 
                   {/* Copy Button */}
                   {currentStepData.copyable && (
                     <button
-                      onClick={() => copyToClipboard(currentStepData.script, currentStep)}
+                      onClick={() => copyToClipboard(t(currentStepData.script), currentStep)}
                       className={`w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all mb-4 ${
                         copiedStep === currentStep
                           ? 'bg-green-600 text-white'
@@ -546,12 +550,12 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
                       {copiedStep === currentStep ? (
                         <>
                           <Check size={18} weight="bold" />
-                          Copied!
+                          {t('scenarioDetail.copied')}
                         </>
                       ) : (
                         <>
                           <Copy size={18} weight="bold" />
-                          Copy Script
+                          {t('scenarioDetail.copyScript')}
                         </>
                       )}
                     </button>
@@ -560,7 +564,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
                   {/* Explanation */}
                   <div className="bg-gradient-to-br from-blue-950/40 to-blue-900/30 backdrop-blur-sm border border-blue-900/40 rounded-xl p-4">
                     <p className="text-blue-300 text-sm">
-                      <span className="font-bold">Why:</span> {currentStepData.explanation}
+                      <span className="font-bold">{t('scenarioDetail.why')}:</span> {t(currentStepData.explanation)}
                     </p>
                   </div>
                 </div>
@@ -576,8 +580,8 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
                         : 'bg-slate-700 hover:bg-slate-600 text-white'
                     }`}
                   >
-                    <CaretLeft size={18} weight="bold" />
-                    Previous
+                    <CaretLeft size={18} weight="bold" className="rtl:scale-x-[-1]" />
+                    {t('scenarioDetail.previous')}
                   </button>
                   <button
                     onClick={nextStep}
@@ -588,8 +592,8 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
                         : 'bg-red-600 hover:bg-red-700 text-white'
                     }`}
                   >
-                    Next
-                    <CaretRight size={18} weight="bold" />
+                    {t('scenarioDetail.next')}
+                    <CaretRight size={18} weight="bold" className="rtl:scale-x-[-1]" />
                   </button>
                 </div>
               </div>
@@ -617,9 +621,46 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
                   onClick={() => setShowBreathingGuide(true)}
                   className="text-slate-400 hover:text-white text-sm underline"
                 >
-                  🧘 Need to breathe again?
+                  <PersonSimpleTaiChi size={18} weight="bold" className="inline-block me-1 align-text-bottom" /> {t('scenarioDetail.needToBreatheAgain')}
                 </button>
               </div>
+
+              {/* What's Next — links to Encounter Log & Post-Encounter Guide */}
+              {onNavigateToScenario && (
+                <div className="mt-8 pt-6 border-t border-slate-700/50">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 text-center">
+                    {t('scenarioDetail.whenEncounterOver')}
+                  </p>
+                  <div className="space-y-2.5">
+                    <button
+                      onClick={() => onNavigateToScenario({ id: 'encounter-log-after' })}
+                      className="w-full flex items-center gap-3 bg-gradient-to-br from-slate-800/60 to-slate-900/60 border border-amber-700/25 hover:border-amber-500/40 rounded-xl px-4 py-3.5 transition-all group"
+                    >
+                      <div className="p-2 bg-amber-950/40 rounded-lg border border-amber-700/20 group-hover:border-amber-500/30 transition-colors">
+                        <NotePencil size={18} weight="bold" className="text-amber-400" />
+                      </div>
+                      <div className="flex-1 text-start">
+                        <p className="text-white text-sm font-semibold">{t('scenarioDetail.documentWhatHappened')}</p>
+                        <p className="text-slate-500 text-xs">{t('scenarioDetail.logDetailsFresh')}</p>
+                      </div>
+                      <CaretRight size={16} weight="bold" className="text-slate-600 group-hover:text-amber-400 transition-colors" />
+                    </button>
+                    <button
+                      onClick={() => onNavigateToScenario({ id: 'post-encounter' })}
+                      className="w-full flex items-center gap-3 bg-gradient-to-br from-slate-800/60 to-slate-900/60 border border-emerald-700/25 hover:border-emerald-500/40 rounded-xl px-4 py-3.5 transition-all group"
+                    >
+                      <div className="p-2 bg-emerald-950/40 rounded-lg border border-emerald-700/20 group-hover:border-emerald-500/30 transition-colors">
+                        <FirstAidKit size={18} weight="bold" className="text-emerald-400" />
+                      </div>
+                      <div className="flex-1 text-start">
+                        <p className="text-white text-sm font-semibold">{t('scenarioDetail.whatNowNextSteps')}</p>
+                        <p className="text-slate-500 text-xs">{t('scenarioDetail.legalHelpComplaintsEvidence')}</p>
+                      </div>
+                      <CaretRight size={16} weight="bold" className="text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             )}
           </motion.div>
@@ -630,10 +671,10 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study' }) {
       <div className="mt-8 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
           <span className="text-amber-500">⚠️</span>
-          <h3 className="text-amber-400 font-medium text-xs tracking-wider">DISCLAIMER</h3>
+          <h3 className="text-amber-400 font-medium text-xs tracking-wider">{t('scenarioDetail.disclaimerTitle')}</h3>
         </div>
         <p className="text-slate-500 text-xs">
-          This is general information, not legal advice. Consult an attorney for your specific situation.
+          {t('scenarioDetail.disclaimerText')}
         </p>
       </div>
     </div>

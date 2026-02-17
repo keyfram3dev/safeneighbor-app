@@ -12,9 +12,11 @@ const CONTACTS_STORAGE_KEY = 'safeneighbor_trusted_contacts';
  * Handles creation and sharing of access packages for trusted contacts
  */
 export class AccessGrantManager {
-  constructor(encryptionKey, r2Credentials) {
+  constructor(encryptionKey, r2Credentials, options = {}) {
     this.encryptionKey = encryptionKey;
     this.r2Credentials = r2Credentials;
+    this.googleDriveEnabled = options.googleDriveEnabled || false;
+    this.googleDriveEmail = options.googleDriveEmail || '';
   }
 
   /**
@@ -130,6 +132,21 @@ Using SafeNeighbor App:
 ──────────────────────
 If you have access to a SafeNeighbor app installation, you can
 import the encryption key and download files directly.
+${this.googleDriveEnabled ? `
+───────────────────────────────────────────────────────────────
+                    GOOGLE DRIVE BACKUPS
+───────────────────────────────────────────────────────────────
+
+Recordings may also be backed up to Google Drive
+(account: ${this.googleDriveEmail || 'see original owner'}).
+
+Look for a folder called "SafeNeighbor Backups" in the
+Drive account. Files are .enc (encrypted) and need the
+encryption key above to decrypt.
+
+The Drive folder owner will need to share access with you,
+or you can ask them to download and share the files directly.
+` : ''}
 
 ───────────────────────────────────────────────────────────────
                         LEGAL NOTICE
@@ -229,7 +246,7 @@ export const getTrustedContacts = () => {
 
 /**
  * Add a trusted contact
- * @param {Object} contact - { name, email, relationship }
+ * @param {Object} contact - { name, email, phone, relationship }
  * @returns {Object} The added contact with ID
  */
 export const addTrustedContact = (contact) => {

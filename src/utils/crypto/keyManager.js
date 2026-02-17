@@ -2,13 +2,15 @@
 // Encryption key management for local data encryption
 // Generates, stores, and retrieves the master encryption key
 // Uses IndexedDB for secure key storage (keys not visible in DevTools localStorage)
-// Optionally derives key from PIN for additional security
+// Supports PIN-derived key wrapping: master key is encrypted with a KEK derived
+// from the user's PIN via PBKDF2, so the raw key never sits on disk
 
 import { generateKey, importKey } from './crypto.web';
 
 // localStorage keys (for metadata only, not the actual key)
 const ENCRYPTION_ENABLED_KEY = 'safeneighbor_encryption_enabled';
 const KEY_VERSION_KEY = 'safeneighbor_key_version';
+const KEY_WRAPPED_FLAG = 'safeneighbor_key_wrapped';
 
 // Legacy localStorage key (for migration)
 const LEGACY_KEY_STORAGE = 'safeneighbor_master_key';
@@ -18,6 +20,11 @@ const DB_NAME = 'safeneighbor_crypto';
 const DB_VERSION = 1;
 const KEY_STORE = 'keys';
 const MASTER_KEY_ID = 'master_key';
+const WRAPPED_KEY_ID = 'master_key_wrapped';
+
+// PBKDF2 configuration for key wrapping
+const PBKDF2_ITERATIONS = 100000;
+const SALT_LENGTH = 16;
 
 // In-memory cache of the decrypted key (cleared on page refresh)
 let cachedKey = null;
@@ -87,6 +94,22 @@ const getKeyFromDB = async (id) => {
 };
 
 /**
+ * Retrieve a record from IndexedDB (for wrapped key which stores more than just a CryptoKey)
+ * @param {string} id - Record identifier
+ * @returns {Promise<Object|null>}
+ */
+const getRecordFromDB = async (id) => {
+  const db = await getDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([KEY_STORE], 'readonly');
+    const store = transaction.objectStore(KEY_STORE);
+    const request = store.get(id);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result || null);
+  });
+};
+
+/**
  * Delete a key from IndexedDB
  * @param {string} id - Key identifier
  * @returns {Promise<void>}
@@ -123,15 +146,9 @@ const migrateFromLocalStorage = async () => {
   }
 
   try {
-    // Import the legacy key
     const cryptoKey = await importKey(legacyKey);
-
-    // Store in IndexedDB
     await storeKeyInDB(MASTER_KEY_ID, cryptoKey);
-
-    // Remove from localStorage (it's now secure in IndexedDB)
     localStorage.removeItem(LEGACY_KEY_STORAGE);
-
     console.log('Encryption key migrated from localStorage to IndexedDB');
     return true;
   } catch (error) {
@@ -140,6 +157,177 @@ const migrateFromLocalStorage = async () => {
   }
 };
 
+// ============================================
+// PIN-DERIVED KEY WRAPPING (AES-KW)
+// ============================================
+
+/**
+ * Derive a Key Encryption Key (KEK) from PIN using PBKDF2
+ * @param {string} pin - User's PIN
+ * @param {Uint8Array} salt - PBKDF2 salt
+ * @returns {Promise<CryptoKey>} KEK suitable for AES-KW
+ */
+const deriveKEK = async (pin, salt) => {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(pin),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    { name: 'AES-KW', length: 256 },
+    false,
+    ['wrapKey', 'unwrapKey']
+  );
+};
+
+/**
+ * Check if the master key is currently wrapped (PIN-protected on disk)
+ * @returns {boolean}
+ */
+export const isKeyWrapped = () => {
+  return localStorage.getItem(KEY_WRAPPED_FLAG) === 'true';
+};
+
+/**
+ * Check if master key is currently available in memory
+ * @returns {boolean}
+ */
+export const isMasterKeyInMemory = () => {
+  return cachedKey !== null;
+};
+
+/**
+ * Wrap the master key with a PIN-derived KEK
+ * After this, the raw key is deleted from IndexedDB — only the wrapped blob remains
+ * @param {string} pin - User's PIN
+ * @returns {Promise<void>}
+ */
+export const wrapMasterKeyWithPin = async (pin) => {
+  const masterKey = cachedKey || await getMasterKey();
+  if (!masterKey) throw new Error('No master key to wrap');
+
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const kek = await deriveKEK(pin, salt);
+  const wrappedKey = await crypto.subtle.wrapKey('raw', masterKey, kek, 'AES-KW');
+
+  // Atomic: store wrapped key + delete raw key in one transaction
+  const db = await getDatabase();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction([KEY_STORE], 'readwrite');
+    const store = tx.objectStore(KEY_STORE);
+    store.put({
+      id: WRAPPED_KEY_ID,
+      wrappedKey: new Uint8Array(wrappedKey),
+      salt: salt,
+      wrappedAt: Date.now()
+    });
+    store.delete(MASTER_KEY_ID);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+
+  localStorage.setItem(KEY_WRAPPED_FLAG, 'true');
+  // Keep cachedKey in memory for current session
+};
+
+/**
+ * Unwrap the master key using PIN (loads into memory cache only)
+ * @param {string} pin - User's PIN
+ * @returns {Promise<CryptoKey>} The unwrapped master key
+ */
+export const unwrapMasterKeyWithPin = async (pin) => {
+  const record = await getRecordFromDB(WRAPPED_KEY_ID);
+  if (!record || !record.wrappedKey || !record.salt) {
+    throw new Error('No wrapped key found');
+  }
+
+  const salt = record.salt instanceof Uint8Array ? record.salt : new Uint8Array(record.salt);
+  const wrappedData = record.wrappedKey instanceof Uint8Array ? record.wrappedKey : new Uint8Array(record.wrappedKey);
+
+  const kek = await deriveKEK(pin, salt);
+
+  const masterKey = await crypto.subtle.unwrapKey(
+    'raw',
+    wrappedData,
+    kek,
+    'AES-KW',
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+
+  cachedKey = masterKey;
+  return masterKey;
+};
+
+/**
+ * Re-wrap the cached master key with a new PIN
+ * Assumes master key is already in memory (from a previous unwrap)
+ * @param {string} newPin - New PIN to wrap with
+ * @returns {Promise<void>}
+ */
+export const rewrapMasterKeyWithPin = async (newPin) => {
+  if (!cachedKey) throw new Error('Master key not in memory — unwrap first');
+
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const kek = await deriveKEK(newPin, salt);
+  const wrappedKey = await crypto.subtle.wrapKey('raw', cachedKey, kek, 'AES-KW');
+
+  const db = await getDatabase();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction([KEY_STORE], 'readwrite');
+    const store = tx.objectStore(KEY_STORE);
+    store.put({
+      id: WRAPPED_KEY_ID,
+      wrappedKey: new Uint8Array(wrappedKey),
+      salt: salt,
+      wrappedAt: Date.now()
+    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+};
+
+/**
+ * Remove key wrapping — unwrap and store the raw key permanently
+ * Called when user removes their PIN
+ * @param {string} pin - Current PIN for unwrapping
+ * @returns {Promise<void>}
+ */
+export const removeKeyWrapping = async (pin) => {
+  if (!cachedKey) {
+    await unwrapMasterKeyWithPin(pin);
+  }
+
+  // Store raw key back in IndexedDB and delete wrapped key atomically
+  const db = await getDatabase();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction([KEY_STORE], 'readwrite');
+    const store = tx.objectStore(KEY_STORE);
+    store.put({ id: MASTER_KEY_ID, key: cachedKey, createdAt: Date.now() });
+    store.delete(WRAPPED_KEY_ID);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+
+  localStorage.removeItem(KEY_WRAPPED_FLAG);
+};
+
+// ============================================
+// EXISTING PUBLIC API (updated where needed)
+// ============================================
+
 /**
  * Check if local encryption is enabled
  * Defaults to true (enabled) if not explicitly set
@@ -147,13 +335,11 @@ const migrateFromLocalStorage = async () => {
  */
 export const isEncryptionEnabled = () => {
   const value = localStorage.getItem(ENCRYPTION_ENABLED_KEY);
-  // Default to enabled if never set
   return value === null || value === 'true';
 };
 
 /**
  * Enable or disable encryption
- * Note: Disabling doesn't decrypt existing data
  * @param {boolean} enabled
  */
 export const setEncryptionEnabled = (enabled) => {
@@ -161,7 +347,7 @@ export const setEncryptionEnabled = (enabled) => {
 };
 
 /**
- * Get the current key version (for key rotation tracking)
+ * Get the current key version
  * @returns {number}
  */
 export const getKeyVersion = () => {
@@ -170,21 +356,28 @@ export const getKeyVersion = () => {
 };
 
 /**
- * Check if a master key exists (async, checks IndexedDB)
+ * Check if a master key exists in any form (raw, wrapped, or legacy)
  * @returns {Promise<boolean>}
  */
 export const hasMasterKey = async () => {
-  // Check IndexedDB first
+  if (cachedKey) return true;
+
+  // Check for wrapped key
+  if (isKeyWrapped()) {
+    const record = await getRecordFromDB(WRAPPED_KEY_ID);
+    if (record) return true;
+  }
+
+  // Check for raw key in IndexedDB
   const hasInDB = await hasKeyInDB(MASTER_KEY_ID);
   if (hasInDB) return true;
 
-  // Check legacy localStorage (migration pending)
+  // Check legacy localStorage
   return localStorage.getItem(LEGACY_KEY_STORAGE) !== null;
 };
 
 /**
  * Initialize encryption by generating a new master key
- * Should only be called once during initial setup
  * @returns {Promise<void>}
  */
 export const initializeEncryption = async () => {
@@ -194,10 +387,7 @@ export const initializeEncryption = async () => {
     return;
   }
 
-  // Generate a new key (extractable for potential backup needs)
   const key = await generateKey(true);
-
-  // Store in IndexedDB (more secure than localStorage)
   await storeKeyInDB(MASTER_KEY_ID, key);
 
   localStorage.setItem(KEY_VERSION_KEY, '1');
@@ -208,17 +398,20 @@ export const initializeEncryption = async () => {
 
 /**
  * Get the master encryption key
- * Returns from cache if available, otherwise loads from IndexedDB
- * Handles migration from localStorage if needed
+ * Returns from cache if available, otherwise loads unwrapped key from IndexedDB
+ * If key is wrapped, returns null — caller must use unwrapMasterKeyWithPin first
  * @returns {Promise<CryptoKey|null>}
  */
 export const getMasterKey = async () => {
-  // Return cached key if available
   if (cachedKey) {
     return cachedKey;
   }
 
-  // Try to get from IndexedDB first
+  // Don't try to load from DB if key is wrapped — it needs PIN
+  if (isKeyWrapped()) {
+    return null;
+  }
+
   try {
     const dbKey = await getKeyFromDB(MASTER_KEY_ID);
     if (dbKey) {
@@ -235,7 +428,6 @@ export const getMasterKey = async () => {
     try {
       const migrated = await migrateFromLocalStorage();
       if (migrated) {
-        // Try again from IndexedDB after migration
         const dbKey = await getKeyFromDB(MASTER_KEY_ID);
         if (dbKey) {
           cachedKey = dbKey;
@@ -251,15 +443,14 @@ export const getMasterKey = async () => {
 };
 
 /**
- * Clear the cached key (useful for security on lock)
+ * Clear the cached key from memory
  */
 export const clearCachedKey = () => {
   cachedKey = null;
 };
 
 /**
- * Rotate the encryption key (generates new key)
- * Note: This requires re-encrypting all existing data
+ * Rotate the encryption key
  * @returns {Promise<{oldKey: CryptoKey, newKey: CryptoKey}>}
  */
 export const rotateKey = async () => {
@@ -268,38 +459,37 @@ export const rotateKey = async () => {
     throw new Error('No existing key to rotate from');
   }
 
-  // Generate new key
   const newKey = await generateKey(true);
-
-  // Update IndexedDB
   await storeKeyInDB(MASTER_KEY_ID, newKey);
 
-  // Update version in localStorage
   const currentVersion = getKeyVersion();
   localStorage.setItem(KEY_VERSION_KEY, (currentVersion + 1).toString());
 
-  // Update cache
   cachedKey = newKey;
-
   return { oldKey, newKey };
 };
 
 /**
  * Delete the master key (for data wipe/purge)
- * WARNING: This makes all encrypted data unrecoverable
+ * WARNING: Makes all encrypted data unrecoverable
  * @returns {Promise<void>}
  */
 export const deleteMasterKey = async () => {
-  // Delete from IndexedDB
   try {
     await deleteKeyFromDB(MASTER_KEY_ID);
   } catch (error) {
     console.error('Failed to delete key from IndexedDB:', error);
   }
 
-  // Also remove legacy localStorage key if exists
+  try {
+    await deleteKeyFromDB(WRAPPED_KEY_ID);
+  } catch (error) {
+    // May not exist
+  }
+
   localStorage.removeItem(LEGACY_KEY_STORAGE);
   localStorage.removeItem(KEY_VERSION_KEY);
+  localStorage.removeItem(KEY_WRAPPED_FLAG);
   cachedKey = null;
 };
 
@@ -322,12 +512,17 @@ export const getEncryptionStatus = async () => {
 
 /**
  * Ensure encryption is set up (initialize if needed)
- * Call this on app startup
- * @returns {Promise<boolean>} True if encryption is ready
+ * If key is wrapped, returns whether it's already unwrapped in memory
+ * @returns {Promise<boolean>} True if encryption is ready to use
  */
 export const ensureEncryptionReady = async () => {
   if (!isEncryptionEnabled()) {
     return false;
+  }
+
+  // If key is wrapped, it exists but needs PIN to unwrap
+  if (isKeyWrapped()) {
+    return cachedKey !== null;
   }
 
   const hasKey = await hasMasterKey();

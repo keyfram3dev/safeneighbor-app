@@ -8,47 +8,44 @@ service cloud.firestore {
       // Anyone can read reports (needed for community awareness)
       allow read: if true;
 
-      // Create: Validate required fields and data bounds
+      // Create: Accept encrypted payload format OR legacy plaintext format
       allow create: if
-        // Required fields must exist
-        request.resource.data.keys().hasAll(['timestamp', 'lat', 'lng', 'description']) &&
-
-        // Latitude must be within US bounds (24-50°N)
-        request.resource.data.lat is number &&
-        request.resource.data.lat >= 24 &&
-        request.resource.data.lat <= 50 &&
-
-        // Longitude must be within US bounds (-125 to -66°W)
-        request.resource.data.lng is number &&
-        request.resource.data.lng >= -125 &&
-        request.resource.data.lng <= -66 &&
-
-        // Description must be string with reasonable length (10-500 chars)
-        request.resource.data.description is string &&
-        request.resource.data.description.size() >= 10 &&
-        request.resource.data.description.size() <= 500 &&
-
-        // Timestamp must be string (ISO format)
-        request.resource.data.timestamp is string &&
-
-        // Optional fields validation
-        (!('agents' in request.resource.data) ||
-          (request.resource.data.agents is int &&
-           request.resource.data.agents >= 0 &&
-           request.resource.data.agents <= 50)) &&
-
-        (!('vehicles' in request.resource.data) ||
-          (request.resource.data.vehicles is int &&
-           request.resource.data.vehicles >= 0 &&
-           request.resource.data.vehicles <= 20)) &&
-
-        // Verified must be boolean if present
-        (!('verified' in request.resource.data) ||
-          request.resource.data.verified is bool) &&
-
-        // Verifiers must be list if present
-        (!('verifiers' in request.resource.data) ||
-          request.resource.data.verifiers is list);
+        // New encrypted format: all sensitive fields in single encrypted payload
+        (request.resource.data.encryptedPayload is string &&
+         request.resource.data.encryptedPayload.size() >= 10 &&
+         request.resource.data.payloadVersion is int &&
+         request.resource.data.timestamp is string &&
+         request.resource.data.verified is bool &&
+         request.resource.data.verifiers is list)
+        ||
+        // Legacy plaintext format (backward compat for existing reports + encryption fallback)
+        (request.resource.data.keys().hasAll(['timestamp', 'lat', 'lng', 'description']) &&
+         request.resource.data.lat is number &&
+         request.resource.data.lat >= 24 &&
+         request.resource.data.lat <= 50 &&
+         request.resource.data.lng is number &&
+         request.resource.data.lng >= -125 &&
+         request.resource.data.lng <= -66 &&
+         request.resource.data.description is string &&
+         request.resource.data.description.size() >= 1 &&
+         request.resource.data.description.size() <= 500 &&
+         request.resource.data.timestamp is string &&
+         (!('encryptedDescription' in request.resource.data) ||
+           request.resource.data.encryptedDescription is string) &&
+         (!('descriptionVersion' in request.resource.data) ||
+           request.resource.data.descriptionVersion is int) &&
+         (!('agents' in request.resource.data) ||
+           (request.resource.data.agents is int &&
+            request.resource.data.agents >= 0 &&
+            request.resource.data.agents <= 50)) &&
+         (!('vehicles' in request.resource.data) ||
+           (request.resource.data.vehicles is int &&
+            request.resource.data.vehicles >= 0 &&
+            request.resource.data.vehicles <= 20)) &&
+         (!('verified' in request.resource.data) ||
+           request.resource.data.verified is bool) &&
+         (!('verifiers' in request.resource.data) ||
+           request.resource.data.verifiers is list));
 
       // Update: Only allow modifying verification fields
       allow update: if
@@ -64,7 +61,43 @@ service cloud.firestore {
         // Verifiers list can only grow (no removal of verifiers)
         request.resource.data.verifiers.size() >= resource.data.verifiers.size();
 
-      // Delete: Not allowed - reports expire automatically after 8 hours
+      // Delete: Not allowed from client - server-side cleanup deletes reports after 48 hours
+      allow delete: if false;
+    }
+
+    // Live Location Sharing — shareId acts as an unguessable secret
+    // Location data is encrypted end-to-end (AES-256-GCM); key shared via URL fragment
+    match /liveLocations/{shareId} {
+      // Anyone with the shareId can read (it's the auth token)
+      allow read: if true;
+
+      // Create: encrypted or plaintext (legacy) format
+      allow create: if
+        request.resource.data.keys().hasAll(['updatedAt', 'createdAt', 'active']) &&
+        request.resource.data.updatedAt is string &&
+        request.resource.data.createdAt is string &&
+        request.resource.data.active is bool &&
+        (
+          // Encrypted format
+          (request.resource.data.encryptedData is string &&
+           request.resource.data.encryptedData.size() >= 1 &&
+           request.resource.data.encryptedData.size() <= 10000)
+          ||
+          // Plaintext format (legacy — backward compatible)
+          (request.resource.data.lat is number &&
+           request.resource.data.lng is number &&
+           request.resource.data.userName is string &&
+           request.resource.data.userName.size() <= 100)
+        );
+
+      // Update: encrypted or plaintext fields, plus status
+      allow update: if
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['encryptedData', 'lat', 'lng', 'accuracy', 'address', 'updatedAt', 'active']) &&
+        request.resource.data.updatedAt is string &&
+        request.resource.data.active is bool;
+
+      // Never delete from client — TTL cleanup via Cloud Function
       allow delete: if false;
     }
 

@@ -1,83 +1,42 @@
-import React from 'react';
-import { SpeakerHigh, Megaphone, House } from '@phosphor-icons/react';
+import React, { useState } from 'react';
+import { SpeakerHigh, Megaphone, House, Thermometer, DeviceMobile, Lightbulb, Warning, DownloadSimple, Eye, Hand, HandWaving, HandPointing, HandGrabbing } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
+import { tapHaptic } from '../utils/haptics';
+import InstallHelp from './InstallHelp';
 
-// Community Alert Signals (ICE-focused)
-const communitySignals = [
-  {
-    pattern: '• (One Short)',
-    title: 'Alert / Attention',
-    description: 'Eyes here. A neighbor is signaling that something requires immediate attention. Look for the source of the signal.',
-    neighborResponse: 'Observe from a distance. Prepare to document if needed.'
-  },
-  {
-    pattern: '• • (Two Short)',
-    title: 'Support Requested',
-    description: 'Gathering signal. A neighbor needs support or witnesses. This signals for the community to congregate nearby while maintaining safe legal distance.',
-    neighborResponse: 'Move toward the signal safely. Bring your recording device.'
-  },
-  {
-    pattern: '• • • (Three Short)',
-    title: 'ICE Confirmed / Emergency',
-    description: 'Active encounter in progress. This is a critical distress signal indicating an immediate threat to the community.',
-    neighborResponse: 'Activate legal support networks. Ensure children and vulnerable neighbors are sheltered.'
-  },
-  {
-    pattern: '—— (One Long)',
-    title: 'Danger / Shelter',
-    description: 'High risk. Stay inside. This signal is used when it is no longer safe to be on the street or when a sweep is underway.',
-    neighborResponse: 'Remain indoors. Secure your door. Do not open for anyone without a judicial warrant.'
-  }
+// Sound files for community signals (not translatable)
+const signalSoundFiles = [
+  '/sounds/1shortwhistle.mov',
+  '/sounds/2shortwhistles.mov',
+  '/sounds/3shortwhistles.m4a',
+  '/sounds/longwhistle.mov'
 ];
 
-// Protest Whistle Protocol
-const whistleProtocol = [
-  {
-    pattern: 'One Long Blast',
-    meaning: '"Heads Up" / Attention',
-    action: 'Stop chanting, look toward the signal source.'
-  },
-  {
-    pattern: 'Three Short Blasts',
-    meaning: 'Medical Emergency',
-    action: 'Clear a path; look for a medic (Red Cross/Tape).'
-  },
-  {
-    pattern: 'Continuous Short Blasts',
-    meaning: 'Immediate Danger/Advance',
-    action: 'Move to the designated exit or "safe zone."'
-  }
-];
-
-// Visual Hand Signals
-const handSignals = [
-  {
-    gesture: 'Hands in an "X" above head',
-    meaning: '"Stop moving" or "Blockage ahead."'
-  },
-  {
-    gesture: 'Twinkling fingers (Jazz hands)',
-    meaning: '"Agreement" (allows for quiet consensus without drowning out speakers).'
-  },
-  {
-    gesture: 'Pointing Up',
-    meaning: '"Keep moving forward."'
-  },
-  {
-    gesture: 'Fist raised',
-    meaning: '"Stay still/Hold the line."'
-  }
-];
+// Hand signal icon mapping
+const handSignalIcons = [Hand, HandWaving, HandPointing, HandGrabbing];
 
 // Signal Card Component
-const SignalCard = ({ pattern, title, description, neighborResponse }) => (
+const SignalCard = ({ pattern, title, description, neighborResponse, neighborResponseLabel, soundFile }) => {
+  const playSound = () => {
+    tapHaptic();
+    if (soundFile) {
+      const audio = new Audio(soundFile);
+      audio.play().catch(err => console.log('Audio play failed:', err));
+    }
+  };
+
+  return (
   <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-4">
     {/* Pattern Display */}
     <div className="flex items-center justify-between mb-4">
-      <div className="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 flex-1 mr-3">
+      <div className="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 flex-1 me-3">
         <p className="text-white text-center font-mono font-bold">{pattern}</p>
       </div>
-      <button className="bg-slate-700 hover:bg-slate-600 p-3 rounded-full transition-colors">
-        <SpeakerHigh size={20} weight="bold" className="text-slate-300" />
+      <button
+        onClick={playSound}
+        className={`p-3 rounded-full transition-colors ${soundFile ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 hover:bg-slate-600'}`}
+      >
+        <SpeakerHigh size={20} weight="bold" className={soundFile ? 'text-white' : 'text-slate-300'} />
       </button>
     </div>
 
@@ -87,23 +46,47 @@ const SignalCard = ({ pattern, title, description, neighborResponse }) => (
 
     {/* Neighbor Response Box */}
     <div className="bg-blue-950/30 border border-blue-900/50 rounded-lg p-4">
-      <p className="text-blue-400 text-xs font-bold uppercase tracking-wider mb-2">NEIGHBOR RESPONSE</p>
+      <p className="text-blue-400 text-xs font-bold uppercase tracking-wider mb-2">{neighborResponseLabel}</p>
       <p className="text-white font-medium text-sm">{neighborResponse}</p>
     </div>
   </div>
-);
+  );
+};
 
 function Whistle() {
+  const { t } = useTranslation();
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+
+  const communitySignals = [
+    { pattern: t('signals.signal1Pattern'), title: t('signals.signal1Title'), description: t('signals.signal1Desc'), neighborResponse: t('signals.signal1Response'), soundFile: signalSoundFiles[0] },
+    { pattern: t('signals.signal2Pattern'), title: t('signals.signal2Title'), description: t('signals.signal2Desc'), neighborResponse: t('signals.signal2Response'), soundFile: signalSoundFiles[1] },
+    { pattern: t('signals.signal3Pattern'), title: t('signals.signal3Title'), description: t('signals.signal3Desc'), neighborResponse: t('signals.signal3Response'), soundFile: signalSoundFiles[2] },
+    { pattern: t('signals.signal4Pattern'), title: t('signals.signal4Title'), description: t('signals.signal4Desc'), neighborResponse: t('signals.signal4Response'), soundFile: signalSoundFiles[3] },
+  ];
+
+  const whistleProtocol = [
+    { pattern: t('signals.protocol1Pattern'), meaning: t('signals.protocol1Meaning'), action: t('signals.protocol1Action') },
+    { pattern: t('signals.protocol2Pattern'), meaning: t('signals.protocol2Meaning'), action: t('signals.protocol2Action') },
+    { pattern: t('signals.protocol3Pattern'), meaning: t('signals.protocol3Meaning'), action: t('signals.protocol3Action') },
+  ];
+
+  const handSignals = [
+    { gesture: t('signals.hand1Gesture'), meaning: t('signals.hand1Meaning'), Icon: handSignalIcons[0] },
+    { gesture: t('signals.hand2Gesture'), meaning: t('signals.hand2Meaning'), Icon: handSignalIcons[1] },
+    { gesture: t('signals.hand3Gesture'), meaning: t('signals.hand3Meaning'), Icon: handSignalIcons[2] },
+    { gesture: t('signals.hand4Gesture'), meaning: t('signals.hand4Meaning'), Icon: handSignalIcons[3] },
+  ];
+
   return (
     <div className="max-w-4xl mx-auto px-4 pb-24">
       {/* Header */}
       <div className="text-center mb-8 pt-4">
         <div className="flex items-center justify-center gap-3 mb-4">
           <Megaphone size={36} weight="bold" className="text-blue-400" />
-          <h1 className="text-3xl font-black text-white tracking-wide">Signals Guide</h1>
+          <h1 className="text-3xl font-black text-white tracking-wide">{t('signals.title')}</h1>
         </div>
         <p className="text-slate-400 text-sm">
-          Communication protocols for safe coordination during community actions and encounters.
+          {t('signals.subtitle')}
         </p>
       </div>
 
@@ -112,34 +95,34 @@ function Whistle() {
         {/* The Hierarchy of Sound */}
         <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">🔊</span>
-            <h2 className="text-xl font-bold text-white">The Hierarchy of Sound</h2>
+            <SpeakerHigh size={28} weight="bold" className="text-cyan-400" />
+            <h2 className="text-xl font-bold text-white">{t('signals.hierarchyTitle')}</h2>
           </div>
           <p className="text-slate-400 text-sm mb-4">
-            To prevent sensory overload, use different sounds for different purposes:
+            {t('signals.hierarchyDesc')}
           </p>
           <div className="space-y-3">
             <div className="bg-slate-900/50 rounded-lg p-4">
-              <p className="text-cyan-400 font-bold text-sm mb-1">Chants</p>
-              <p className="text-slate-300 text-sm">Used for morale, public messaging, and rhythm.</p>
+              <p className="text-cyan-400 font-bold text-sm mb-1">{t('signals.chantsTitle')}</p>
+              <p className="text-slate-300 text-sm">{t('signals.chantsDesc')}</p>
             </div>
             <div className="bg-slate-900/50 rounded-lg p-4">
-              <p className="text-cyan-400 font-bold text-sm mb-1">Drums/Percussion</p>
-              <p className="text-slate-300 text-sm">Used to set the pace of a march and maintain energy.</p>
+              <p className="text-cyan-400 font-bold text-sm mb-1">{t('signals.drumsTitle')}</p>
+              <p className="text-slate-300 text-sm">{t('signals.drumsDesc')}</p>
             </div>
             <div className="bg-slate-900/50 rounded-lg p-4">
-              <p className="text-cyan-400 font-bold text-sm mb-1">Whistles/Air Horns</p>
-              <p className="text-slate-300 text-sm">Strictly reserved for tactical alerts (e.g., medical emergency, police line movement, or a "stop" command).</p>
+              <p className="text-cyan-400 font-bold text-sm mb-1">{t('signals.whistlesTitle')}</p>
+              <p className="text-slate-300 text-sm">{t('signals.whistlesDesc')}</p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 mb-4">
           <House size={24} weight="bold" className="text-blue-400" />
-          <h2 className="text-xl font-bold text-white">Community Alert Signals</h2>
+          <h2 className="text-xl font-bold text-white">{t('signals.communityTitle')}</h2>
         </div>
         <p className="text-slate-400 text-sm mb-4">
-          Use these patterns to communicate with neighbors without shouting during ICE encounters.
+          {t('signals.communityDesc')}
         </p>
 
         {communitySignals.map((signal, index) => (
@@ -149,6 +132,8 @@ function Whistle() {
             title={signal.title}
             description={signal.description}
             neighborResponse={signal.neighborResponse}
+            neighborResponseLabel={t('signals.neighborResponse')}
+            soundFile={signal.soundFile}
           />
         ))}
       </div>
@@ -156,12 +141,12 @@ function Whistle() {
       {/* Section 2: Whistle Protocol */}
       <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">📣</span>
-          <h2 className="text-xl font-bold text-white">The Whistle Protocol</h2>
+          <Megaphone size={28} weight="bold" className="text-amber-400" />
+          <h2 className="text-xl font-bold text-white">{t('signals.whistleProtocolTitle')}</h2>
         </div>
         <div className="bg-amber-950/30 border border-amber-900/50 rounded-lg p-4 mb-4">
-          <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">THE "SIGNAL-ONLY" RULE</p>
-          <p className="text-white text-sm">If you aren't signaling a change in the environment, keep the whistle silent.</p>
+          <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">{t('signals.signalOnlyRule')}</p>
+          <p className="text-white text-sm">{t('signals.signalOnlyDesc')}</p>
         </div>
 
         {/* Protocol Table */}
@@ -183,42 +168,45 @@ function Whistle() {
       {/* Section 4: Visual Signaling */}
       <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">👐</span>
-          <h2 className="text-xl font-bold text-white">Visual Signaling</h2>
+          <Eye size={28} weight="bold" className="text-cyan-400" />
+          <h2 className="text-xl font-bold text-white">{t('signals.visualTitle')}</h2>
         </div>
         <p className="text-slate-400 text-sm mb-4">
-          In large crowds where sound carries poorly, use hand signals to relay information back through the ranks (the "Human Microphone").
+          {t('signals.visualDesc')}
         </p>
         <div className="space-y-3">
-          {handSignals.map((signal, index) => (
-            <div key={index} className="flex items-start gap-3 bg-slate-900/50 rounded-lg p-4">
-              <span className="text-cyan-400 font-bold text-2xl">✋</span>
-              <div>
-                <p className="text-white font-bold text-sm mb-1">{signal.gesture}</p>
-                <p className="text-slate-300 text-sm">{signal.meaning}</p>
+          {handSignals.map((signal, index) => {
+            const IconComponent = signal.Icon;
+            return (
+              <div key={index} className="flex items-start gap-3 bg-slate-900/50 rounded-lg p-4">
+                <IconComponent size={24} weight="bold" className="text-cyan-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-white font-bold text-sm mb-1">{signal.gesture}</p>
+                  <p className="text-slate-300 text-sm">{signal.meaning}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* Section 5: De-escalation */}
       <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">🌡️</span>
-          <h2 className="text-xl font-bold text-white">De-escalation & "Lowering the Temp"</h2>
+          <Thermometer size={28} weight="bold" className="text-red-400" />
+          <h2 className="text-xl font-bold text-white">{t('signals.deescTitle')}</h2>
         </div>
         <p className="text-slate-400 text-sm mb-4">
-          When the energy becomes frantic or aggressive in a way that risks safety:
+          {t('signals.deescDesc')}
         </p>
         <div className="space-y-3">
           <div className="bg-red-950/30 border border-red-900/50 rounded-lg p-4">
-            <p className="text-red-400 font-bold text-sm mb-2">Drop the Volume</p>
-            <p className="text-slate-300 text-sm">If the crowd is getting agitated, organizers should switch to a lower-frequency, slower chant to bring the heart rate of the group down.</p>
+            <p className="text-red-400 font-bold text-sm mb-2">{t('signals.dropVolumeTitle')}</p>
+            <p className="text-slate-300 text-sm">{t('signals.dropVolumeDesc')}</p>
           </div>
           <div className="bg-red-950/30 border border-red-900/50 rounded-lg p-4">
-            <p className="text-red-400 font-bold text-sm mb-2">The "Sit Down" Tactic</p>
-            <p className="text-slate-300 text-sm">If police tension is high, having the front line sit down communicates non-aggression and makes it physically harder for a "surge" to happen.</p>
+            <p className="text-red-400 font-bold text-sm mb-2">{t('signals.sitDownTitle')}</p>
+            <p className="text-slate-300 text-sm">{t('signals.sitDownDesc')}</p>
           </div>
         </div>
       </div>
@@ -226,17 +214,17 @@ function Whistle() {
       {/* Section 6: Digital & External Comms */}
       <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">📱</span>
-          <h2 className="text-xl font-bold text-white">Digital & External Comms</h2>
+          <DeviceMobile size={28} weight="bold" className="text-blue-400" />
+          <h2 className="text-xl font-bold text-white">{t('signals.digitalTitle')}</h2>
         </div>
         <div className="space-y-3">
           <div className="bg-slate-900/50 rounded-lg p-4">
-            <p className="text-cyan-400 font-bold text-sm mb-2">The "Buddy System"</p>
-            <p className="text-slate-300 text-sm">Never rely solely on a whistle. Ensure every person has a "point person" to check in with.</p>
+            <p className="text-cyan-400 font-bold text-sm mb-2">{t('signals.buddyTitle')}</p>
+            <p className="text-slate-300 text-sm">{t('signals.buddyDesc')}</p>
           </div>
           <div className="bg-slate-900/50 rounded-lg p-4">
-            <p className="text-cyan-400 font-bold text-sm mb-2">Signal/Telegram Groups</p>
-            <p className="text-slate-300 text-sm">Use encrypted apps for logistical updates (e.g., "Water station moved to 5th and Main"), but remember that cell towers often fail in large crowds.</p>
+            <p className="text-cyan-400 font-bold text-sm mb-2">{t('signals.telegramTitle')}</p>
+            <p className="text-slate-300 text-sm">{t('signals.telegramDesc')}</p>
           </div>
         </div>
       </div>
@@ -244,25 +232,25 @@ function Whistle() {
       {/* Best Practices Summary */}
       <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5 mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-amber-400 text-xl">💡</span>
-          <h3 className="text-white font-bold">Key Reminders</h3>
+          <Lightbulb size={24} weight="bold" className="text-amber-400" />
+          <h3 className="text-white font-bold">{t('signals.remindersTitle')}</h3>
         </div>
         <ul className="space-y-3">
           <li className="text-slate-300 text-sm flex items-start gap-2">
             <span className="text-slate-500">•</span>
-            <span>Keep a high-quality metal whistle on your keychain at all times.</span>
+            <span>{t('signals.reminder1')}</span>
           </li>
           <li className="text-slate-300 text-sm flex items-start gap-2">
             <span className="text-slate-500">•</span>
-            <span>Practice signals with neighbors during community meetings.</span>
+            <span>{t('signals.reminder2')}</span>
           </li>
           <li className="text-slate-300 text-sm flex items-start gap-2">
             <span className="text-slate-500">•</span>
-            <span>If you hear a signal, repeat it twice to confirm receipt and relay it through the neighborhood.</span>
+            <span>{t('signals.reminder3')}</span>
           </li>
           <li className="text-slate-300 text-sm flex items-start gap-2">
             <span className="text-slate-500">•</span>
-            <span>Whistles are for emergencies only—overuse leads to "noise fatigue."</span>
+            <span>{t('signals.reminder4')}</span>
           </li>
         </ul>
       </div>
@@ -270,41 +258,63 @@ function Whistle() {
       {/* Nietzsche Quote */}
       <div className="text-center mb-8">
         <p className="text-slate-400 italic text-sm mb-2">
-          "He who has a why to live can bear almost any how."
+          {t('signals.nietzscheQuote')}
         </p>
-        <p className="text-slate-500 text-xs">— FRIEDRICH NIETZSCHE</p>
+        <p className="text-slate-500 text-xs">{t('signals.nietzscheAuthor')}</p>
       </div>
 
       {/* Disclaimer */}
       <div className="text-center mb-6">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-amber-500">⚠️</span>
-          <h3 className="text-amber-400 font-medium text-xs tracking-wider">DISCLAIMER</h3>
+          <Warning size={18} weight="bold" className="text-amber-500" />
+          <h3 className="text-amber-400 font-medium text-xs tracking-wider">{t('disclaimer.title')}</h3>
         </div>
         <p className="text-slate-500 text-xs mb-1">
-          This app shares general info on your rights — not legal advice.
+          {t('disclaimer.line1')}
         </p>
         <p className="text-slate-500 text-xs mb-1">
-          I'm not a lawyer, and accuracy isn't guaranteed.
+          {t('disclaimer.line2')}
         </p>
         <p className="text-slate-500 text-xs mb-1">
-          For legal help, talk to a licensed attorney.
+          {t('disclaimer.line3')}
         </p>
         <p className="text-slate-500 text-xs">
-          Use this info at your own discretion.
+          {t('disclaimer.line4')}
         </p>
       </div>
 
       {/* Install CTA */}
       <div className="text-center">
-        <button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto">
-          <span>📲</span>
-          INSTALL BROWSERLESS APP
+        <button
+          onClick={() => {
+            if (window.deferredPrompt) {
+              window.deferredPrompt.prompt();
+              window.deferredPrompt.userChoice.then((choice) => {
+                if (choice.outcome === 'accepted') {
+                  console.log('User accepted install');
+                }
+                window.deferredPrompt = null;
+              });
+            } else {
+              alert(t('home.installAlert'));
+            }
+          }}
+          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto"
+        >
+          <DownloadSimple size={20} weight="bold" />
+          {t('emergency.installButton')}
         </button>
         <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
-          Recommended for offline & secure use
+          {t('emergency.installRecommended')}
         </p>
+        <button
+          onClick={() => setShowInstallHelp(true)}
+          className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
+        >
+          {t('emergency.installHelp')}
+        </button>
       </div>
+      <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>
   );
 }

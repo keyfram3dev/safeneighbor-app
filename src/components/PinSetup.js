@@ -4,7 +4,9 @@
 // Includes failed attempts protection with progressive lockout
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { X, Shield, Check, Warning, EyeSlash, Backspace } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import {
   setupPin,
   verifyPin,
@@ -18,10 +20,19 @@ import {
   clearFailedAttempts,
   getFailedAttempts
 } from '../utils/pinAuth';
+import {
+  hasMasterKey,
+  isKeyWrapped,
+  wrapMasterKeyWithPin,
+  unwrapMasterKeyWithPin,
+  rewrapMasterKeyWithPin,
+  removeKeyWrapping
+} from '../utils/crypto';
 
 const MAX_ATTEMPTS = 5;
 
 const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
+  const { t } = useTranslation();
   // mode: 'setup' | 'change' | 'remove' | 'duress_setup' | 'duress_change' | 'duress_remove'
   const isDuressMode = mode.startsWith('duress_');
   const baseMode = isDuressMode ? mode.replace('duress_', '') : mode;
@@ -117,10 +128,10 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
           if (lockoutResult.isLocked) {
             setIsLockedOut(true);
             updateLockoutStatus();
-            setError('Too many failed attempts');
+            setError(t('pinSetup.tooManyAttempts'));
           } else {
             setAttemptsRemaining(lockoutResult.attemptsRemaining);
-            setError(`Incorrect PIN (${lockoutResult.attemptsRemaining} attempts remaining)`);
+            setError(`${t('pinSetup.incorrectPin')} (${lockoutResult.attemptsRemaining})`);
           }
 
           setPin('');
@@ -136,8 +147,11 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
           if (isDuressMode) {
             clearDuressPin();
           } else {
+            // Remove key wrapping before clearing PIN
+            if (isKeyWrapped()) {
+              await removeKeyWrapping(pin);
+            }
             clearPin();
-            // Also clear duress PIN if removing normal PIN
             clearDuressPin();
           }
           onSuccess?.();
@@ -145,19 +159,25 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
           return;
         }
 
+        // For PIN change: unwrap the key now (we have the old PIN)
+        // so it's in memory for rewrapping with the new PIN in the confirm step
+        if (!isDuressMode && isKeyWrapped()) {
+          await unwrapMasterKeyWithPin(pin);
+        }
+
         // Move to enter new PIN
         setPin('');
         setStep('enter');
       } else if (step === 'enter') {
         if (pin.length < minDigits) {
-          setError(`PIN must be at least ${minDigits} digits`);
+          setError(t('pinSetup.pinMinDigits', { min: minDigits }));
           setIsProcessing(false);
           return;
         }
         setStep('confirm');
       } else if (step === 'confirm') {
         if (confirmPin !== pin) {
-          setError('PINs do not match');
+          setError(t('pinSetup.pinsDoNotMatch'));
           setConfirmPin('');
           setIsProcessing(false);
           return;
@@ -168,6 +188,17 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
           await setupDuressPin(pin);
         } else {
           await setupPin(pin);
+          // Wrap the master encryption key with the new PIN
+          const hasKey = await hasMasterKey();
+          if (hasKey) {
+            if (isKeyWrapped()) {
+              // PIN change: rewrap with new PIN (key already in memory from verify step)
+              await rewrapMasterKeyWithPin(pin);
+            } else {
+              // First PIN setup: wrap the key for the first time
+              await wrapMasterKeyWithPin(pin);
+            }
+          }
         }
         onSuccess?.();
         onClose();
@@ -187,31 +218,45 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
   );
 
   const getTitle = () => {
-    if (step === 'verify') return 'Enter Current PIN';
+    if (step === 'verify') return t('pinSetup.enterCurrentPin');
     if (isDuressMode) {
-      if (baseMode === 'change') return step === 'enter' ? 'Enter New Decoy PIN' : 'Confirm Decoy PIN';
-      return step === 'enter' ? 'Create Decoy PIN' : 'Confirm Decoy PIN';
+      if (baseMode === 'change') return step === 'enter' ? t('pinSetup.enterNewDecoyPin') : t('pinSetup.confirmDecoyPin');
+      return step === 'enter' ? t('pinSetup.createDecoyPin') : t('pinSetup.confirmDecoyPin');
     }
-    if (baseMode === 'change') return step === 'enter' ? 'Enter New PIN' : 'Confirm New PIN';
-    return step === 'enter' ? 'Create Your PIN' : 'Confirm Your PIN';
+    if (baseMode === 'change') return step === 'enter' ? t('pinSetup.enterNewPin') : t('pinSetup.confirmNewPin');
+    return step === 'enter' ? t('pinSetup.createYourPin') : t('pinSetup.confirmYourPin');
   };
 
   const getSubtitle = () => {
     if (step === 'verify') {
-      if (isLockedOut) return 'Too many failed attempts';
-      return 'Enter your current PIN to continue';
+      if (isLockedOut) return t('pinSetup.tooManyAttempts');
+      return t('pinSetup.enterCurrentToContinue');
     }
     if (isDuressMode) {
-      if (step === 'enter') return 'This PIN shows an empty app when unlocked';
-      return 'Enter the same decoy PIN again to confirm';
+      if (step === 'enter') return t('pinSetup.decoyShowsEmpty');
+      return t('pinSetup.confirmDecoyAgain');
     }
-    if (step === 'enter') return `Choose a ${minDigits}-${maxDigits} digit PIN`;
-    return 'Enter the same PIN again to confirm';
+    if (step === 'enter') return t('pinSetup.choosePin', { min: minDigits, max: maxDigits });
+    return t('pinSetup.confirmPinAgain');
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black/80 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-sm overflow-hidden border border-slate-700/50">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-sm overflow-hidden border border-slate-700/50 relative"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-700">
           <div className="flex items-center gap-2">
@@ -221,7 +266,7 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
               <Shield size={20} weight="bold" className="text-red-400" />
             )}
             <h2 className="text-lg font-bold text-white">
-              {isDuressMode ? 'Decoy PIN' : 'Security PIN'}
+              {isDuressMode ? t('pinSetup.decoyPinHeader') : t('pinSetup.securityPin')}
             </h2>
           </div>
           <button
@@ -243,13 +288,13 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
           {step === 'verify' && isLockedOut ? (
             <div className="mb-6">
               <div className="bg-red-950/50 border border-red-900 rounded-xl p-4 text-center">
-                <p className="text-slate-400 text-sm mb-1">Try again in</p>
+                <p className="text-slate-400 text-sm mb-1">{t('pinSetup.tryAgainIn')}</p>
                 <p className="text-3xl font-mono font-bold text-red-400">
                   {lockoutRemaining}
                 </p>
               </div>
               <p className="text-slate-500 text-xs text-center mt-3">
-                For your security, PIN entry has been temporarily disabled.
+                {t('pinSetup.lockoutMessage')}
               </p>
             </div>
           ) : (
@@ -284,7 +329,7 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
               {step === 'verify' && !error && attemptsRemaining <= 3 && attemptsRemaining > 0 && (
                 <div className="flex items-center justify-center gap-2 text-amber-500 text-xs mb-4">
                   <Warning size={14} weight="bold" />
-                  <span>{attemptsRemaining} attempt{attemptsRemaining !== 1 ? 's' : ''} remaining before lockout</span>
+                  <span>{t('pinSetup.attemptsRemaining', { count: attemptsRemaining })}</span>
                 </div>
               )}
 
@@ -321,11 +366,11 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
                 className={`w-full ${isDuressMode ? 'bg-amber-600 hover:bg-amber-500 disabled:hover:bg-amber-600' : 'bg-red-700 hover:bg-red-600 disabled:hover:bg-red-700'} disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors`}
               >
                 {isProcessing ? (
-                  'Processing...'
+                  t('pinSetup.processing')
                 ) : (
                   <>
                     <Check size={18} weight="bold" />
-                    {step === 'confirm' || (step === 'verify' && mode === 'remove') ? 'Save' : 'Continue'}
+                    {step === 'confirm' || (step === 'verify' && mode === 'remove') ? t('pinSetup.save') : t('pinSetup.continue')}
                   </>
                 )}
               </button>
@@ -338,13 +383,13 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
                   onClick={onClose}
                   className="w-full mt-3 text-slate-500 hover:text-slate-400 text-sm"
                 >
-                  Skip for now
+                  {t('pinSetup.skipForNow')}
                 </button>
               )}
             </>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

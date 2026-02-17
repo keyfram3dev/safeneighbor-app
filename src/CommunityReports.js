@@ -1,34 +1,141 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { UsersThree } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
+import { UsersThree, MapPinSimple, MapPinSimpleArea, MapTrifold, ShieldCheck, Scales, X, Check, Shield, LockKey, Eye, EyeSlash, Timer, UserCircle, Fire, Buildings } from '@phosphor-icons/react';
+import Disclaimer from './components/Disclaimer';
 import DOMPurify from 'dompurify';
+import { detectPII } from './utils/piiDetector';
+import { encryptReport, decryptReport, decryptDescription } from './utils/reportEncryption';
 import {
   collection,
   query,
   orderBy,
   onSnapshot,
   updateDoc,
+  addDoc,
   doc
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { reverseGeocode } from './utils/locationShare';
 
-const CITY_HUBS = [
-  { name: 'San Francisco, CA', lat: 37.7749, lng: -122.4194 },
-  { name: 'Los Angeles, CA', lat: 34.0522, lng: -118.2437 },
-  { name: 'Oakland, CA', lat: 37.8044, lng: -122.2712 },
-  { name: 'New York, NY', lat: 40.7128, lng: -74.0060 },
-  { name: 'Chicago, IL', lat: 41.8781, lng: -87.6298 },
-  { name: 'Houston, TX', lat: 29.7604, lng: -95.3698 },
-  { name: 'San Diego, CA', lat: 32.7157, lng: -117.1611 },
-  { name: 'Seattle, WA', lat: 47.6062, lng: -122.3321 },
-  { name: 'Miami, FL', lat: 25.7617, lng: -80.1918 },
-  { name: 'Philadelphia, PA', lat: 39.9526, lng: -75.1652 },
-  { name: 'Boston, MA', lat: 42.3601, lng: -71.0589 },
-  { name: 'Phoenix, AZ', lat: 33.4484, lng: -112.0740 }
-];
+
+// Detect standalone PWA mode (iOS adds to home screen)
+const isStandalonePWA = () =>
+  window.navigator.standalone === true ||
+  window.matchMedia('(display-mode: standalone)').matches;
+
+// Detect Instagram/Facebook/TikTok in-app WebView browsers
+const isInAppWebView = () => {
+  const ua = navigator.userAgent || '';
+  return /FBAN|FBAV|Instagram|Line\/|TikTok|Snapchat|Twitter/i.test(ua);
+};
+
+// IP-based geolocation (approximate, ~city level)
+const getIPLocation = async () => {
+  // Check pre-fetched result from inline script in index.html
+  if (window.__ipLocation) {
+    return { coords: { latitude: window.__ipLocation.lat, longitude: window.__ipLocation.lng, accuracy: 5000 } };
+  }
+  // Fallback: fetch from services (same-origin first, then external)
+  const services = [
+    { url: '/api/ip-location', extract: d => [d.lat, d.lng] },
+    { url: 'https://ipwho.is/', extract: d => [d.latitude, d.longitude] },
+    { url: 'https://ipapi.co/json/', extract: d => [d.latitude, d.longitude] },
+  ];
+  for (const { url, extract } of services) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const [lat, lng] = extract(data);
+      if (lat && lng) return { coords: { latitude: lat, longitude: lng, accuracy: 5000 } };
+    } catch (e) { /* try next */ }
+  }
+  throw new Error('IP geolocation failed');
+};
+
+// Robust geolocation — always falls through to IP if browser geolocation fails
+const getLocation = (onSuccess, onError) => {
+  let resolved = false;
+
+  const resolve = (pos) => {
+    if (resolved) return;
+    resolved = true;
+    onSuccess(pos);
+  };
+
+  // IP fallback — always available regardless of permissions
+  const ipFallback = () => {
+    getIPLocation().then(resolve).catch(() => {
+      if (!resolved && onError) onError({ code: 2, message: 'All location methods failed' });
+    });
+  };
+
+  // In standalone PWA mode, start IP lookup immediately in parallel
+  // since iOS PWA geolocation is unreliable
+  if (isStandalonePWA()) {
+    ipFallback();
+  }
+
+  if (!("geolocation" in navigator)) {
+    if (!isStandalonePWA()) ipFallback();
+    return;
+  }
+
+  // Try browser geolocation — but NEVER block on it
+  // iOS PWAs can return false "denied" or "unavailable" even after user allows
+  navigator.geolocation.getCurrentPosition(resolve, (err) => {
+    if (resolved) return;
+    // Try watchPosition as second attempt (works better in some iOS PWA cases)
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        resolve(pos);
+        navigator.geolocation.clearWatch(watchId);
+      },
+      () => {
+        navigator.geolocation.clearWatch(watchId);
+        // All browser methods failed — IP fallback is our last hope
+        if (!resolved && !isStandalonePWA()) ipFallback();
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+    // Safety cleanup
+    setTimeout(() => {
+      navigator.geolocation.clearWatch(watchId);
+      if (!resolved && !isStandalonePWA()) ipFallback();
+    }, 15000);
+  }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+};
 
 const PENDING_KEY = 'safeneighbor_pending_reports_v1';
-const EXPIRATION_MS = 8 * 60 * 60 * 1000;
+const EXPIRATION_MS = 12 * 60 * 60 * 1000;
+const HEAT_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;  // 7 days for heat map
+const LEGAL_NOTICE_SHOWN_KEY = 'safeneighbor_legal_notice_shown';
 const THREE_MILES_IN_METERS = 4828.03;
+const HEATMAP_KEY = 'safeneighbor_heatmap_enabled';
+const HEATMAP_CONFIG = {
+  radius: 35,
+  blur: 20,
+  maxZoom: 13,
+  max: 1.0,
+  minOpacity: 0.55,
+  gradient: {
+    0.0: 'rgba(127,29,29,0.5)',
+    0.25: 'rgba(220,38,38,0.65)',
+    0.5: 'rgba(239,68,68,0.75)',
+    0.75: 'rgba(251,146,60,0.85)',
+    1.0: 'rgba(251,191,36,0.95)'
+  }
+};
+
+// Community Resources (Overpass API) constants
+const RESOURCES_KEY = 'safeneighbor_resources_enabled';
+const RESOURCES_DISCLAIMER_KEY = 'safeneighbor_resources_disclaimer_shown';
+const OVERPASS_URLS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'
+];
+const RESOURCES_RADIUS = 5000; // 5km ~ 3.1 miles
 
 // Server-side rate-limited report submission URL
 const SUBMIT_REPORT_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/submitReport';
@@ -40,18 +147,35 @@ const SUBMIT_REPORT_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions
  */
 const submitReportToServer = async (reportData) => {
   try {
+    // Build request body based on format: encrypted payload vs legacy
+    const bodyData = reportData.encryptedPayload
+      ? {
+          encryptedPayload: reportData.encryptedPayload,
+          payloadVersion: reportData.payloadVersion,
+          timestamp: reportData.timestamp,
+          deviceId: getOrCreateVerifierId()
+        }
+      : {
+          lat: reportData.lat,
+          lng: reportData.lng,
+          description: reportData.description,
+          ...(reportData.encryptedDescription && {
+            encryptedDescription: reportData.encryptedDescription,
+            descriptionVersion: reportData.descriptionVersion
+          }),
+          agents: reportData.agents,
+          vehicles: reportData.vehicles,
+          activity: reportData.activity || 'Unknown',
+          location: reportData.location || '',
+          city: reportData.city || '',
+          state: reportData.state || '',
+          deviceId: getOrCreateVerifierId()
+        };
+
     const response = await fetch(SUBMIT_REPORT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lat: reportData.lat,
-        lng: reportData.lng,
-        description: reportData.description,
-        agents: reportData.agents,
-        vehicles: reportData.vehicles,
-        activity: reportData.activity || 'Unknown',
-        deviceId: getOrCreateVerifierId()
-      })
+      body: JSON.stringify(bodyData)
     });
 
     const data = await response.json();
@@ -273,9 +397,770 @@ const isExpired = (timestamp) => {
   return (now - reportDate) > EXPIRATION_MS;
 };
 
+// Check if a report is a test report based on description
+const isTestReport = (report) => {
+  if (!report.description) return false;
+  const desc = report.description.toLowerCase().trim();
+  // Match "test" as a word anywhere in the description
+  // Uses word boundary \b to avoid matching "contest", "testament", etc.
+  return /\btest\b/i.test(desc);
+};
+
+// Convert reports to heat map data points with weighted intensity
+const reportsToHeatData = (reports) => {
+  const now = Date.now();
+  return reports
+    .filter(r => r.lat && r.lng)
+    .map(r => {
+      let intensity = 0.45;
+      intensity += Math.min((parseInt(r.agents) || 0) * 0.05, 0.3);
+      if (isReportVerified(r)) intensity += 0.2;
+      const ageMs = now - new Date(r.timestamp || 0).getTime();
+      intensity *= Math.max(0, 1 - (ageMs / HEAT_EXPIRATION_MS));
+      return [r.lat, r.lng, intensity];
+    })
+    .filter(point => point[2] > 0.01);
+};
+
+// Fetch community resources (churches, hospitals, schools, consulates) from Overpass API
+const fetchCommunityResources = async (lat, lng, radius = RESOURCES_RADIUS) => {
+  const query = `[out:json][timeout:15];(
+    node["amenity"="place_of_worship"](around:${radius},${lat},${lng});
+    node["amenity"="hospital"](around:${radius},${lat},${lng});
+    node["amenity"="school"](around:${radius},${lat},${lng});
+    node["office"="diplomatic"](around:${radius},${lat},${lng});
+    way["amenity"="place_of_worship"](around:${radius},${lat},${lng});
+    way["amenity"="hospital"](around:${radius},${lat},${lng});
+    way["amenity"="school"](around:${radius},${lat},${lng});
+  );out center;`;
+  const body = `data=${encodeURIComponent(query)}`;
+
+  // Try each Overpass server with a 12s timeout, fall back to next on failure
+  for (const url of OVERPASS_URLS) {
+    try {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), 12000);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: controller.signal
+      });
+      clearTimeout(tid);
+      if (!response.ok) continue;
+      const data = await response.json();
+      return data.elements.map(el => {
+        const elLat = el.type === 'way' ? el.center?.lat : el.lat;
+        const elLng = el.type === 'way' ? el.center?.lon : el.lon;
+        if (!elLat || !elLng) return null;
+        let category = 'unknown';
+        if (el.tags?.amenity === 'place_of_worship') category = 'church';
+        else if (el.tags?.amenity === 'hospital') category = 'hospital';
+        else if (el.tags?.amenity === 'school') category = 'school';
+        else if (el.tags?.office === 'diplomatic') category = 'consulate';
+        return { id: el.id, name: el.tags?.name || el.tags?.['name:en'] || `Unnamed ${category}`, category, lat: elLat, lng: elLng };
+      }).filter(Boolean);
+    } catch (e) {
+      console.warn(`SafeNeighbor: Overpass server failed (${url}):`, e.message);
+    }
+  }
+  throw new Error('All Overpass servers failed');
+};
+
+// Cache key rounds to 0.01° (~1.1km) so user must move >1km before re-fetch
+const resourceCacheKey = (lat, lng) => `${Math.round(lat * 100) / 100},${Math.round(lng * 100) / 100}`;
+
+// Resource category styling
+const RESOURCE_STYLES = {
+  church: { bg: '#581c87', border: '#a855f7', label: 'Church' },
+  hospital: { bg: '#1e3a5f', border: '#3b82f6', label: 'Hospital' },
+  school: { bg: '#14532d', border: '#22c55e', label: 'School' },
+  consulate: { bg: '#7c2d12', border: '#f97316', label: 'Consulate' },
+};
+
+// Location Permission Modal Component
+const LocationPermissionModal = ({ onClose, onRetry, errorType }) => {
+  const { t } = useTranslation();
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
+  const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+
+  const getErrorMessage = () => {
+    switch (errorType) {
+      case 'denied':
+        return t('reports.locationErrorDenied');
+      case 'unavailable':
+        return t('reports.locationErrorUnavailable');
+      case 'timeout':
+        return t('reports.locationErrorTimeout');
+      default:
+        return t('reports.locationErrorDefault');
+    }
+  };
+
+  const getInstructions = () => {
+    if (isIOS && isSafari) {
+      return [
+        t('reports.instructionIOSSafari1'),
+        t('reports.instructionIOSSafari2'),
+        t('reports.instructionIOSSafari3'),
+        t('reports.instructionIOSSafari4'),
+        t('reports.instructionIOSSafari5')
+      ];
+    } else if (isIOS) {
+      return [
+        t('reports.instructionIOS1'),
+        t('reports.instructionIOS2'),
+        t('reports.instructionIOS3'),
+        t('reports.instructionIOS4'),
+        t('reports.instructionIOS5')
+      ];
+    } else if (isAndroid) {
+      return [
+        t('reports.instructionAndroid1'),
+        t('reports.instructionAndroid2'),
+        t('reports.instructionAndroid3'),
+        t('reports.instructionAndroid4')
+      ];
+    } else {
+      // Desktop
+      return [
+        t('reports.instructionDesktop1'),
+        t('reports.instructionDesktop2'),
+        t('reports.instructionDesktop3'),
+        t('reports.instructionDesktop4')
+      ];
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm rounded-2xl w-full max-w-md overflow-hidden border border-slate-700/50 shadow-2xl relative"
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-slate-700 flex items-center gap-3">
+          <div className="p-2 bg-amber-600/20 rounded-lg">
+            <MapPinSimple size={28} weight="bold" className="text-amber-500" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">{t('reports.enableLocationAccess')}</h2>
+            <p className="text-slate-400 text-xs">{t('reports.requiredForGps')}</p>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-5 space-y-4">
+          {/* Error Message */}
+          <div className="bg-amber-950/40 border border-amber-800/50 rounded-xl p-4">
+            <p className="text-amber-300 text-sm font-medium">{getErrorMessage()}</p>
+          </div>
+
+          {/* Why Location is Needed */}
+          <div>
+            <h3 className="text-white font-bold text-sm mb-2">{t('reports.whyLocationNeeded')}</h3>
+            <ul className="text-slate-400 text-xs space-y-1.5">
+              <li className="flex items-start gap-2">
+                <span className="text-blue-400">•</span>
+                {t('reports.locationReasonCenter')}
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-400">•</span>
+                {t('reports.locationReasonSort')}
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-400">•</span>
+                {t('reports.locationReasonVerify')}
+              </li>
+            </ul>
+          </div>
+
+          {/* Instructions */}
+          {errorType === 'denied' && (
+            <div>
+              <h3 className="text-white font-bold text-sm mb-2 flex items-center gap-2">
+                <span>📱</span>
+                {isIOS ? t('reports.instructionsIOS') : isAndroid ? t('reports.instructionsAndroid') : t('reports.instructionsDesktop')}
+              </h3>
+              <ol className="text-slate-300 text-xs space-y-2">
+                {getInstructions().map((step, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <span className="bg-slate-700 text-slate-300 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {index + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+
+        {/* Buttons */}
+        <div className="p-4 border-t border-slate-700 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-4 rounded-xl transition-all text-sm"
+          >
+            {t('reports.useMapInstead')}
+          </button>
+          <button
+            onClick={onRetry}
+            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl transition-all text-sm"
+          >
+            {t('reports.tryAgain')}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// Legal Notice Modal Component
+const LegalNoticeModal = ({ onClose }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
+          <div className="flex items-center gap-2">
+            <Scales size={20} weight="bold" className="text-amber-400" />
+            <h2 className="text-lg font-bold text-white">{t('reports.communitySafetyGuidelines')}</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+          >
+            <X size={20} weight="bold" />
+          </button>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+          {/* Informational Purposes Section */}
+          <div className="bg-blue-950/30 border border-blue-800/50 rounded-xl p-4">
+            <h3 className="text-blue-400 font-bold text-sm uppercase tracking-wider mb-3">
+              {t('reports.informationalPurposesOnly')}
+            </h3>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              {t('reports.informationalPurposesDesc')}
+            </p>
+          </div>
+
+          {/* Intended Use */}
+          <div>
+            <h4 className="text-green-400 font-bold text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
+              <Check size={14} weight="bold" /> {t('reports.intendedForTitle')}
+            </h4>
+            <ul className="text-slate-300 text-sm space-y-1.5 ms-5">
+              <li>{t('reports.intendedFor1')}</li>
+              <li>{t('reports.intendedFor2')}</li>
+              <li>{t('reports.intendedFor3')}</li>
+              <li>{t('reports.intendedFor4')}</li>
+            </ul>
+          </div>
+
+          {/* NOT Intended Use */}
+          <div>
+            <h4 className="text-red-400 font-bold text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
+              <X size={14} weight="bold" /> {t('reports.notIntendedForTitle')}
+            </h4>
+            <ul className="text-slate-300 text-sm space-y-1.5 ms-5">
+              <li>{t('reports.notIntendedFor1')}</li>
+              <li>{t('reports.notIntendedFor2')}</li>
+              <li>{t('reports.notIntendedFor3')}</li>
+              <li>{t('reports.notIntendedFor4')}</li>
+            </ul>
+          </div>
+
+          {/* Legal Warning Box */}
+          <div className="bg-amber-950/40 border border-amber-800/50 rounded-xl p-4">
+            <h4 className="text-amber-400 font-bold text-xs uppercase tracking-wider mb-2">
+              {t('reports.importantLegalBoundaries')}
+            </h4>
+            <p className="text-slate-300 text-sm leading-relaxed mb-3">
+              {t('reports.federalLawWarning')}
+            </p>
+            <p className="text-slate-300 text-sm leading-relaxed mb-3">
+              <strong className="text-white">{t('reports.protectedSpeech')}</strong> {t('reports.protectedSpeechCaveat')}
+            </p>
+            <p className="text-amber-300 text-sm font-semibold">
+              {t('reports.responsibleForActions')}
+            </p>
+          </div>
+
+          {/* Your Rights */}
+          <div>
+            <h4 className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-2">
+              {t('reports.yourRightsTitle')}
+            </h4>
+            <ul className="text-slate-300 text-sm space-y-1">
+              <li>{t('reports.yourRight1')}</li>
+              <li>{t('reports.yourRight2')}</li>
+              <li>{t('reports.yourRight3')}</li>
+              <li>{t('reports.yourRight4')}</li>
+            </ul>
+          </div>
+
+          {/* Resources */}
+          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+            <h4 className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-3">
+              {t('reports.resourcesTitle')}
+            </h4>
+            <div className="space-y-2">
+              <a href="https://www.aclu.org/know-your-rights" target="_blank" rel="noopener noreferrer"
+                className="block text-blue-400 hover:text-blue-300 text-sm underline">
+                {t('reports.resourceACLU')}
+              </a>
+              <a href="https://constitution.congress.gov/constitution/amendment-1/" target="_blank" rel="noopener noreferrer"
+                className="block text-blue-400 hover:text-blue-300 text-sm underline">
+                {t('reports.resourceFirstAmendment')}
+              </a>
+              <a href="https://www.eff.org/issues/know-your-rights" target="_blank" rel="noopener noreferrer"
+                className="block text-blue-400 hover:text-blue-300 text-sm underline">
+                {t('reports.resourceEFF')}
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-700 shrink-0">
+          <p className="text-slate-500 text-xs text-center mb-4">
+            {t('reports.guidelinesAcknowledge')}
+          </p>
+          <button
+            onClick={onClose}
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg"
+          >
+            {t('reports.iUnderstand')}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// Privacy & Security Modal Component
+const PrivacySecurityModal = ({ onClose }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
+          <div className="flex items-center gap-2">
+            <Shield size={20} weight="bold" className="text-blue-400" />
+            <h2 className="text-lg font-bold text-white">{t('reports.privacyAndSecurity')}</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+          >
+            <X size={20} weight="bold" />
+          </button>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+          {/* Privacy First Section */}
+          <div className="bg-blue-950/30 border border-blue-800/50 rounded-xl p-4">
+            <h3 className="text-blue-400 font-bold text-sm uppercase tracking-wider mb-3">
+              {t('reports.privacyComesFirst')}
+            </h3>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              {t('reports.privacyComesFirstDesc')}
+            </p>
+          </div>
+
+          {/* Anonymous Reporting */}
+          <div className="flex gap-4">
+            <div className="p-2.5 bg-green-950/40 rounded-xl h-fit">
+              <UserCircle size={24} weight="bold" className="text-green-400" />
+            </div>
+            <div>
+              <h4 className="text-green-400 font-bold text-xs uppercase tracking-wider mb-1.5">
+                {t('reports.anonymousReportingTitle')}
+              </h4>
+              <ul className="text-slate-300 text-sm space-y-1">
+                <li>{t('reports.anonymousReporting1')}</li>
+                <li>{t('reports.anonymousReporting2')}</li>
+                <li>{t('reports.anonymousReporting3')}</li>
+                <li>{t('reports.anonymousReporting4')}</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Location Privacy */}
+          <div className="flex gap-4">
+            <div className="p-2.5 bg-purple-950/40 rounded-xl h-fit">
+              <Eye size={24} weight="bold" className="text-purple-400" />
+            </div>
+            <div>
+              <h4 className="text-purple-400 font-bold text-xs uppercase tracking-wider mb-1.5">
+                {t('reports.locationPrivacyTitle')}
+              </h4>
+              <ul className="text-slate-300 text-sm space-y-1">
+                <li>{t('reports.locationPrivacy1')}</li>
+                <li>{t('reports.locationPrivacy2')}</li>
+                <li>{t('reports.locationPrivacy3')}</li>
+                <li>{t('reports.locationPrivacy4')}</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Auto-Expiration */}
+          <div className="flex gap-4">
+            <div className="p-2.5 bg-amber-950/40 rounded-xl h-fit">
+              <Timer size={24} weight="bold" className="text-amber-400" />
+            </div>
+            <div>
+              <h4 className="text-amber-400 font-bold text-xs uppercase tracking-wider mb-1.5">
+                {t('reports.autoExpirationTitle')}
+              </h4>
+              <ul className="text-slate-300 text-sm space-y-1">
+                <li>{t('reports.autoExpiration1')}</li>
+                <li>{t('reports.autoExpiration2')}</li>
+                <li>{t('reports.autoExpiration3')}</li>
+                <li>{t('reports.autoExpiration4')}</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Abuse Prevention */}
+          <div className="flex gap-4">
+            <div className="p-2.5 bg-red-950/40 rounded-xl h-fit">
+              <ShieldCheck size={24} weight="bold" className="text-red-400" />
+            </div>
+            <div>
+              <h4 className="text-red-400 font-bold text-xs uppercase tracking-wider mb-1.5">
+                {t('reports.abusePreventionTitle')}
+              </h4>
+              <ul className="text-slate-300 text-sm space-y-1">
+                <li>{t('reports.abusePrevention1')}</li>
+                <li>{t('reports.abusePrevention2')}</li>
+                <li>{t('reports.abusePrevention3')}</li>
+                <li>{t('reports.abusePrevention4')}</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Community Verification */}
+          <div className="flex gap-4">
+            <div className="p-2.5 bg-cyan-950/40 rounded-xl h-fit">
+              <UsersThree size={24} weight="bold" className="text-cyan-400" />
+            </div>
+            <div>
+              <h4 className="text-cyan-400 font-bold text-xs uppercase tracking-wider mb-1.5">
+                {t('reports.communityVerificationTitle')}
+              </h4>
+              <ul className="text-slate-300 text-sm space-y-1">
+                <li>{t('reports.communityVerification1')}</li>
+                <li>{t('reports.communityVerification2')}</li>
+                <li>{t('reports.communityVerification3')}</li>
+                <li>{t('reports.communityVerification4')}</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Data Security */}
+          <div className="flex gap-4">
+            <div className="p-2.5 bg-slate-800 rounded-xl h-fit">
+              <LockKey size={24} weight="bold" className="text-slate-400" />
+            </div>
+            <div>
+              <h4 className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-1.5">
+                {t('reports.dataSecurityTitle')}
+              </h4>
+              <ul className="text-slate-300 text-sm space-y-1">
+                <li>{t('reports.dataSecurity1')}</li>
+                <li>{t('reports.dataSecurity2')}</li>
+                <li>{t('reports.dataSecurity3')}</li>
+                <li>{t('reports.dataSecurity4')}</li>
+                <li>{t('reports.dataSecurity5')}</li>
+                <li>{t('reports.dataSecurity6')}</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* What We Store */}
+          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+            <h4 className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-3">
+              {t('reports.whatIsStored')}
+            </h4>
+            <ul className="text-slate-300 text-sm space-y-1 mb-4">
+              <li>{t('reports.stored1')}</li>
+              <li>{t('reports.stored2')}</li>
+              <li>{t('reports.stored3')}</li>
+              <li>{t('reports.stored4')}</li>
+            </ul>
+            <h4 className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-3">
+              {t('reports.whatIsNotStored')}
+            </h4>
+            <ul className="text-slate-300 text-sm space-y-1">
+              <li>{t('reports.notStored1')}</li>
+              <li>{t('reports.notStored2')}</li>
+              <li>{t('reports.notStored3')}</li>
+              <li>{t('reports.notStored4')}</li>
+            </ul>
+          </div>
+
+          {/* Offline Support Note */}
+          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+            <h4 className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-2">
+              {t('reports.worksOfflineTitle')}
+            </h4>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              {t('reports.worksOfflineDesc')}
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-700 shrink-0">
+          <p className="text-slate-500 text-xs text-center mb-4">
+            {t('reports.privacyFooter')}
+          </p>
+          <button
+            onClick={onClose}
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg"
+          >
+            {t('reports.gotIt')}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// Nearby Report Modal - prompts user to verify existing report instead of creating duplicate
+const NearbyReportModal = ({ report, onVerify, onCreateNew, onClose, userDistance }) => {
+  const { t } = useTranslation();
+  const timeAgo = (timestamp) => {
+    const diff = Date.now() - new Date(timestamp).getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    if (hours > 0) return t('reports.hoursAgo', { count: hours });
+    if (minutes > 0) return t('reports.minutesAgo', { count: minutes });
+    return t('reports.justNow');
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm rounded-2xl w-full max-w-md overflow-hidden border border-amber-700/50 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-amber-950/30">
+          <div className="flex items-center gap-2">
+            <MapPinSimple size={20} weight="bold" className="text-amber-400" />
+            <h2 className="text-lg font-bold text-white">{t('reports.reportAlreadyExists')}</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+          >
+            <X size={20} weight="bold" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-5 space-y-4">
+          <p className="text-slate-300 text-sm">
+            {t('reports.reportAlreadyExistsDesc')}
+          </p>
+
+          {/* Existing Report Card */}
+          <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase">
+                <Timer size={14} weight="bold" />
+                {timeAgo(report.timestamp)}
+              </div>
+              {report.verifiers?.length > 0 && (
+                <span className="text-xs text-green-400 flex items-center gap-1">
+                  <ShieldCheck size={12} weight="bold" />
+                  {t('reports.verifiedCount', { count: report.verifiers.length })}
+                </span>
+              )}
+            </div>
+            <p className="text-white font-medium text-sm">{report.location} <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">({t('reports.approx')})</span></p>
+            <p className="text-slate-400 text-xs line-clamp-2">{report.description}</p>
+            <div className="flex gap-3 text-xs text-slate-500">
+              {report.agents > 0 && <span>{t('reports.agentsCount', { count: report.agents })}</span>}
+              {report.vehicles > 0 && <span>{t('reports.vehiclesCount', { count: report.vehicles })}</span>}
+            </div>
+            {userDistance !== null && (
+              <p className="text-xs text-blue-400">
+                {userDistance < 0.1 ? t('reports.atThisLocation') : t('reports.milesAway', { distance: userDistance.toFixed(1) })}
+              </p>
+            )}
+          </div>
+
+          <p className="text-slate-500 text-xs">
+            {t('reports.verifyingHelps')}
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="p-4 border-t border-slate-700 space-y-2">
+          <button
+            onClick={onVerify}
+            className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+          >
+            <ShieldCheck size={18} weight="bold" />
+            {t('reports.verifyThisReport')}
+          </button>
+          <button
+            onClick={onCreateNew}
+            className="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium py-3 px-6 rounded-xl transition-all text-sm"
+          >
+            {t('reports.submitNewReportAnyway')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Community Resources Disclaimer Modal
+const ResourcesDisclaimerModal = ({ onClose }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
+          <div className="flex items-center gap-2">
+            <Buildings size={20} weight="bold" className="text-emerald-400" />
+            <h2 className="text-lg font-bold text-white">{t('reports.communityResourcesTitle')}</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+          >
+            <X size={20} weight="bold" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-5">
+          <p className="text-slate-300 text-sm leading-relaxed">
+            {t('reports.communityResourcesDesc')}
+          </p>
+
+          {/* Disclaimer */}
+          <div className="bg-amber-950/40 border border-amber-800/50 rounded-xl p-4">
+            <h4 className="text-amber-400 font-bold text-xs uppercase tracking-wider mb-2">
+              {t('reports.importantNotice')}
+            </h4>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              {t('reports.sensitiveLocationsRescinded')}
+            </p>
+          </div>
+
+          {/* Category Legend */}
+          <div>
+            <h4 className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-3">
+              {t('reports.mapLegend')}
+            </h4>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-4 h-4 rounded-full border-2" style={{ backgroundColor: '#581c87', borderColor: '#a855f7' }} />
+                <span className="text-slate-300 text-sm">{t('reports.churches')}</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-4 h-4 rounded-full border-2" style={{ backgroundColor: '#1e3a5f', borderColor: '#3b82f6' }} />
+                <span className="text-slate-300 text-sm">{t('reports.hospitals')}</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-4 h-4 rounded-full border-2" style={{ backgroundColor: '#14532d', borderColor: '#22c55e' }} />
+                <span className="text-slate-300 text-sm">{t('reports.schools')}</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-4 h-4 rounded-full border-2" style={{ backgroundColor: '#7c2d12', borderColor: '#f97316' }} />
+                <span className="text-slate-300 text-sm">{t('reports.consulates')}</span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-slate-500 text-xs leading-relaxed">
+            {t('reports.osmDataSource')}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-700 shrink-0">
+          <button
+            onClick={onClose}
+            className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg"
+          >
+            {t('reports.iUnderstand')}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 const CommunityReports = ({ isDuressMode = false }) => {
+  const { t } = useTranslation();
   const [submitted, setSubmitted] = useState(false);
-  const [selectedReport, setSelectedReport] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [, setSelectedReport] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingReports, setPendingReports] = useState([]);
   const [sortBy, setSortBy] = useState('newest');
@@ -285,13 +1170,60 @@ const CommunityReports = ({ isDuressMode = false }) => {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const reportMarkersRef = useRef([]);
+  const heatLayerRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapLoadFailed, setMapLoadFailed] = useState(false);
+  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+  const [heatReports, setHeatReports] = useState([]);
+  const [showPins, setShowPins] = useState(true);
+  const [showLocationPin, setShowLocationPin] = useState(true);
+
+  // Community Resources state
+  const [resourcesEnabled, setResourcesEnabled] = useState(() => localStorage.getItem(RESOURCES_KEY) === 'true');
+  const [resourcesData, setResourcesData] = useState([]);
+  const [resourcesLoading, setResourcesLoading] = useState(false);
+  const [resourcesError, setResourcesError] = useState(false);
+  const resourceMarkersRef = useRef([]);
+  const reportClusterRef = useRef(null);
+  const resourceClusterRef = useRef(null);
+  const resourcesCacheRef = useRef({});
+  const [showResourcesDisclaimer, setShowResourcesDisclaimer] = useState(false);
 
   const [showInlinePicker, setShowInlinePicker] = useState(false);
   const inlinePickerMapRef = useRef(null);
   const inlinePickerMarkerRef = useRef(null);
   const inlinePickerCircleRef = useRef(null);
   const [pickerError, setPickerError] = useState(null);
+
+  // Location permission modal state
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationError, setLocationError] = useState(null); // 'denied' | 'unavailable' | 'timeout'
+
+  // Legal notice modal state
+  const [showLegalNotice, setShowLegalNotice] = useState(false);
+
+  // Privacy & Security modal state
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  // PII warning modal state
+  const [showPiiWarning, setShowPiiWarning] = useState(false);
+  const [piiFindings, setPiiFindings] = useState([]);
+
+  // Nearby report modal state (prompt to verify instead of new report)
+  const [showNearbyReportModal, setShowNearbyReportModal] = useState(false);
+  const [nearbyReport, setNearbyReport] = useState(null);
+  const [pendingSubmission, setPendingSubmission] = useState(null);
+
+  // Lock body scroll when any modal is open
+  const anyModalOpen = showLocationModal || showLegalNotice || showPrivacyModal || showPiiWarning || showNearbyReportModal || showResourcesDisclaimer;
+  useEffect(() => {
+    if (anyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [anyModalOpen]);
 
   const scrollRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -301,8 +1233,8 @@ const CommunityReports = ({ isDuressMode = false }) => {
   
   const [formData, setFormData] = useState({
     location: '',
-    lat: 37.7749,
-    lng: -122.4194,
+    lat: window.__ipLocation?.lat || 37.7749,
+    lng: window.__ipLocation?.lng || -122.4194,
     date: new Date().toISOString().split('T')[0],
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
     description: '',
@@ -311,6 +1243,8 @@ const CommunityReports = ({ isDuressMode = false }) => {
   });
 
   const [reports, setReports] = useState([]);
+  const sessionReportsRef = useRef(new Map()); // Persist reports seen this session
+  const prevReportIdsRef = useRef(new Set()); // Track seen report IDs for notifications
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 3958.8;
@@ -323,72 +1257,186 @@ const CommunityReports = ({ isDuressMode = false }) => {
     return R * c;
   };
 
-  // Reverse geocode coordinates to street address
-  const reverseGeocode = async (lat, lng) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
-        { headers: { 'User-Agent': 'SafeNeighbor App' } }
-      );
-      const data = await response.json();
+  // Find existing report near the given coordinates (within ~0.5 miles, not expired)
+  const findNearbyReport = (lat, lng) => {
+    const NEARBY_THRESHOLD_MILES = 0.5; // Half mile radius
+    const allReports = [...reports, ...pendingReports];
 
-      const addr = data.address || {};
-      const street = addr.road || addr.pedestrian || addr.footway || '';
-      const number = addr.house_number || '';
-      const area = addr.neighbourhood || addr.suburb || addr.city || addr.town || '';
+    for (const report of allReports) {
+      if (!report.lat || !report.lng) continue;
+      if (isExpired(report.timestamp || '')) continue;
 
-      // Extract city and state for hotspot display
-      const city = addr.city || addr.town || addr.village || addr.suburb || area || '';
-      const state = addr.state || '';
-
-      let address;
-      if (street && area) {
-        address = `${number ? number + ' ' : ''}${street}, ${area}`;
-      } else if (street) {
-        address = `${number ? number + ' ' : ''}${street}`;
-      } else if (data.display_name) {
-        address = data.display_name.split(',').slice(0, 2).join(',').trim();
-      } else {
-        address = null;
+      const distance = calculateDistance(lat, lng, report.lat, report.lng);
+      if (distance <= NEARBY_THRESHOLD_MILES) {
+        return { report, distance };
       }
-
-      return { address, city, state };
-    } catch (error) {
-      console.error('Reverse geocoding failed:', error);
-      return { address: null, city: '', state: '' };
     }
+    return null;
+  };
+
+  // Handler for verifying an existing nearby report instead of creating duplicate
+  const handleVerifyNearbyReport = async () => {
+    if (nearbyReport?.report?.id) {
+      // Create a mock event with stopPropagation for handleToggleVerify
+      const mockEvent = { stopPropagation: () => {} };
+      await handleToggleVerify(mockEvent, nearbyReport.report.id);
+      setShowNearbyReportModal(false);
+      setNearbyReport(null);
+      setPendingSubmission(null);
+      // Show success message
+      setSubmitted(true);
+    }
+  };
+
+  // Handler for proceeding with new report anyway
+  const handleCreateNewAnyway = async () => {
+    setShowNearbyReportModal(false);
+    setNearbyReport(null);
+
+    if (pendingSubmission) {
+      // Re-submit with the bypassed nearby check (set a flag)
+      setIsSubmitting(true);
+
+      try {
+        const isDevMode = localStorage.getItem(DEV_MODE_KEY) === 'enabled';
+
+        // Build timestamp from form data
+        const reportTimestamp = new Date(`${pendingSubmission.date}T${pendingSubmission.time}`).toISOString();
+
+        // Security: Apply privacy protections
+        const fuzzyLat = fuzzyCoordinate(pendingSubmission.lat);
+        const fuzzyLng = fuzzyCoordinate(pendingSubmission.lng);
+        const roundedTimestamp = roundTimestamp(reportTimestamp);
+
+        // Get street address and city/state from fuzzed coordinates
+        const geoData = await reverseGeocode(fuzzyLat, fuzzyLng);
+
+        // Encrypt all sensitive fields as a single payload
+        const sanitizedPending = sanitizeDescription(pendingSubmission.description);
+        const pendingSensitiveFields = {
+          lat: fuzzyLat,
+          lng: fuzzyLng,
+          city: geoData.city || '',
+          state: geoData.state || '',
+          location: geoData.address || `~ Near ${fuzzyLat.toFixed(2)}, ${fuzzyLng.toFixed(2)}`,
+          description: sanitizedPending,
+          agents: Math.min(50, Math.max(0, parseInt(pendingSubmission.agents) || 0)),
+          vehicles: Math.min(20, Math.max(0, parseInt(pendingSubmission.vehicles) || 0)),
+          activity: pendingSubmission.activity || 'Unknown'
+        };
+
+        let pendingServerReport;
+        try {
+          const encrypted = await encryptReport(pendingSensitiveFields);
+          pendingServerReport = {
+            ...encrypted,
+            timestamp: roundedTimestamp,
+            verified: false,
+            verifiers: []
+          };
+        } catch (encErr) {
+          console.warn('Encryption unavailable, using legacy format:', encErr.message);
+          pendingServerReport = {
+            ...pendingSensitiveFields,
+            timestamp: roundedTimestamp,
+            verified: false,
+            verifiers: []
+          };
+        }
+
+        if (isOnline) {
+          if (isDevMode) {
+            // Dev mode: bypass Cloud Function rate limiting
+            const reportToSave = {
+              ...pendingServerReport,
+              createdAt: new Date().toISOString(),
+              deviceId: getOrCreateVerifierId(),
+              devModeSubmission: true
+            };
+            await addDoc(collection(db, 'iceReports'), reportToSave);
+            if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown', mode: 'dev' });
+          } else {
+            const result = await submitReportToServer(pendingServerReport);
+            if (!result.success) {
+              if (result.rateLimited) {
+                alert(result.error || t('reports.tooManyReports'));
+              } else {
+                alert(result.error || t('reports.failedToSubmit'));
+              }
+              setPendingSubmission(null);
+              setIsSubmitting(false);
+              return;
+            }
+            recordSubmission();
+            if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown' });
+          }
+        } else {
+          // Offline: store locally
+          const pendingReport = { ...pendingSensitiveFields, timestamp: roundedTimestamp, verified: false, verifiers: [], id: `pending_${Date.now()}`, pending: true };
+          const stored = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+          stored.push(pendingReport);
+          localStorage.setItem(PENDING_KEY, JSON.stringify(stored));
+          setPendingReports(prev => [...prev, pendingReport]);
+        }
+
+        setSubmitted(true);
+        if (mapRef.current) {
+          mapRef.current.flyTo([fuzzyLat, fuzzyLng], 11, { duration: 1.5 });
+        }
+        setFormData(prev => ({
+          ...prev,
+          description: '',
+          agents: '',
+          vehicles: ''
+        }));
+        setShowInlinePicker(false);
+      } catch (error) {
+        console.error('Error submitting report:', error);
+        alert(t('reports.failedToSubmit'));
+      } finally {
+        setPendingSubmission(null);
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  // Handler for closing the nearby report modal
+  const handleCloseNearbyModal = () => {
+    setShowNearbyReportModal(false);
+    setNearbyReport(null);
+    setPendingSubmission(null);
   };
 
   const dynamicHubs = useMemo(() => {
     const MAX_HOTSPOTS = 10;
     const hubs = [];
 
-    // Helper to format report location as "City, State" or fallback
+    // Helper to format report location with nearby address
     const formatReportName = (r) => {
+      // Prefer the location field which has street-level "~ 123 Main St, Area"
+      if (r.location) {
+        const stateAbbrev = r.state ? getStateAbbreviation(r.state) : '';
+        // Location already starts with "~" from reverseGeocode
+        if (r.location.startsWith('~')) {
+          return stateAbbrev ? `${r.location}, ${stateAbbrev}` : r.location;
+        }
+        return r.location;
+      }
       if (r.city && r.state) {
-        // Use state abbreviation if available (e.g., "California" -> "CA")
         const stateAbbrev = getStateAbbreviation(r.state);
         return `${r.city}, ${stateAbbrev}`;
       }
-      // Fallback: try to extract from location string
-      if (r.location) {
-        const parts = r.location.split(',').map(p => p.trim());
-        if (parts.length >= 2) {
-          return parts.slice(-2).join(', ');
-        }
-        return parts[0];
-      }
-      return 'Reported Location';
+      return t('reports.reportedLocation');
     };
 
-    // 1. Get active (not expired) verified reports sorted by most recent
+    // 1. Get verified reports sorted by most recent
     const verifiedReports = reports
-      .filter(r => isReportVerified(r) && r.lat && r.lng && !isExpired(r.timestamp || ''))
+      .filter(r => isReportVerified(r) && r.lat && r.lng)
       .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
 
-    // 2. Get active unverified reports sorted by most recent
+    // 2. Get unverified reports sorted by most recent
     const unverifiedReports = reports
-      .filter(r => !isReportVerified(r) && r.lat && r.lng && !isExpired(r.timestamp || ''))
+      .filter(r => !isReportVerified(r) && r.lat && r.lng)
       .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
 
     // 3. Add verified hotspots first (up to MAX_HOTSPOTS)
@@ -397,7 +1445,8 @@ const CommunityReports = ({ isDuressMode = false }) => {
         name: formatReportName(r),
         lat: r.lat,
         lng: r.lng,
-        type: 'verified'
+        type: 'verified',
+        verifierCount: r.verifiers?.length || 0
       });
     }
 
@@ -414,22 +1463,13 @@ const CommunityReports = ({ isDuressMode = false }) => {
       }
     }
 
-    // 5. Fill with general city hubs if still < MAX_HOTSPOTS
-    if (hubs.length < MAX_HOTSPOTS) {
-      const remaining = MAX_HOTSPOTS - hubs.length;
-      for (const cityHub of CITY_HUBS.slice(0, remaining)) {
-        hubs.push({ ...cityHub, type: 'city' });
-      }
-    }
-
     return hubs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reports]);
 
   const sortedReports = useMemo(() => {
-    const validReports = reports.filter(r => !isExpired(r.timestamp || ''));
-    const validPending = pendingReports.filter(r => !isExpired(r.timestamp || ''));
-    
-    const combined = [...validPending, ...validReports];
+    // Reports are already filtered for expiration in the snapshot listener
+    const combined = [...pendingReports, ...reports];
     return combined.sort((a, b) => {
       if (sortBy === 'newest') return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
       if (sortBy === 'oldest') return new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime();
@@ -444,10 +1484,9 @@ const CommunityReports = ({ isDuressMode = false }) => {
 
   // Statistics for pills display
   const reportStats = useMemo(() => {
-    const activeReports = reports.filter(r => !isExpired(r.timestamp || ''));
-    const verifiedReports = activeReports.filter(r => isReportVerified(r));
+    const verifiedReports = reports.filter(r => isReportVerified(r));
     return {
-      totalActive: activeReports.length,
+      totalActive: reports.length,
       totalVerified: verifiedReports.length
     };
   }, [reports]);
@@ -457,15 +1496,50 @@ const CommunityReports = ({ isDuressMode = false }) => {
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    // Listen for background sync trigger from service worker
+    const handleSWMessage = (event) => {
+      if (event.data && event.data.type === 'SYNC_PENDING_REPORTS') {
+        if (navigator.onLine) setIsOnline(true);
+      }
+    };
+    navigator.serviceWorker?.addEventListener('message', handleSWMessage);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      navigator.serviceWorker?.removeEventListener('message', handleSWMessage);
     };
+  }, []);
+
+  // Show legal notice on first visit + request notification permission
+  useEffect(() => {
+    const hasSeenLegalNotice = localStorage.getItem(LEGAL_NOTICE_SHOWN_KEY);
+    if (!hasSeenLegalNotice) {
+      setShowLegalNotice(true);
+    }
+
+    // Request notification permission after a longer delay to avoid competing with geolocation prompt
+    if ('Notification' in window && Notification.permission === 'default') {
+      setTimeout(() => Notification.requestPermission(), 10000);
+    }
+
+    // Pick up shared data from share_target
+    if (window.__safeneighbor_shared) {
+      const shared = window.__safeneighbor_shared;
+      const description = [shared.title, shared.text, shared.url]
+        .filter(Boolean)
+        .join(' - ');
+      if (description) {
+        setFormData(prev => ({ ...prev, description: description.slice(0, 500) }));
+      }
+      delete window.__safeneighbor_shared;
+    }
   }, []);
 
   useEffect(() => {
     console.log('Setting up Firebase listener...');
-    
+
     const pending = localStorage.getItem(PENDING_KEY);
     if (pending) {
       try {
@@ -475,41 +1549,128 @@ const CommunityReports = ({ isDuressMode = false }) => {
         }
       } catch (e) { console.error(e); }
     }
-    
+
     const reportsRef = collection(db, 'iceReports');
     const q = query(reportsRef, orderBy('timestamp', 'desc'));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+
+    const processSnapshot = async (snapshot) => {
       console.log('Firebase snapshot received:', snapshot.size, 'documents');
-      const fetchedReports = [];
-      
+
+      // Collect all reports within 7-day heat window for decryption
+      const allDocs = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        if (!isExpired(data.timestamp)) {
-          fetchedReports.push({
-            id: docSnap.id,
-            timestamp: data.timestamp,
-            location: data.location,
-            lat: data.lat,
-            lng: data.lng,
-            description: data.description,
-            agents: data.agents,
-            vehicles: data.vehicles,
-            verified: data.verified || false,
-            verifiers: data.verifiers || []
-          });
+        const reportAge = Date.now() - new Date(data.timestamp || 0).getTime();
+        if (reportAge <= HEAT_EXPIRATION_MS) {
+          allDocs.push({ id: docSnap.id, data });
         }
       });
-      
-      setReports(fetchedReports);
-    }, (error) => {
+
+      // Decrypt all reports in parallel (handles both new encrypted payload and legacy formats)
+      const decrypted = await Promise.all(allDocs.map(async ({ id, data }) => {
+        let fields;
+        if (data.encryptedPayload) {
+          // New format: all sensitive fields in a single encrypted payload
+          try {
+            fields = await decryptReport(data.encryptedPayload);
+          } catch {
+            fields = { description: '[Unable to decrypt]' };
+          }
+        } else {
+          // Legacy format: individual plaintext fields (with optional encrypted description)
+          fields = {
+            lat: data.lat, lng: data.lng,
+            city: data.city || '', state: data.state || '',
+            location: data.location,
+            description: data.description,
+            agents: data.agents, vehicles: data.vehicles,
+            activity: data.activity
+          };
+          if (data.encryptedDescription) {
+            try {
+              fields.description = await decryptDescription(data.encryptedDescription);
+            } catch {
+              fields.description = fields.description === '[encrypted]' ? '[Unable to decrypt]' : fields.description;
+            }
+          }
+        }
+        return {
+          id, ...fields,
+          timestamp: data.timestamp,
+          verified: data.verified || false,
+          verifiers: data.verifiers || []
+        };
+      }));
+
+      // Split decrypted reports: 12h → markers/feed, 7d → heat map
+      const heatEligible = [];
+      sessionReportsRef.current = new Map();
+
+      decrypted.forEach(report => {
+        const age = Date.now() - new Date(report.timestamp || 0).getTime();
+        if (age <= EXPIRATION_MS) {
+          sessionReportsRef.current.set(report.id, report);
+        }
+        if (report.lat && report.lng) {
+          heatEligible.push(report);
+        }
+      });
+
+      const sessionReports = [...sessionReportsRef.current.values()];
+      setReports(sessionReports);
+      setHeatReports(heatEligible);
+
+      // Notify about new reports and set app badge
+      const currentIds = new Set(sessionReports.map(r => r.id));
+      const newReports = sessionReports.filter(r => !prevReportIdsRef.current.has(r.id));
+
+      if (prevReportIdsRef.current.size > 0 && newReports.length > 0) {
+        const currentPage = window.__safeneighbor_currentPage;
+        if (currentPage !== 'reports') {
+          // Local notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const report = newReports[0];
+            const locationText = report.city && report.state
+              ? `${report.city}, ${report.state}`
+              : report.location || t('reports.unknownLocation');
+            new Notification(t('reports.newActivityReportNotification'), {
+              body: `${locationText} - ${t('reports.newReportsCount', { count: newReports.length })}`,
+              icon: '/logo192.png',
+              tag: 'new-report',
+              renotify: true
+            });
+          }
+          // App badge
+          if ('setAppBadge' in navigator) {
+            navigator.setAppBadge(newReports.length).catch(() => {});
+          }
+        }
+      }
+      prevReportIdsRef.current = currentIds;
+    };
+
+    let unsubscribe = onSnapshot(q, processSnapshot, (error) => {
       console.error("Error fetching reports from Firebase:", error);
     });
+
+    // Re-subscribe when tab becomes visible again (Firebase WebSocket can drop when backgrounded)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Tab visible again, re-subscribing to Firebase...');
+        unsubscribe();
+        unsubscribe = onSnapshot(q, processSnapshot, (error) => {
+          console.error("Error fetching reports from Firebase:", error);
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       console.log('Cleaning up Firebase listener...');
       unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -549,6 +1710,16 @@ const CommunityReports = ({ isDuressMode = false }) => {
     };
 
     syncPendingReports();
+
+    // Register background sync when offline with pending reports
+    if (!isOnline && pendingReports.length > 0 && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        if ('sync' in registration) {
+          registration.sync.register('sync-pending-reports')
+            .catch(err => console.log('Background sync registration failed:', err));
+        }
+      });
+    }
   }, [isOnline, pendingReports]);
 
   useEffect(() => {
@@ -558,87 +1729,167 @@ const CommunityReports = ({ isDuressMode = false }) => {
   useEffect(() => {
     if (mapRef.current) return;
     const initMap = () => {
-      const mapContainer = document.getElementById('report-map');
-      if (!mapContainer || !window.L) return;
-      const mapInstance = window.L.map('report-map', { zoomControl: false }).setView([formData.lat, formData.lng], 11);
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(mapInstance);
+      try {
+        const mapContainer = document.getElementById('report-map');
+        if (!mapContainer || !window.L) return false;
+        const mapInstance = window.L.map('report-map', { zoomControl: false }).setView([formData.lat, formData.lng], 11);
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          crossOrigin: true
+        }).addTo(mapInstance);
 
-      const selectionMarker = window.L.marker([formData.lat, formData.lng], {
-        draggable: true,
-        icon: window.L.divIcon({
-          className: 'custom-selection-cursor',
-          html: "<div style='background-color:#ef4444; width:30px; height:30px; border-radius:50%; border:5px solid white; box-shadow:0 0 20px rgba(239,68,68,0.7); display:flex; align-items:center; justify-content:center; color:white; font-size:16px; font-weight:bold;'>+</div>",
-          iconSize: [30, 30],
-          iconAnchor: [15, 15]
-        })
-      }).addTo(mapInstance);
+        const selectionMarker = window.L.marker([formData.lat, formData.lng], {
+          draggable: true,
+          icon: window.L.divIcon({
+            className: 'custom-selection-cursor',
+            html: "<div style='background-color:#ef4444; width:30px; height:30px; border-radius:50%; border:5px solid white; box-shadow:0 0 20px rgba(239,68,68,0.7); display:flex; align-items:center; justify-content:center; color:white; font-size:16px; font-weight:bold;'>+</div>",
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+          })
+        }).addTo(mapInstance);
 
-      selectionMarker.on('dragend', () => {
-        const pos = selectionMarker.getLatLng();
-        setFormData(prev => ({ ...prev, lat: pos.lat, lng: pos.lng, location: `Manual Pin` }));
-        setActiveHubId(null);
-      });
+        selectionMarker.on('dragend', () => {
+          const pos = selectionMarker.getLatLng();
+          setFormData(prev => ({ ...prev, lat: pos.lat, lng: pos.lng, location: t('reports.manualPin') }));
+          setActiveHubId(null);
+        });
 
-      mapInstance.on('click', (e) => {
-        const { lat, lng } = e.latlng;
-        selectionMarker.setLatLng([lat, lng]);
-        setFormData(prev => ({ ...prev, lat, lng, location: `Manual Pin` }));
-        setActiveHubId(null);
-      });
+        mapInstance.on('click', (e) => {
+          const { lat, lng } = e.latlng;
+          selectionMarker.setLatLng([lat, lng]);
+          setFormData(prev => ({ ...prev, lat, lng, location: t('reports.manualPin') }));
+          setActiveHubId(null);
+        });
 
-      mapRef.current = mapInstance;
-      markerRef.current = selectionMarker;
-      setMapLoaded(true);
+        // Scale markers based on zoom level so they don't dominate when zoomed out
+        const updateMarkerScale = () => {
+          const zoom = mapInstance.getZoom();
+          const scale = Math.min(1, Math.max(0.4, 0.25 + zoom * 0.05));
+          mapContainer.style.setProperty('--marker-scale', scale);
+        };
+        mapInstance.on('zoomend', updateMarkerScale);
+        updateMarkerScale();
 
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition((position) => {
-          const { latitude, longitude } = position.coords;
-          setUserCoords({ lat: latitude, lng: longitude });
-          mapInstance.setView([latitude, longitude], 11);
-          selectionMarker.setLatLng([latitude, longitude]);
-        }, (err) => { console.debug(err); });
+        mapRef.current = mapInstance;
+        markerRef.current = selectionMarker;
+        setMapLoaded(true);
+        return true;
+      } catch (err) {
+        console.error('Map initialization failed:', err);
+        setMapLoadFailed(true);
+        return false;
       }
     };
     const tid = setTimeout(initMap, 100);
+    // If Leaflet still hasn't loaded after 4 seconds, show fallback
+    const failsafe = setTimeout(() => {
+      if (!mapRef.current) setMapLoadFailed(true);
+    }, 4000);
     return () => {
       clearTimeout(tid);
+      clearTimeout(failsafe);
+      if (heatLayerRef.current && mapRef.current) { mapRef.current.removeLayer(heatLayerRef.current); heatLayerRef.current = null; }
+      if (reportClusterRef.current && mapRef.current) { mapRef.current.removeLayer(reportClusterRef.current); reportClusterRef.current = null; }
+      if (resourceClusterRef.current && mapRef.current) { mapRef.current.removeLayer(resourceClusterRef.current); resourceClusterRef.current = null; }
+      resourceMarkersRef.current = [];
+      reportMarkersRef.current = [];
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Request geolocation AFTER map is ready and modals are dismissed
+  // iOS PWAs drop geolocation responses when permission prompts compete with other modals
+  const geoRequestedRef = useRef(false);
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || !markerRef.current) return;
+    if (geoRequestedRef.current) return;
+    if (showLegalNotice) return; // Wait for legal notice to be dismissed first
+    geoRequestedRef.current = true;
+
+    getLocation((position) => {
+      const { latitude, longitude } = position.coords;
+      setUserCoords({ lat: latitude, lng: longitude });
+      if (mapRef.current) mapRef.current.setView([latitude, longitude], 11);
+      if (markerRef.current) markerRef.current.setLatLng([latitude, longitude]);
+    }, (err) => { console.debug('Geolocation unavailable:', err); });
+  }, [mapLoaded, showLegalNotice]);
+
+  // Show/hide the location selection marker
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || !markerRef.current) return;
+    if (showLocationPin) {
+      markerRef.current.addTo(mapRef.current);
+    } else {
+      mapRef.current.removeLayer(markerRef.current);
+    }
+  }, [showLocationPin, mapLoaded]);
 
   useEffect(() => {
     if (mapLoaded && mapRef.current && window.L) {
-      reportMarkersRef.current.forEach(m => mapRef.current.removeLayer(m));
+      // Remove previous cluster group (contains all report markers)
+      if (reportClusterRef.current) {
+        mapRef.current.removeLayer(reportClusterRef.current);
+        reportClusterRef.current = null;
+      }
       reportMarkersRef.current = [];
-      
-      const activeReports = reports.filter(r => !isExpired(r.timestamp || ''));
-      const activePending = pendingReports.filter(r => !isExpired(r.timestamp || ''));
-      const allReports = [...activePending, ...activeReports];
-      
+
+      const allReports = [...pendingReports, ...reports];
+      if (allReports.length === 0) return;
+
+      // Create cluster group (falls back to plain layer group if plugin not loaded)
+      const clusterGroup = window.L.markerClusterGroup
+        ? window.L.markerClusterGroup({
+            maxClusterRadius: 50,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: false,
+            zoomToBoundsOnClick: true,
+            iconCreateFunction: (cluster) => {
+              const count = cluster.getChildCount();
+              const zoom = mapRef.current ? mapRef.current.getZoom() : 10;
+              const zoomScale = Math.min(1, Math.max(0.5, (zoom - 3) / 10));
+              const baseSize = count < 10 ? 36 : count < 50 ? 44 : 52;
+              const size = Math.round(baseSize * zoomScale);
+              const fontSize = Math.round((count < 10 ? 13 : 12) * zoomScale);
+              return window.L.divIcon({
+                html: `<div style="background:rgba(153,27,27,0.9); width:${size}px; height:${size}px; border-radius:50%; border:2px solid #ef4444; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:${fontSize}px; box-shadow:0 3px 10px rgba(0,0,0,0.6);">${count}</div>`,
+                className: 'report-cluster-icon',
+                iconSize: [size, size]
+              });
+            }
+          })
+        : window.L.layerGroup();
+
       allReports.forEach(report => {
         if (report.lat && report.lng) {
-          const isPending = activePending.some(pr => pr.id === report.id);
-          let bgColor = '#991b1b';
-          let borderColor = '#ef4444';
-          let iconContent = isReportVerified(report) ? '🛡️' : '📍'; 
-          
-          if (isPending) { 
-            bgColor = '#d97706'; 
-            borderColor = '#fbbf24'; 
-            iconContent = '🕒'; 
+          const isPending = pendingReports.some(pr => pr.id === report.id);
+          const isTest = isTestReport(report);
+
+          // Set colors based on report type: test (green), pending (amber), or normal (red)
+          let bgColor = isTest ? '#166534' : '#991b1b';
+          let borderColor = isTest ? '#22c55e' : '#ef4444';
+          let pulseColor = isTest ? 'bg-green-600' : 'bg-red-600';
+
+          let iconContent = isReportVerified(report)
+            ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.62,75.82,119.34,91,124.38a15.44,15.44,0,0,0,10,0c15.2-5.05,91-34.77,91-124.39V56A16,16,0,0,0,208,40Zm-30.46,77.68-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,156.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg>'
+            : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256"><path d="M128,12A84.09,84.09,0,0,0,44,96c0,30.42,14.17,62.79,42.09,96.25a254.09,254.09,0,0,0,38.49,37.12,12,12,0,0,0,14.84,0,254.09,254.09,0,0,0,38.49-37.12C205.83,158.79,220,126.42,220,96A84.09,84.09,0,0,0,128,12Zm0,196.37C109.54,193.75,68,155.36,68,96a60,60,0,0,1,120,0C188,155.35,146.47,193.74,128,208.37ZM128,64a36,36,0,1,0,36,36A36,36,0,0,0,128,64Zm0,48a12,12,0,1,1,12-12A12,12,0,0,1,128,112Z"/></svg>';
+
+          if (isPending) {
+            bgColor = '#d97706';
+            borderColor = '#fbbf24';
+            pulseColor = 'bg-amber-500';
+            iconContent = '🕒';
           }
 
           const m = window.L.marker([report.lat, report.lng], {
             icon: window.L.divIcon({
               className: 'custom-report-marker',
-              html: `<div class="relative flex items-center justify-center">${isPending ? '<div class="absolute -inset-1.5 bg-amber-500 rounded-full animate-ping opacity-25"></div>' : '<div class="absolute -inset-2 bg-red-600 rounded-full animate-pulse opacity-20"></div>'}<div style='background-color:${bgColor}; width:26px; height:26px; border-radius:50%; border:2px solid ${borderColor}; box-shadow:0 3px 10px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; font-size: 11px;'>${iconContent}</div></div>`,
+              html: `<div class="relative flex items-center justify-center">${isPending ? '<div class="absolute -inset-1.5 bg-amber-500 rounded-full animate-ping opacity-25"></div>' : `<div class="absolute -inset-2 ${pulseColor} rounded-full animate-pulse opacity-20"></div>`}<div style='background-color:${bgColor}; width:26px; height:26px; border-radius:50%; border:2px solid ${borderColor}; box-shadow:0 3px 10px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; font-size: 11px;'>${iconContent}</div></div>`,
               iconSize: [26, 26],
               iconAnchor: [13, 13]
             })
-          }).addTo(mapRef.current);
-          
+          });
+
           m.on('click', () => {
             setSelectedReport(report);
             mapRef.current.flyTo([report.lat, report.lng], 15, { duration: 1.5 });
@@ -651,11 +1902,156 @@ const CommunityReports = ({ isDuressMode = false }) => {
               }
             }, 500);
           });
+          clusterGroup.addLayer(m);
           reportMarkersRef.current.push(m);
         }
       });
+
+      if (showPins) {
+        mapRef.current.addLayer(clusterGroup);
+      }
+      reportClusterRef.current = clusterGroup;
     }
-  }, [reports, pendingReports, mapLoaded]);
+  }, [reports, pendingReports, mapLoaded, showPins]);
+
+  // Heat map layer lifecycle — radius scales with zoom to keep geographic size constant
+  const HEAT_REFERENCE_ZOOM = 13;
+  const HEAT_BASE_RADIUS = HEATMAP_CONFIG.radius;
+
+  const getScaledHeatRadius = (zoom) => {
+    const scale = Math.pow(2, (zoom - HEAT_REFERENCE_ZOOM) * 0.5);
+    return Math.max(14, Math.round(HEAT_BASE_RADIUS * scale));
+  };
+
+  const rebuildHeatLayer = () => {
+    if (!mapRef.current || !window.L?.heatLayer) return;
+    if (heatLayerRef.current) {
+      mapRef.current.removeLayer(heatLayerRef.current);
+      heatLayerRef.current = null;
+    }
+    if (!heatmapEnabled) return;
+    const heatData = reportsToHeatData([...pendingReports, ...heatReports]);
+    if (heatData.length === 0) return;
+    const zoom = mapRef.current.getZoom();
+    const scaledRadius = getScaledHeatRadius(zoom);
+    heatLayerRef.current = window.L.heatLayer(heatData, {
+      ...HEATMAP_CONFIG,
+      radius: scaledRadius,
+      blur: Math.max(3, Math.round(scaledRadius * 0.65))
+    }).addTo(mapRef.current);
+  };
+
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || !window.L?.heatLayer) return;
+    rebuildHeatLayer();
+    const onZoom = () => rebuildHeatLayer();
+    mapRef.current.on('zoomend', onZoom);
+    return () => { if (mapRef.current) mapRef.current.off('zoomend', onZoom); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heatReports, pendingReports, mapLoaded, heatmapEnabled]);
+
+  // Resource markers lifecycle
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || !window.L) return;
+
+    // Remove previous resource cluster group
+    if (resourceClusterRef.current) {
+      mapRef.current.removeLayer(resourceClusterRef.current);
+      resourceClusterRef.current = null;
+    }
+    resourceMarkersRef.current = [];
+
+    if (!resourcesEnabled || resourcesData.length === 0) return;
+
+    // Create cluster group (falls back to plain layer group if plugin not loaded)
+    const clusterGroup = window.L.markerClusterGroup
+      ? window.L.markerClusterGroup({
+          maxClusterRadius: 40,
+          spiderfyOnMaxZoom: true,
+          showCoverageOnHover: false,
+          zoomToBoundsOnClick: true,
+          iconCreateFunction: (cluster) => {
+            const count = cluster.getChildCount();
+            const zoom = mapRef.current ? mapRef.current.getZoom() : 10;
+            const zoomScale = Math.min(1, Math.max(0.5, (zoom - 3) / 10));
+            const baseSize = count < 10 ? 32 : count < 50 ? 40 : 48;
+            const size = Math.round(baseSize * zoomScale);
+            const fontSize = Math.round((count < 10 ? 12 : 11) * zoomScale);
+            return window.L.divIcon({
+              html: `<div style="background:rgba(6,78,59,0.9); width:${size}px; height:${size}px; border-radius:50%; border:2px solid #34d399; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:${fontSize}px; box-shadow:0 2px 8px rgba(0,0,0,0.5);">${count}</div>`,
+              className: 'resource-cluster-icon',
+              iconSize: [size, size]
+            });
+          }
+        })
+      : window.L.layerGroup();
+
+    resourcesData.forEach(resource => {
+      const style = RESOURCE_STYLES[resource.category] || RESOURCE_STYLES.church;
+      const iconSvgs = {
+        church: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256"><path d="M128,8a8,8,0,0,1,8,8V56h40a8,8,0,0,1,0,16H136v40h64a8,8,0,0,1,8,8v96h16a8,8,0,0,1,0,16H32a8,8,0,0,1,0-16H48V120a8,8,0,0,1,8-8h64V72H96a8,8,0,0,1,0-16h24V16A8,8,0,0,1,128,8Z"/></svg>',
+        hospital: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256"><path d="M216,88H168V40a16,16,0,0,0-16-16H104A16,16,0,0,0,88,40V88H40a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16H88v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V168h48a16,16,0,0,0,16-16V104A16,16,0,0,0,216,88Z"/></svg>',
+        school: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256"><path d="M251.76,88.94l-120-64a8,8,0,0,0-7.52,0l-120,64a8,8,0,0,0,0,14.12L32,117.87v48.42a15.91,15.91,0,0,0,4.06,10.65C49.16,191.53,78.51,216,128,216a130.13,130.13,0,0,0,48-8.76V240a8,8,0,0,0,16,0V199.51a115.63,115.63,0,0,0,27.94-22.57A15.91,15.91,0,0,0,224,166.29V117.87l27.76-14.81a8,8,0,0,0,0-14.12Z"/></svg>',
+        consulate: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256"><path d="M42.76,50A8,8,0,0,0,32,56V168a8,8,0,0,0,2.76,6l48,48A8,8,0,0,0,96,216V104a8,8,0,0,0-2.76-6ZM224,48H160a8,8,0,0,0-5.66,2.34l-48,48A8,8,0,0,0,104,104V216a8,8,0,0,0,13.66,5.66l48-48A8,8,0,0,0,168,168V56A8,8,0,0,0,224,48Z"/></svg>',
+      };
+
+      let distanceText = '';
+      if (userCoords) {
+        const dist = calculateDistance(userCoords.lat, userCoords.lng, resource.lat, resource.lng);
+        distanceText = dist < 0.1 ? t('reports.nearby') : t('reports.miAway', { distance: dist.toFixed(1) });
+      }
+
+      const sanitizedName = DOMPurify.sanitize(resource.name, { ALLOWED_TAGS: [] });
+
+      const m = window.L.marker([resource.lat, resource.lng], {
+        zIndexOffset: -100,
+        icon: window.L.divIcon({
+          className: 'custom-resource-marker',
+          html: `<div style='background-color:${style.bg}; width:22px; height:22px; border-radius:50%; border:2px solid ${style.border}; box-shadow:0 2px 8px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; color:${style.border};'>${iconSvgs[resource.category] || iconSvgs.church}</div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        })
+      });
+
+      // Deep-link to native maps app (Apple Maps on iOS, Google Maps otherwise)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const directionsUrl = isIOS
+        ? `https://maps.apple.com/?daddr=${resource.lat},${resource.lng}&dirflg=w`
+        : `https://www.google.com/maps/dir/?api=1&destination=${resource.lat},${resource.lng}&travelmode=walking`;
+
+      m.bindPopup(
+        `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${style.border};margin-bottom:4px;">${t(`reports.resourceType_${resource.category}`)}</div>
+          <div style="font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:4px;">${sanitizedName}</div>
+          ${distanceText ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">${distanceText}</div>` : ''}
+          <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#34d399;text-decoration:none;padding:4px 8px;background:rgba(6,78,59,0.4);border:1px solid rgba(52,211,153,0.3);border-radius:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256"><path d="M229.66,109.66l-48,48A8,8,0,0,1,168,152V120H128a72.08,72.08,0,0,0-72,72,8,8,0,0,1-16,0A88.1,88.1,0,0,1,128,104h40V72a8,8,0,0,1,13.66-5.66l48,48A8,8,0,0,1,229.66,109.66Z"/></svg>
+            ${t('reports.walk')}
+          </a>
+        </div>`,
+        { className: 'resource-popup', closeButton: false, offset: [0, -5] }
+      );
+
+      clusterGroup.addLayer(m);
+      resourceMarkersRef.current.push(m);
+    });
+
+    if (showPins) {
+      mapRef.current.addLayer(clusterGroup);
+    }
+    resourceClusterRef.current = clusterGroup;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resourcesData, resourcesEnabled, mapLoaded, userCoords, showPins]);
+
+  // Auto-fetch resources if toggle was persisted as enabled
+  useEffect(() => {
+    if (resourcesEnabled && resourcesData.length === 0 && !resourcesLoading) {
+      if (userCoords || mapLoaded) {
+        fetchResources();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resourcesEnabled, userCoords, mapLoaded]);
 
   useEffect(() => {
     if (showInlinePicker && !inlinePickerMapRef.current && window.L) {
@@ -664,13 +2060,19 @@ const CommunityReports = ({ isDuressMode = false }) => {
         if (!container) return;
 
         if (!userCoords) {
-           navigator.geolocation.getCurrentPosition((pos) => {
-             const { latitude, longitude } = pos.coords;
-             setUserCoords({ lat: latitude, lng: longitude });
-             setupPickerMap(latitude, longitude);
-           }, () => {
-             setPickerError("Precision picking requires your GPS location.");
-           });
+           getLocation(
+             (pos) => {
+               const { latitude, longitude } = pos.coords;
+               setUserCoords({ lat: latitude, lng: longitude });
+               setupPickerMap(latitude, longitude);
+             },
+             (error) => {
+               const errorType = error.code === 1 ? 'denied' : error.code === 2 ? 'unavailable' : 'timeout';
+               setLocationError(errorType);
+               setShowLocationModal(true);
+               setShowInlinePicker(false);
+             }
+           );
            return;
         }
 
@@ -680,7 +2082,8 @@ const CommunityReports = ({ isDuressMode = false }) => {
       const setupPickerMap = (centerLat, centerLng) => {
         const mInstance = window.L.map('inline-precision-map', { zoomControl: false }).setView([centerLat, centerLng], 14);
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OSM'
+          attribution: '&copy; OSM',
+          crossOrigin: true
         }).addTo(mInstance);
 
         const circle = window.L.circle([centerLat, centerLng], {
@@ -695,7 +2098,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
           draggable: true,
           icon: window.L.divIcon({
             className: 'precision-marker',
-            html: "<div style='background-color:#ef4444; width:34px; height:34px; border-radius:50%; border:4px solid white; box-shadow:0 10px 20px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; color:white; font-size:18px;'>📍</div>",
+            html: "<div style='background-color:#ef4444; width:34px; height:34px; border-radius:50%; border:4px solid white; box-shadow:0 10px 20px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; color:white;'><svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='currentColor' viewBox='0 0 256 256'><path d='M128,16a88.1,88.1,0,0,0-88,88c0,75.3,80,132.17,83.41,134.55a8,8,0,0,0,9.18,0C136,236.17,216,179.3,216,104A88.1,88.1,0,0,0,128,16Zm0,56a32,32,0,1,1-32,32A32,32,0,0,1,128,72Z'/></svg></div>",
             iconSize: [34, 34],
             iconAnchor: [17, 17]
           })
@@ -704,7 +2107,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
         const validatePos = (pos) => {
           const dist = calculateDistance(centerLat, centerLng, pos.lat, pos.lng);
           if (dist > 3) {
-            setPickerError("Must be within 3 miles of your position.");
+            setPickerError(t('reports.mustBeWithin3Miles'));
             marker.setLatLng([centerLat, centerLng]);
             return false;
           }
@@ -713,7 +2116,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
             ...prev, 
             lat: pos.lat, 
             lng: pos.lng, 
-            location: `Neighbor Report (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})` 
+            location: `${t('reports.neighborReport')} (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})` 
           }));
           return true;
         };
@@ -738,6 +2141,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
         inlinePickerMapRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showInlinePicker, userCoords]);
 
   const handleHubSelect = (hub) => {
@@ -749,18 +2153,114 @@ const CommunityReports = ({ isDuressMode = false }) => {
     }
   };
 
+  const handleToggleHeatmap = () => {
+    setHeatmapEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem(HEATMAP_KEY, String(next));
+      if (!next) setShowPins(true); // Always show pins when heat map is off
+      return next;
+    });
+  };
+
+  // Fetch resources from Overpass API with caching and auto-retry
+  const fetchResources = async (isRetry = false) => {
+    const center = mapRef.current?.getCenter();
+    const lat = userCoords?.lat || center?.lat;
+    const lng = userCoords?.lng || center?.lng;
+    if (!lat || !lng) return;
+
+    const cacheKey = resourceCacheKey(lat, lng);
+    if (resourcesCacheRef.current[cacheKey]) {
+      setResourcesData(resourcesCacheRef.current[cacheKey]);
+      setResourcesError(false);
+      return;
+    }
+
+    if (!isRetry) {
+      setResourcesLoading(true);
+      setResourcesError(false);
+    }
+
+    try {
+      const data = await fetchCommunityResources(lat, lng);
+      resourcesCacheRef.current[cacheKey] = data;
+      setResourcesData(data);
+      setResourcesError(false);
+      setResourcesLoading(false);
+    } catch (err) {
+      console.error('SafeNeighbor: Resources fetch error:', err);
+      if (!isRetry) {
+        setTimeout(() => fetchResources(true), 3000);
+      } else {
+        setResourcesError(true);
+        setResourcesLoading(false);
+      }
+    }
+  };
+
+  const handleToggleResources = () => {
+    // First time: show disclaimer
+    if (!resourcesEnabled && localStorage.getItem(RESOURCES_DISCLAIMER_KEY) !== 'true') {
+      setShowResourcesDisclaimer(true);
+      return;
+    }
+    // If in error state, retry instead of toggling off
+    if (resourcesEnabled && resourcesError) {
+      setResourcesError(false);
+      fetchResources();
+      return;
+    }
+    // Toggle off
+    if (resourcesEnabled) {
+      setResourcesEnabled(false);
+      localStorage.setItem(RESOURCES_KEY, 'false');
+      return;
+    }
+    // Toggle on
+    setResourcesEnabled(true);
+    localStorage.setItem(RESOURCES_KEY, 'true');
+    fetchResources();
+  };
+
+  const handleCloseResourcesDisclaimer = () => {
+    setShowResourcesDisclaimer(false);
+    localStorage.setItem(RESOURCES_DISCLAIMER_KEY, 'true');
+    setResourcesEnabled(true);
+    localStorage.setItem(RESOURCES_KEY, 'true');
+    fetchResources();
+  };
+
   const handleUseCurrentLocation = () => {
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        const { latitude, longitude } = position.coords;
-        setUserCoords({ lat: latitude, lng: longitude });
-        setFormData(prev => ({ ...prev, lat: latitude, lng: longitude, location: 'Current Position' }));
-        if (mapRef.current && markerRef.current) {
-          mapRef.current.flyTo([latitude, longitude], 12, { duration: 1.5 });
-          markerRef.current.setLatLng([latitude, longitude]);
+      getLocation(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserCoords({ lat: latitude, lng: longitude });
+          setFormData(prev => ({ ...prev, lat: latitude, lng: longitude, location: t('reports.currentPosition') }));
+          setShowLocationPin(true);
+          if (mapRef.current && markerRef.current) {
+            mapRef.current.flyTo([latitude, longitude], 12, { duration: 1.5 });
+            markerRef.current.setLatLng([latitude, longitude]);
+          }
+          setPickerError(null);
+          setShowLocationModal(false);
+        },
+        (error) => {
+          const errorType = error.code === 1 ? 'denied' : error.code === 2 ? 'unavailable' : 'timeout';
+          setLocationError(errorType);
+          setShowLocationModal(true);
         }
-        setPickerError(null);
-      }, () => alert("Location access required for this feature."));
+      );
+    } else {
+      setLocationError('unavailable');
+      setShowLocationModal(true);
+    }
+  };
+
+  const handleOverviewUS = () => {
+    if (mapRef.current) {
+      const currentZoom = mapRef.current.getZoom();
+      mapRef.current.flyTo([39.8283, -98.5795], currentZoom, { duration: 1.5 });
     }
   };
 
@@ -769,9 +2269,24 @@ const CommunityReports = ({ isDuressMode = false }) => {
     setPickerError(null);
   };
 
+  const handleCloseLegalNotice = () => {
+    localStorage.setItem(LEGAL_NOTICE_SHOWN_KEY, 'true');
+    setShowLegalNotice(false);
+  };
+
   const handleFeedItemClick = (report) => {
+    // Scroll to the map first
+    const mapContainer = document.getElementById('report-map');
+    if (mapContainer) {
+      mapContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Then fly to the report location
     if (mapRef.current && report.lat && report.lng) {
-      mapRef.current.flyTo([report.lat, report.lng], 16, { duration: 2.0 });
+      // Small delay to let scroll complete before flying
+      setTimeout(() => {
+        mapRef.current.flyTo([report.lat, report.lng], 16, { duration: 2.0 });
+      }, 300);
     }
   };
 
@@ -786,13 +2301,13 @@ const CommunityReports = ({ isDuressMode = false }) => {
 
     // Check if user has already verified
     if (hasUserVerified(report, verifierId)) {
-      alert('You have already verified this report.');
+      alert(t('reports.alreadyVerified'));
       return;
     }
 
     // Check distance requirement
     if (!userCoords) {
-      alert('Location required to verify reports. Please enable GPS.');
+      alert(t('reports.locationRequiredToVerify'));
       return;
     }
 
@@ -802,7 +2317,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
     );
 
     if (distance > VERIFICATION_DISTANCE_MILES) {
-      alert(`You must be within ${VERIFICATION_DISTANCE_MILES} miles of the incident to verify. You are ${distance.toFixed(1)} miles away.`);
+      alert(t('reports.mustBeWithinMiles', { miles: VERIFICATION_DISTANCE_MILES, distance: distance.toFixed(1) }));
       return;
     }
 
@@ -830,82 +2345,180 @@ const CommunityReports = ({ isDuressMode = false }) => {
       console.log('Verification added!');
     } catch (error) {
       console.error("Error updating verification:", error);
-      alert("Failed to add verification.");
+      alert(t('reports.failedToVerify'));
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Security: Rate limit check
-    const rateCheck = checkRateLimit();
-    if (!rateCheck.allowed) {
-      alert(`Rate limit reached. You can submit ${MAX_REPORTS_PER_WINDOW} reports per hour. Try again in ${rateCheck.resetInMinutes} minutes.`);
-      return;
-    }
+    // Prevent double submission
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-    // Security: Validate coordinates (US bounds)
-    const coordCheck = validateCoordinates(formData.lat, formData.lng);
-    if (!coordCheck.valid) {
-      alert(coordCheck.error);
-      return;
-    }
-
-    // Security: Validate report data (agents, vehicles, description)
-    const validationErrors = validateReportData(formData);
-    if (validationErrors.length > 0) {
-      alert(validationErrors.join('\n'));
-      return;
-    }
-
-    // Build timestamp from form data
-    const reportTimestamp = new Date(`${formData.date}T${formData.time}`).toISOString();
-
-    // Security: Check for duplicate reports
-    const allReports = [...reports, ...pendingReports];
-    if (isDuplicateReport(formData.lat, formData.lng, reportTimestamp, allReports, calculateDistance)) {
-      alert('A similar report was already submitted for this location recently. Please wait before submitting another report for the same area.');
-      return;
-    }
-
-    // Security: Apply privacy protections
-    const fuzzyLat = fuzzyCoordinate(formData.lat);
-    const fuzzyLng = fuzzyCoordinate(formData.lng);
-    const roundedTimestamp = roundTimestamp(reportTimestamp);
-
-    // Get street address and city/state from fuzzed coordinates
-    const geoData = await reverseGeocode(fuzzyLat, fuzzyLng);
-
-    const newReport = {
-      timestamp: roundedTimestamp,
-      location: geoData.address || `Near ${fuzzyLat.toFixed(2)}, ${fuzzyLng.toFixed(2)}`,
-      city: geoData.city || '',
-      state: geoData.state || '',
-      lat: fuzzyLat,
-      lng: fuzzyLng,
-      description: sanitizeDescription(formData.description),
-      agents: Math.min(50, Math.max(0, parseInt(formData.agents) || 0)),
-      vehicles: Math.min(20, Math.max(0, parseInt(formData.vehicles) || 0)),
-      verified: false,
-      verifiers: []
-    };
+    // Check if dev mode is enabled (for testing)
+    const isDevMode = localStorage.getItem(DEV_MODE_KEY) === 'enabled';
 
     try {
+      // Security: Rate limit check (bypassed in dev mode)
+      const rateCheck = checkRateLimit();
+      if (!rateCheck.allowed) {
+        alert(t('reports.rateLimitReached', { max: MAX_REPORTS_PER_WINDOW, minutes: rateCheck.resetInMinutes }));
+        return;
+      }
+
+      // Security: Validate coordinates (US bounds)
+      const coordCheck = validateCoordinates(formData.lat, formData.lng);
+      if (!coordCheck.valid) {
+        alert(coordCheck.error);
+        return;
+      }
+
+      // Security: Validate report data (agents, vehicles, description)
+      const validationErrors = validateReportData(formData);
+      if (validationErrors.length > 0) {
+        alert(validationErrors.join('\n'));
+        return;
+      }
+
+      // Security: Check for PII in description (warn, don't block)
+      const piiResults = detectPII(formData.description);
+      if (piiResults.length > 0 && !showPiiWarning) {
+        setPiiFindings(piiResults);
+        setShowPiiWarning(true);
+        setIsSubmitting(false);
+        return;
+      }
+      // Reset PII warning state if user chose to proceed
+      if (showPiiWarning) {
+        setShowPiiWarning(false);
+        setPiiFindings([]);
+      }
+
+      // Check for nearby existing reports (prompt to verify instead of duplicate)
+      const nearbyResult = findNearbyReport(formData.lat, formData.lng);
+      if (nearbyResult && !isDevMode) {
+        // Store the pending submission and show the modal
+        setPendingSubmission({ ...formData });
+        setNearbyReport(nearbyResult);
+        setShowNearbyReportModal(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Build timestamp from form data
+      const reportTimestamp = new Date(`${formData.date}T${formData.time}`).toISOString();
+
+      // Security: Check for duplicate reports (bypassed in dev mode)
+      const allReports = [...reports, ...pendingReports];
+      const isDuplicate = isDuplicateReport(formData.lat, formData.lng, reportTimestamp, allReports, calculateDistance);
+      if (isDuplicate && !isDevMode) {
+        alert(t('reports.duplicateReport'));
+        return;
+      }
+
+      // Security: Apply privacy protections
+      const fuzzyLat = fuzzyCoordinate(formData.lat);
+      const fuzzyLng = fuzzyCoordinate(formData.lng);
+      const roundedTimestamp = roundTimestamp(reportTimestamp);
+
+      // Get street address and city/state from fuzzed coordinates
+      const geoData = await reverseGeocode(fuzzyLat, fuzzyLng);
+
+      // Encrypt all sensitive fields as a single payload
+      const sanitized = sanitizeDescription(formData.description);
+      const sensitiveFields = {
+        lat: fuzzyLat,
+        lng: fuzzyLng,
+        city: geoData.city || '',
+        state: geoData.state || '',
+        location: geoData.address || `~ Near ${fuzzyLat.toFixed(2)}, ${fuzzyLng.toFixed(2)}`,
+        description: sanitized,
+        agents: Math.min(50, Math.max(0, parseInt(formData.agents) || 0)),
+        vehicles: Math.min(20, Math.max(0, parseInt(formData.vehicles) || 0)),
+        activity: formData.activity || 'Unknown'
+      };
+
+      // serverReport goes to Cloud Function / Firestore (encrypted)
+      // localReport stays in memory for display (plaintext)
+      let serverReport;
+      try {
+        const encrypted = await encryptReport(sensitiveFields);
+        serverReport = {
+          ...encrypted,
+          timestamp: roundedTimestamp,
+          verified: false,
+          verifiers: []
+        };
+      } catch (encErr) {
+        console.warn('Encryption unavailable, using legacy format:', encErr.message);
+        serverReport = {
+          ...sensitiveFields,
+          timestamp: roundedTimestamp,
+          verified: false,
+          verifiers: []
+        };
+      }
+
+      const localReport = {
+        ...sensitiveFields,
+        timestamp: roundedTimestamp,
+        verified: false,
+        verifiers: []
+      };
+
       if (isOnline) {
-        console.log('Submitting report via Cloud Function (server-side rate limiting)...');
-        const result = await submitReportToServer(newReport);
+        // Dev mode: bypass Cloud Function rate limiting and write directly to Firestore
+        const isDevMode = localStorage.getItem(DEV_MODE_KEY) === 'enabled';
+
+        if (isDevMode) {
+          // Dev mode: bypass Cloud Function rate limiting
+          try {
+            const reportToSave = {
+              ...serverReport,
+              createdAt: new Date().toISOString(),
+              deviceId: getOrCreateVerifierId(),
+              devModeSubmission: true // Mark as dev mode for easy cleanup
+            };
+            await addDoc(collection(db, 'iceReports'), reportToSave);
+            // Track successful submission (privacy-safe: only state, no precise location)
+            if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown', mode: 'dev' });
+            setSubmitted(true);
+
+            if (mapRef.current) {
+              mapRef.current.flyTo([fuzzyLat, fuzzyLng], 11, { duration: 1.5 });
+            }
+
+            setFormData(prev => ({
+              ...prev,
+              description: '',
+              agents: '',
+              vehicles: ''
+            }));
+            setShowInlinePicker(false);
+            return;
+          } catch (devError) {
+            alert(t('reports.devModeSubmissionFailed') + ': ' + devError.message);
+            return;
+          }
+        }
+
+        const result = await submitReportToServer(serverReport);
 
         if (!result.success) {
           if (result.rateLimited) {
-            alert(result.error || 'Too many reports. Please wait before submitting again.');
+            alert(result.error || t('reports.tooManyReports'));
           } else {
-            alert(result.error || 'Failed to submit report. Please try again.');
+            alert(result.error || t('reports.failedToSubmit'));
           }
           return;
         }
 
         // Record submission for client-side tracking (backup)
         recordSubmission();
+
+        // Track successful submission (privacy-safe: only state, no precise location)
+        if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown' });
 
         console.log('Report submitted successfully! ID:', result.reportId);
         setSubmitted(true);
@@ -923,12 +2536,16 @@ const CommunityReports = ({ isDuressMode = false }) => {
         setShowInlinePicker(false);
       } else {
         console.log('Offline - queuing report...');
-        setPendingReports(prev => [{...newReport, id: Date.now().toString()}, ...prev]);
+        setPendingReports(prev => [{...localReport, id: Date.now().toString()}, ...prev]);
+        // Track offline submission (will be sent when user comes back online)
+        if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown', mode: 'offline' });
         setSubmitted(true);
       }
     } catch (error) {
       console.error("Error submitting report:", error);
-      alert("Failed to submit report. Please try again.");
+      alert(t('reports.failedToSubmit'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -965,47 +2582,163 @@ const CommunityReports = ({ isDuressMode = false }) => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+        {/* In-app browser warning banner */}
+        {isInAppWebView() && (
+          <div className="bg-amber-950/60 border border-amber-700/60 rounded-xl p-4 flex items-start gap-3">
+            <Fire size={20} weight="bold" className="text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-amber-300 text-sm font-bold">{t('reports.openInBrowser')}</p>
+              <p className="text-amber-400/80 text-xs mt-1">
+                {t('reports.inAppBrowserWarning')}
+              </p>
+            </div>
+          </div>
+        )}
+
         <section className="text-center relative pt-4">
           <div className="flex justify-center mb-4">
             <UsersThree size={48} weight="bold" className="text-blue-400" />
           </div>
-          <h2 className="text-4xl font-black text-slate-100 mb-2 tracking-tight">Community Reporting</h2>
-          <p className="text-slate-400 max-w-lg mx-auto font-medium leading-relaxed">Anonymously report ICE activity. Reports expire and vanish after 8 hours.</p>
+          <h2 className="text-4xl font-black text-slate-100 mb-2 tracking-tight">{t('reports.communityReporting')}</h2>
+          <p className="text-slate-400 max-w-lg mx-auto font-medium leading-relaxed">{t('reports.communityReportingDesc')}</p>
           <div className="flex justify-center mt-6 flex-wrap gap-3">
             {/* Systems Status Pill */}
             <div className={`flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-lg transition-all ${isOnline ? 'bg-green-900/30 text-green-400 border-green-800/60' : 'bg-amber-900/30 text-amber-400 border-amber-800/60'}`}>
               <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_12px_#22c55e]' : 'bg-amber-500 shadow-[0_0_12px_#f59e0b]'}`}></span>
-              {isOnline ? 'Systems Online' : 'Offline - Queuing Reports'}
+              {isOnline ? t('reports.systemsOnline') : t('reports.offlineQueuing')}
             </div>
 
             {/* Incidents Reported Pill */}
             <div className="flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-lg bg-blue-900/30 text-blue-400 border-blue-800/60">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_12px_#3b82f6]"></span>
-              Incidents Reported: {reportStats.totalActive}
+              {t('reports.incidentsReported')}: {reportStats.totalActive}
             </div>
 
             {/* Verified Pill */}
             <div className="flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-lg bg-red-900/30 text-red-400 border-red-800/60">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_12px_#ef4444]"></span>
-              Verified: {reportStats.totalVerified}
+              {t('reports.verified')}: {reportStats.totalVerified}
             </div>
+
+            {/* Privacy & Security Button */}
+            <button
+              onClick={() => setShowPrivacyModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600/80 to-blue-500/80 text-white text-[11px] font-black uppercase tracking-widest rounded-full border border-blue-400/30 hover:from-blue-500/80 hover:to-blue-400/80 transition-all shadow-lg hover:scale-105 active:scale-95"
+            >
+              <Shield size={14} weight="bold" />
+              {t('reports.privacy')}
+            </button>
+
+            {/* Legal Guidelines Button */}
+            <button
+              onClick={() => setShowLegalNotice(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600/80 to-amber-500/80 text-white text-[11px] font-black uppercase tracking-widest rounded-full border border-amber-400/30 hover:from-amber-500/80 hover:to-amber-400/80 transition-all shadow-lg hover:scale-105 active:scale-95"
+            >
+              <Scales size={14} weight="bold" />
+              {t('reports.guidelines')}
+            </button>
           </div>
         </section>
 
         <div className="bg-slate-900 p-1 rounded-[2rem] border border-slate-800 shadow-2xl overflow-hidden relative">
-          <div className="p-4 flex justify-between items-center bg-slate-950/60 border-b border-slate-800/50 backdrop-blur-md">
-             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Neighborhood Activity Map</p>
-             <button 
-              type="button"
-              onClick={handleUseCurrentLocation}
-              className="text-[10px] font-black text-red-400 hover:text-red-300 flex items-center gap-1.5 bg-red-950/40 px-3 py-1.5 rounded-lg border border-red-900/30 transition-all hover:scale-105 active:scale-95"
-            >
-              <span>📍</span> RE-CENTER GPS
-            </button>
+          <div className="p-3 bg-slate-950/60 border-b border-slate-800/50 backdrop-blur-md space-y-2">
+            {/* Row 1: Title + Toggle buttons */}
+            <div className="flex justify-between items-center">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('reports.neighborhoodActivityMap')}</p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleToggleHeatmap}
+                  className={`text-[10px] font-black flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all active:scale-95 whitespace-nowrap ${
+                    heatmapEnabled
+                      ? 'text-amber-300 bg-amber-950/60 border-amber-700/50 shadow-[0_0_10px_rgba(251,191,36,0.15)]'
+                      : 'text-slate-300 bg-slate-700/50 border-slate-500/50 hover:text-slate-200'
+                  }`}
+                >
+                  <Fire size={14} weight="bold" /> {t('reports.heatMap')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleResources}
+                  className={`text-[10px] font-black flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all active:scale-95 ${
+                    resourcesEnabled
+                      ? 'text-green-300 bg-green-950/60 border-green-700/50 shadow-[0_0_10px_rgba(34,197,94,0.15)]'
+                      : 'text-slate-300 bg-slate-700/50 border-slate-500/50 hover:text-slate-200'
+                  }`}
+                >
+                  <Buildings size={14} weight="bold" />
+                  {resourcesLoading ? t('reports.loading') : resourcesError ? t('reports.resourcesError', 'Retry') : `${t('reports.resources')}${resourcesEnabled && resourcesData.length ? ` (${resourcesData.length})` : ''}`}
+                </button>
+              </div>
+            </div>
+            {/* Row 2: Action buttons */}
+            <div className="flex justify-end items-center gap-1.5">
+              {heatmapEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setShowPins(prev => !prev)}
+                  className={`text-[10px] font-black flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all active:scale-95 ${
+                    showPins
+                      ? 'text-slate-300 bg-slate-700/50 border-slate-500/50 hover:text-slate-200'
+                      : 'text-violet-300 bg-violet-950/60 border-violet-700/50 shadow-[0_0_10px_rgba(139,92,246,0.15)]'
+                  }`}
+                >
+                  {showPins ? <Eye size={14} weight="bold" /> : <EyeSlash size={14} weight="bold" />}
+                  {showPins ? t('reports.pins') : t('reports.pinsOff')}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowLocationPin(prev => !prev)}
+                className={`text-[10px] font-black flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all active:scale-95 ${
+                  showLocationPin
+                    ? 'text-red-300 bg-red-950/60 border-red-700/50 shadow-[0_0_10px_rgba(239,68,68,0.15)]'
+                    : 'text-slate-300 bg-slate-700/50 border-slate-500/50 hover:text-slate-200'
+                }`}
+              >
+                <MapPinSimple size={14} weight="bold" />
+                {showLocationPin ? t('reports.myPin') : t('reports.myPinOff')}
+              </button>
+              <button
+                type="button"
+                onClick={handleUseCurrentLocation}
+                className="text-[10px] font-black text-red-400 hover:text-red-300 flex items-center gap-1.5 bg-red-950/40 px-3 py-1.5 rounded-lg border border-red-900/30 transition-all hover:scale-105 active:scale-95"
+              >
+                <MapPinSimple size={14} weight="bold" /> {t('reports.recenterGps')}
+              </button>
+              <button
+                type="button"
+                onClick={handleOverviewUS}
+                className="text-[10px] font-black text-sky-400 hover:text-sky-300 flex items-center gap-1.5 bg-sky-950/40 px-3 py-1.5 rounded-lg border border-sky-900/30 transition-all hover:scale-105 active:scale-95"
+              >
+                <MapTrifold size={14} weight="bold" /> {t('reports.usView')}
+              </button>
+            </div>
           </div>
-          <div id="report-map" className="h-72 md:h-96 w-full z-0"></div>
+          {mapLoadFailed && !mapLoaded ? (
+            <div className="h-72 md:h-96 w-full bg-slate-900/80 border border-slate-700/50 rounded-xl flex flex-col items-center justify-center gap-4 px-6 text-center">
+              <MapTrifold size={48} weight="bold" className="text-slate-500" />
+              <div>
+                <p className="text-slate-300 font-bold text-sm">{t('reports.mapUnavailable')}</p>
+                <p className="text-slate-500 text-xs mt-1">
+                  {isInAppWebView()
+                    ? t('reports.mapUnavailableInApp')
+                    : t('reports.mapUnavailableConnection')}
+                </p>
+              </div>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all active:scale-95"
+              >
+                {t('reports.reloadPage')}
+              </button>
+            </div>
+          ) : (
+            <div id="report-map" className="h-72 md:h-96 w-full z-0"></div>
+          )}
           <div className="p-5 bg-slate-950/40 flex flex-wrap gap-2.5">
-             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-full mb-1">Hotspots ({dynamicHubs.length}):</span>
+             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-full mb-1">{t('reports.hotspots', { count: dynamicHubs.length })}:</span>
              {dynamicHubs.map(hub => {
                // Visual distinction based on hotspot type
                const isActive = activeHubId === hub.name;
@@ -1035,55 +2768,80 @@ const CommunityReports = ({ isDuressMode = false }) => {
                      isActive ? `${activeStyle} scale-105` : baseStyle
                    }`}
                  >
-                   {hub.type === 'verified' && <span className="mr-1">🛡️</span>}
+                   {hub.type === 'verified' && <ShieldCheck size={12} weight="bold" className="inline me-1" />}
                    {hub.name}
+                   {hub.type === 'verified' && hub.verifierCount > 0 && (
+                     <span className="ms-1 opacity-80">({hub.verifierCount})</span>
+                   )}
                  </button>
                );
              })}
           </div>
+
+          {/* Resource category summary */}
+          {resourcesEnabled && resourcesData.length > 0 && (
+            <div className="px-5 pb-4 flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-full mb-1">{t('reports.nearbyResources', { count: resourcesData.length })}:</span>
+              {(() => {
+                const counts = { church: 0, hospital: 0, school: 0, consulate: 0 };
+                resourcesData.forEach(r => { if (counts[r.category] !== undefined) counts[r.category]++; });
+                return Object.entries(counts).filter(([, c]) => c > 0).map(([cat, count]) => {
+                  const style = RESOURCE_STYLES[cat];
+                  return (
+                    <span key={cat} className="text-[10px] border px-3 py-1 rounded-full font-bold uppercase tracking-tight" style={{ backgroundColor: `${style.bg}80`, borderColor: style.border, color: style.border }}>
+                      {count} {t(`reports.resourceLabel_${cat}`, { count })}
+                    </span>
+                  );
+                });
+              })()}
+            </div>
+          )}
         </div>
 
         <div className="relative">
           {submitted ? (
             <div className="bg-green-900/20 border-2 border-green-800/60 p-10 rounded-[2.5rem] text-center shadow-2xl animate-in zoom-in-95">
-              <div className="text-6xl mb-6">🛡️</div>
-              <h3 className="text-3xl font-black text-green-400 mb-3">Report Transmitted</h3>
-              <p className="text-slate-300 mb-8 font-medium">Incident pinned for 8 hours. Thank you for protecting your neighbors.</p>
-              <button onClick={() => setSubmitted(false)} className="bg-green-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-wide">Log New Incident</button>
+              <div className="flex justify-center mb-6">
+                <ShieldCheck size={72} weight="bold" className="text-green-400" />
+              </div>
+              <h3 className="text-3xl font-black text-green-400 mb-3">{t('reports.reportTransmitted')}</h3>
+              <p className="text-slate-300 mb-8 font-medium">{t('reports.reportTransmittedDesc')}</p>
+              <button onClick={() => setSubmitted(false)} className="bg-green-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-wide">{t('reports.logNewIncident')}</button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="bg-slate-900 p-8 md:p-10 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-8 overflow-hidden">
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight border-b border-slate-800 pb-4">Incident Report Form</h3>
-              
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Event Date</label>
-                  <input type="date" required className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none transition-all" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
-                </div>
+            <form onSubmit={handleSubmit} className="bg-slate-900 px-4 py-5 sm:p-8 md:p-10 rounded-2xl sm:rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-5 sm:space-y-8 overflow-hidden">
+              <h3 className="text-2xl font-black text-white uppercase tracking-tight border-b border-slate-800 pb-4">{t('reports.incidentReportForm')}</h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button 
-                    type="button" 
-                    onClick={handleUseCurrentLocation}
-                    className="bg-slate-950 border border-slate-800 hover:border-red-600/50 p-5 rounded-2xl flex items-center justify-start gap-3 transition-all active:scale-95 text-[11px] font-black uppercase tracking-widest text-white shadow-lg"
-                  >
-                    <span className="text-xl">📍</span> Use My Location
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={handleTogglePicker}
-                    className={`border p-5 rounded-2xl flex items-center justify-start gap-3 transition-all active:scale-95 text-[11px] font-black uppercase tracking-widest shadow-lg ${showInlinePicker ? 'bg-red-700 border-red-500 text-white' : 'bg-slate-950 border-slate-800 text-white hover:border-red-600/50'}`}
-                  >
-                    <span className="text-xl">🗺️</span> Choose location within 3 miles
-                  </button>
+              <div className="space-y-3 overflow-hidden">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{t('reports.eventDate')}</label>
+                  <input type="date" required className="w-full box-border bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 sm:p-4 text-white text-sm text-center focus:border-red-600 outline-none transition-all" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocation}
+                  className="w-full bg-slate-950 border border-slate-800 hover:border-red-600/50 px-3 py-2.5 sm:p-4 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95 text-[11px] font-black uppercase tracking-widest text-white shadow-lg"
+                >
+                  <MapPinSimpleArea size={20} weight="bold" /> {t('reports.useMyLocation')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTogglePicker}
+                  className={`w-full border px-3 py-2.5 sm:p-4 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95 text-[11px] font-black uppercase tracking-widest shadow-lg ${showInlinePicker ? 'bg-red-700 border-red-500 text-white' : 'bg-slate-950 border-slate-800 text-white hover:border-red-600/50'}`}
+                >
+                  <MapTrifold size={20} weight="bold" /> {t('reports.chooseLocationWithin3Miles')}
+                </button>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ms-1">{t('reports.timeNoted')}</label>
+                  <input type="time" required className="w-full box-border bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 sm:p-4 text-white text-sm text-center focus:border-red-600 outline-none transition-all" value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} />
                 </div>
 
                 {showInlinePicker && (
                   <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
                     <div className="bg-slate-950 p-1 rounded-3xl border border-slate-800 overflow-hidden relative shadow-2xl">
                       <div id="inline-precision-map" className="h-64 w-full z-10"></div>
-                      <div className="absolute top-4 right-4 z-20 bg-slate-900/90 px-3 py-1.5 rounded-full border border-slate-800 text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                         Drag Pin to Precision Location
+                      <div className="absolute top-4 end-4 z-20 bg-slate-900/90 px-3 py-1.5 rounded-full border border-slate-800 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                         {t('reports.dragPinToPrecision')}
                       </div>
                     </div>
                     {pickerError && (
@@ -1094,37 +2852,44 @@ const CommunityReports = ({ isDuressMode = false }) => {
                     {!pickerError && (
                       <div className="text-center">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                          Selected: <span className="text-blue-400">{formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}</span>
+                          {t('reports.selected')}: <span className="text-blue-400">{formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}</span>
                         </p>
                       </div>
                     )}
                   </div>
                 )}
-
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Time Noted</label>
-                  <input type="time" required className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none transition-all" value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} />
-                </div>
               </div>
 
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Observations</label>
-                <textarea required rows={4} placeholder="Describe the activity..." className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none resize-none transition-all" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{t('reports.observations')}</label>
+                <textarea required rows={4} placeholder={t('reports.describeActivity')} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none resize-none transition-all" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
               </div>
               
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-3 text-center">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Agents</label>
-                  <input type="number" placeholder="0" className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none font-black text-center text-xl" value={formData.agents} onChange={(e) => setFormData({...formData, agents: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('reports.agentsLabel')}</label>
+                  <input type="number" placeholder="0" min="0" className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none font-black text-center text-xl" value={formData.agents} onChange={(e) => setFormData({...formData, agents: e.target.value})} />
                 </div>
                 <div className="space-y-3 text-center">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Vehicles</label>
-                  <input type="number" placeholder="0" className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none font-black text-center text-xl" value={formData.vehicles} onChange={(e) => setFormData({...formData, vehicles: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('reports.vehiclesLabel')}</label>
+                  <input type="number" placeholder="0" min="0" className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none font-black text-center text-xl" value={formData.vehicles} onChange={(e) => setFormData({...formData, vehicles: e.target.value})} />
                 </div>
               </div>
               
-              <button type="submit" className={`w-full ${isOnline ? 'bg-red-700' : 'bg-amber-700'} text-white py-6 rounded-3xl font-black text-2xl shadow-2xl hover:brightness-110 uppercase tracking-widest transition-all active:scale-95`}>
-                {isOnline ? 'TRANSMIT REPORT ANONYMOUSLY' : 'SECURE OFFLINE SYNC'}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`w-full ${isSubmitting ? 'bg-slate-700 cursor-not-allowed' : isOnline ? 'bg-red-700' : 'bg-amber-700'} text-white py-6 rounded-3xl font-black text-2xl shadow-2xl hover:brightness-110 uppercase tracking-widest transition-all ${isSubmitting ? '' : 'active:scale-95'}`}
+              >
+                {isSubmitting ? t('reports.transmitting') : isOnline ? t('reports.transmitReportAnonymously') : t('reports.secureOfflineSync')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPrivacyModal(true)}
+                className="w-full text-center text-xs text-slate-500 hover:text-slate-300 mt-3 transition-colors"
+              >
+                <Shield size={12} weight="bold" className="inline me-1 -mt-0.5" />
+                {t('reports.howWeProtectPrivacy')}
               </button>
             </form>
           )}
@@ -1133,12 +2898,12 @@ const CommunityReports = ({ isDuressMode = false }) => {
         <div className="space-y-8 pt-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 overflow-visible relative">
             <h3 className="text-2xl font-black text-slate-100 flex items-center gap-3 uppercase tracking-tight shrink-0">
-              <span className="text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">🕒</span> Local Activity Feed
+              <span className="text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">🕒</span> {t('reports.localActivityFeed')}
             </h3>
             
             <div className="flex-1 flex items-center bg-slate-900/60 rounded-2xl border border-slate-800 relative overflow-hidden h-[60px] shadow-lg">
-              <div className="shrink-0 h-full flex items-center bg-[#0d1526] pr-4 border-r border-slate-800/80 z-20 py-2.5 relative shadow-[10px_0_15px_rgba(0,0,0,0.5)]">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 whitespace-nowrap">Filter:</span>
+              <div className="shrink-0 h-full flex items-center bg-[#0d1526] pe-4 border-e border-slate-800/80 z-20 py-2.5 relative shadow-[10px_0_15px_rgba(0,0,0,0.5)]">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 whitespace-nowrap">{t('reports.filter')}:</span>
               </div>
               
               <div 
@@ -1159,7 +2924,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
                       disabled={(option === 'nearest' || option === 'farthest') && !userCoords} 
                       className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${sortBy === option ? 'bg-red-700 text-white border-red-500 shadow-lg' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-200 disabled:opacity-20'}`}
                     >
-                      {option}
+                      {t(`reports.filter_${option}`)}
                     </button>
                   ))}
                 </div>
@@ -1171,7 +2936,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
             {/* Show empty state in duress mode to hide user's report activity */}
             {isDuressMode ? (
               <div className="p-8 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
-                No activity reported in your area yet.
+                {t('reports.noActivityYet')}
               </div>
             ) : sortedReports.map((report) => {
               const isPending = pendingReports.some(pr => pr.id === report.id);
@@ -1182,25 +2947,28 @@ const CommunityReports = ({ isDuressMode = false }) => {
                   key={report.id}
                   id={`report-card-${report.id}`}
                   onClick={() => handleFeedItemClick(report)}
-                  className={`group relative flex flex-col p-8 rounded-[2rem] border transition-all duration-300 min-h-[260px] text-left shadow-2xl ${isPending ? 'bg-slate-900/40 border-dashed border-amber-800/40 border-2' : 'bg-slate-900/60 border-slate-800 hover:border-red-600/50'}`}
+                  className={`group relative flex flex-col p-8 rounded-[2rem] border transition-all duration-300 min-h-[260px] text-start shadow-2xl ${isPending ? 'bg-slate-900/40 border-dashed border-amber-800/40 border-2' : 'bg-slate-900/60 border-slate-800 hover:border-red-600/50'}`}
                 >
-                  <div className="absolute right-6 top-6 flex flex-col items-end gap-2.5">
-                    <span className="text-[10px] font-black text-red-500 group-hover:brightness-125 transition-colors uppercase tracking-[0.1em]">Focus Map →</span>
+                  <div className="absolute end-6 top-6 flex flex-col items-end gap-2.5">
+                    <span className="text-[10px] font-black text-red-500 group-hover:brightness-125 transition-colors uppercase tracking-[0.1em]">{t('reports.focusMap')}</span>
                     {distance && (
                       <span className="bg-[#1e293b] px-3 py-1.5 rounded-lg text-[10px] font-black text-blue-400 border border-slate-700 shadow-lg">
-                        {distance} miles away
+                        {t('reports.milesAway', { distance })}
                       </span>
                     )}
                   </div>
 
-                  <div className="pr-32 mb-6">
-                    <h4 className="font-black text-white text-2xl leading-tight mb-1 tracking-tight">{report.location}</h4>
+                  <div className="pe-32 mb-6">
+                    <h4 className="font-black text-white text-2xl leading-tight mb-1 tracking-tight">
+                      {report.location}{report.state ? `, ${getStateAbbreviation(report.state)}` : ''}
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest ms-2">({t('reports.approx')})</span>
+                    </h4>
                     <p className="text-[10px] font-bold text-slate-500 mb-2">
                       {report.lat?.toFixed(4)}, {report.lng?.toFixed(4)}
                     </p>
                     <div className="flex gap-3 items-center">
                       <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.15em]">{displayTime}</p>
-                      {isPending && <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest animate-pulse">Syncing...</span>}
+                      {isPending && <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest animate-pulse">{t('reports.syncing')}</span>}
                     </div>
                   </div>
 
@@ -1211,11 +2979,11 @@ const CommunityReports = ({ isDuressMode = false }) => {
                   <div className="mt-auto pt-6 flex flex-col gap-6 border-t border-slate-800/50">
                     <div className="flex gap-4">
                       <div className="bg-slate-950/80 px-5 py-2.5 rounded-2xl border border-slate-800 flex items-center gap-3 text-xs shadow-inner">
-                        <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Agents</span>
+                        <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">{t('reports.agentsLabel')}</span>
                         <span className="text-red-500 font-black text-xl leading-none">{report.agents || 0}</span>
                       </div>
                       <div className="bg-slate-950/80 px-5 py-2.5 rounded-2xl border border-slate-800 flex items-center gap-3 text-xs shadow-inner">
-                        <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Vehicles</span>
+                        <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">{t('reports.vehiclesLabel')}</span>
                         <span className="text-red-500 font-black text-xl leading-none">{report.vehicles || 0}</span>
                       </div>
                     </div>
@@ -1229,10 +2997,11 @@ const CommunityReports = ({ isDuressMode = false }) => {
 
                         if (reportIsVerified) {
                           return (
-                            <div className="flex items-center gap-3 bg-red-950/40 text-red-500 px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] border border-red-900/40 shadow-xl shadow-red-950/20">
-                              <span className="text-lg">🛡️</span> VERIFIED
-                              <span className="bg-red-900/60 px-2 py-0.5 rounded-full text-[10px] ml-1">
-                                {verifierCount} {verifierCount === 1 ? 'neighbor' : 'neighbors'}
+                            <div className="flex items-center gap-2 bg-red-950/40 text-red-500 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider border border-red-900/40 shadow-xl shadow-red-950/20">
+                              <ShieldCheck size={16} weight="bold" className="shrink-0" />
+                              <span>{t('reports.verifiedBadge')}</span>
+                              <span className="bg-red-900/60 px-2 py-0.5 rounded-full text-[9px]">
+                                {verifierCount}
                               </span>
                             </div>
                           );
@@ -1241,7 +3010,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
                             <div className="flex flex-col items-center gap-2">
                               {verifierCount > 0 && (
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                  {verifierCount}/{VERIFICATION_THRESHOLD} verifications
+                                  {t('reports.verificationsProgress', { count: verifierCount, threshold: VERIFICATION_THRESHOLD })}
                                 </span>
                               )}
                               <button
@@ -1253,7 +3022,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
                                     : 'bg-slate-800/60 hover:bg-red-950/40 text-slate-400 hover:text-red-400 border-slate-700 hover:border-red-900'
                                 }`}
                               >
-                                {userHasVerified ? 'You Verified' : 'Vouch for Report'}
+                                {userHasVerified ? t('reports.youVerified') : t('reports.vouchForReport')}
                               </button>
                             </div>
                           );
@@ -1268,12 +3037,118 @@ const CommunityReports = ({ isDuressMode = false }) => {
             {!isDuressMode && sortedReports.length === 0 && (
               <div className="py-24 text-center border-4 border-dashed border-slate-900 rounded-[3rem]">
                  <div className="text-5xl mb-4 opacity-20 grayscale">🕒</div>
-                 <p className="text-slate-600 font-black uppercase tracking-[0.2em]">No activity reported in the last 8 hours.</p>
+                 <p className="text-slate-600 font-black uppercase tracking-[0.2em]">{t('reports.noActivityLast12Hours')}</p>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Disclaimer */}
+      <div className="max-w-7xl mx-auto mt-10 mb-6 px-4">
+        <Disclaimer>
+          {t('reports.disclaimerLine1')}
+          <br />{t('reports.disclaimerLine2')}
+          <br />{t('reports.disclaimerLine3')}
+          <br />{t('reports.disclaimerLine4')}
+        </Disclaimer>
+      </div>
+
+      {/* Location Permission Modal */}
+      {showLocationModal && (
+        <LocationPermissionModal
+          errorType={locationError}
+          onClose={() => setShowLocationModal(false)}
+          onRetry={() => {
+            setShowLocationModal(false);
+            // Retry getting location
+            handleUseCurrentLocation();
+          }}
+        />
+      )}
+
+      {/* Legal Notice Modal */}
+      {showLegalNotice && (
+        <LegalNoticeModal onClose={handleCloseLegalNotice} />
+      )}
+
+      {/* Privacy & Security Modal */}
+      {showPrivacyModal && (
+        <PrivacySecurityModal onClose={() => setShowPrivacyModal(false)} />
+      )}
+
+      {/* PII Warning Modal */}
+      {showPiiWarning && piiFindings.length > 0 && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm rounded-2xl w-full max-w-md overflow-hidden border border-amber-700/50 shadow-2xl"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-amber-950/30">
+              <div className="flex items-center gap-2">
+                <Eye size={20} weight="bold" className="text-amber-400" />
+                <h2 className="text-lg font-bold text-white">{t('reports.privacyWarning')}</h2>
+              </div>
+              <button
+                onClick={() => { setShowPiiWarning(false); setPiiFindings([]); }}
+                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              >
+                <X size={20} weight="bold" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-slate-300 text-sm">
+                {t('reports.piiWarningDesc')}
+              </p>
+              <div className="space-y-3">
+                {piiFindings.map((finding, i) => (
+                  <div key={i} className="bg-amber-950/30 border border-amber-800/50 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">{finding.type}</span>
+                    </div>
+                    <p className="text-white text-sm font-mono mb-1">"{finding.match}"</p>
+                    <p className="text-slate-400 text-xs">{finding.suggestion}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setShowPiiWarning(false); setPiiFindings([]); }}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-xl transition-all text-sm uppercase tracking-widest"
+                >
+                  {t('reports.edit')}
+                </button>
+                <button
+                  onClick={() => { handleSubmit(new Event('submit')); }}
+                  className="flex-1 bg-amber-700 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl transition-all text-sm uppercase tracking-widest"
+                >
+                  {t('reports.submitAnyway')}
+                </button>
+              </div>
+              <p className="text-slate-500 text-[10px] text-center">
+                {t('reports.piiFooterNote')}
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Nearby Report Modal */}
+      {showNearbyReportModal && nearbyReport && (
+        <NearbyReportModal
+          report={nearbyReport.report}
+          userDistance={nearbyReport.distance}
+          onVerify={handleVerifyNearbyReport}
+          onCreateNew={handleCreateNewAnyway}
+          onClose={handleCloseNearbyModal}
+        />
+      )}
+
+      {/* Community Resources Disclaimer Modal */}
+      {showResourcesDisclaimer && (
+        <ResourcesDisclaimerModal onClose={handleCloseResourcesDisclaimer} />
+      )}
     </div>
   );
 };

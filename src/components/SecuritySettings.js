@@ -2,9 +2,12 @@
 // Security settings modal with PIN configuration and Duress PIN (decoy mode)
 
 import React, { useState } from 'react';
-import { X, Lock, Shield, Clock, CaretRight, EyeSlash, Warning, MapPin, FileX, Database } from '@phosphor-icons/react';
+import { motion } from 'framer-motion';
+import { X, Lock, Shield, Clock, CaretRight, EyeSlash, Warning, MapPin, FileX, Database, GlobeIcon as Globe } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
+import { SUPPORTED_LANGUAGES, changeLanguage } from '../i18n';
 import PinSetup from './PinSetup';
-import { isPinEnabled, clearPin, isDuressEnabled, clearDuressPin, verifyPin } from '../utils/pinAuth';
+import { isPinEnabled, isDuressEnabled, clearDuressPin, verifyPin } from '../utils/pinAuth';
 import {
   isMetadataStripEnabled,
   setMetadataStripEnabled,
@@ -19,6 +22,7 @@ import {
 } from '../utils/crypto';
 
 function SecuritySettings({ onClose, onOpenBackup }) {
+  const { t, i18n } = useTranslation();
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [pinSetupMode, setPinSetupMode] = useState('setup');
   const [pinEnabled, setPinEnabled] = useState(isPinEnabled());
@@ -55,7 +59,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
         setEncryptionEnabledState(true);
       } catch (error) {
         console.error('Failed to initialize encryption:', error);
-        alert('Failed to enable encryption. Please try again.');
+        alert(t('settings.encryptionFailed'));
       } finally {
         setIsInitializingEncryption(false);
       }
@@ -153,10 +157,10 @@ function SecuritySettings({ onClose, onOpenBackup }) {
   };
 
   const handleRemovePin = () => {
-    clearPin();
-    clearDuressPin(); // Also clear duress PIN when removing main PIN
-    setPinEnabled(false);
-    setDuressEnabled(false);
+    // Use PinSetup in 'remove' mode to require PIN verification
+    // This ensures key wrapping is properly removed before PIN is cleared
+    setPinSetupMode('remove');
+    setShowPinSetup(true);
     setShowRemoveConfirm(false);
   };
 
@@ -179,13 +183,26 @@ function SecuritySettings({ onClose, onOpenBackup }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-[90] bg-black/80 flex items-center justify-center p-4">
-        <div className="bg-slate-900 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-slate-700">
+      <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+          onClick={onClose}
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="bg-slate-900 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-slate-700 relative">
           {/* Header */}
           <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-slate-700">
             <div className="flex items-center gap-2">
               <Shield size={20} weight="bold" className="text-red-400" />
-              <h2 className="text-lg font-bold text-white">Security Settings</h2>
+              <h2 className="text-lg font-bold text-white">{t('settings.title')}</h2>
             </div>
             <button
               onClick={onClose}
@@ -204,11 +221,11 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                   <Lock size={20} weight="bold" className={pinEnabled ? 'text-green-400' : 'text-amber-400'} />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-white font-bold mb-1">PIN Lock</h3>
+                  <h3 className="text-white font-bold mb-1">{t('settings.pinLock')}</h3>
                   <p className="text-slate-400 text-sm mb-3">
                     {pinEnabled
-                      ? 'Your app is protected with a PIN'
-                      : 'Add a PIN to protect your data when the app locks'
+                      ? t('settings.pinProtected')
+                      : t('settings.pinPrompt')
                     }
                   </p>
                   <div className="flex gap-2">
@@ -220,14 +237,14 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                           : 'bg-red-700 hover:bg-red-600 text-white'
                       }`}
                     >
-                      {pinEnabled ? 'Change PIN' : 'Set Up PIN'}
+                      {pinEnabled ? t('settings.changePin') : t('settings.setupPin')}
                     </button>
                     {pinEnabled && (
                       <button
                         onClick={() => setShowRemoveConfirm(true)}
                         className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors"
                       >
-                        Remove
+                        {t('settings.remove')}
                       </button>
                     )}
                   </div>
@@ -243,11 +260,11 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                     <EyeSlash size={20} weight="bold" className={duressEnabled ? 'text-amber-400' : 'text-slate-500'} />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-white font-bold mb-1">Decoy PIN</h3>
+                    <h3 className="text-white font-bold mb-1">{t('settings.decoyPin')}</h3>
                     <p className="text-slate-400 text-sm mb-3">
                       {duressEnabled
-                        ? 'A second PIN that shows an empty app when used'
-                        : 'Set up a decoy PIN that hides your data if you\'re forced to unlock'
+                        ? t('settings.decoyActive')
+                        : t('settings.decoyPrompt')
                       }
                     </p>
                     <div className="flex gap-2">
@@ -259,14 +276,14 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                             : 'bg-amber-600 hover:bg-amber-500 text-white'
                         }`}
                       >
-                        {duressEnabled ? 'Change Decoy PIN' : 'Set Up Decoy PIN'}
+                        {duressEnabled ? t('settings.changeDecoyPin') : t('settings.setupDecoyPin')}
                       </button>
                       {duressEnabled && (
                         <button
                           onClick={() => setShowDuressRemoveConfirm(true)}
                           className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 transition-colors"
                         >
-                          Remove
+                          {t('settings.remove')}
                         </button>
                       )}
                     </div>
@@ -276,7 +293,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                       <div className="flex items-start gap-2">
                         <Warning size={14} weight="bold" className="text-amber-500 mt-0.5 flex-shrink-0" />
                         <p className="text-slate-500 text-xs">
-                          <span className="text-amber-400 font-bold">How it works:</span> If someone forces you to unlock, use the decoy PIN. The app will appear empty with no recordings or reports visible.
+                          <span className="text-amber-400 font-bold">{t('settings.decoyHowItWorks')}</span> {t('settings.decoyExplanation')}
                         </p>
                       </div>
                     </div>
@@ -292,13 +309,63 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                   <Clock size={20} weight="bold" className="text-blue-400" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-white font-bold mb-1">Auto-Lock</h3>
+                  <h3 className="text-white font-bold mb-1">{t('settings.autoLock')}</h3>
                   <p className="text-slate-400 text-sm">
-                    App automatically locks after <span className="text-white font-bold">7 minutes</span> of inactivity.
+                    {t('settings.autoLockDesc', { defaultValue: 'App automatically locks after <1>7 minutes</1> of inactivity.' }).split('<1>').map((part, i) => {
+                      if (i === 0) return part;
+                      const [bold, rest] = part.split('</1>');
+                      return <React.Fragment key={i}><span className="text-white font-bold">{bold}</span>{rest}</React.Fragment>;
+                    })}
                     {pinEnabled
-                      ? ' PIN required to unlock.'
-                      : ' Set up a PIN to require authentication when unlocking.'
+                      ? ` ${t('settings.autoLockWithPin')}`
+                      : ` ${t('settings.autoLockWithoutPin')}`
                     }
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Language Section */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-violet-700/50 rounded-xl p-4">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-violet-600/20">
+                  <Globe size={20} weight="bold" className="text-violet-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold mb-1">{t('language.title')}</h3>
+                  <p className="text-slate-400 text-sm">
+                    Currently: <span className="text-white font-bold">{SUPPORTED_LANGUAGES.find(l => l.code === i18n.language)?.nativeName || 'English'}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Language Pill Buttons */}
+              <div className="grid grid-cols-4 gap-2 max-h-[280px] overflow-y-auto">
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => changeLanguage(lang.code)}
+                    className={`px-2 py-2.5 rounded-xl text-center transition-all active:scale-95 ${
+                      i18n.language === lang.code
+                        ? 'bg-red-700 border border-red-500/50 text-white shadow-lg shadow-red-900/30'
+                        : 'bg-slate-900/50 border border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'
+                    }`}
+                  >
+                    <div className="text-lg mb-0.5">{lang.flag}</div>
+                    <p className="text-[10px] font-bold leading-tight">{lang.nativeName}</p>
+                    {lang.quality === 'limited' && (
+                      <p className="text-[8px] text-amber-500 font-bold mt-0.5">Beta</p>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Info note */}
+              <div className="mt-3 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
+                <div className="flex items-start gap-2">
+                  <Globe size={14} weight="bold" className="text-violet-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-slate-500 text-xs">
+                    {t('language.changeDescription')}
                   </p>
                 </div>
               </div>
@@ -311,9 +378,9 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                   <FileX size={20} weight="bold" className="text-emerald-400" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-white font-bold mb-1">Recording Privacy</h3>
+                  <h3 className="text-white font-bold mb-1">{t('settings.recordingPrivacy')}</h3>
                   <p className="text-slate-400 text-sm">
-                    Control what metadata is saved with your recordings
+                    {t('settings.recordingPrivacyDesc')}
                   </p>
                 </div>
               </div>
@@ -326,9 +393,9 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                 >
                   <div className="flex items-center gap-3">
                     <FileX size={18} weight="bold" className={metadataStrip ? 'text-emerald-400' : 'text-slate-500'} />
-                    <div className="text-left">
-                      <p className="text-white text-sm font-medium">Strip Metadata</p>
-                      <p className="text-slate-500 text-xs">Remove identifying info from recordings</p>
+                    <div className="text-start">
+                      <p className="text-white text-sm font-medium">{t('settings.stripMetadata')}</p>
+                      <p className="text-slate-500 text-xs">{t('settings.stripMetadataDesc')}</p>
                     </div>
                   </div>
                   <div className={`w-11 h-6 rounded-full transition-colors ${metadataStrip ? 'bg-emerald-600' : 'bg-slate-700'}`}>
@@ -343,9 +410,9 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                 >
                   <div className="flex items-center gap-3">
                     <MapPin size={18} weight="bold" className={locationCapture ? 'text-amber-400' : 'text-slate-500'} />
-                    <div className="text-left">
-                      <p className="text-white text-sm font-medium">Save Location</p>
-                      <p className="text-slate-500 text-xs">Attach GPS coordinates to recordings</p>
+                    <div className="text-start">
+                      <p className="text-white text-sm font-medium">{t('settings.saveLocation')}</p>
+                      <p className="text-slate-500 text-xs">{t('settings.saveLocationDesc')}</p>
                     </div>
                   </div>
                   <div className={`w-11 h-6 rounded-full transition-colors ${locationCapture ? 'bg-amber-600' : 'bg-slate-700'}`}>
@@ -359,7 +426,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                 <div className="flex items-start gap-2">
                   <Shield size={14} weight="bold" className="text-emerald-500 mt-0.5 flex-shrink-0" />
                   <p className="text-slate-500 text-xs">
-                    <span className="text-emerald-400 font-bold">Privacy protection:</span> When metadata stripping is enabled, recordings won't contain timestamps, device info, or browser fingerprints. Location is {locationCapture ? 'fuzzied to ~1km' : 'not saved'}.
+                    <span className="text-emerald-400 font-bold">{t('settings.privacyProtection')}</span> {t('settings.privacyExplanation')} {locationCapture ? t('settings.locationFuzzied') : t('settings.locationNotSaved')}.
                   </p>
                 </div>
               </div>
@@ -372,9 +439,9 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                   <Database size={20} weight="bold" className={encryptionEnabled ? 'text-purple-400' : 'text-slate-500'} />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-white font-bold mb-1">Local Encryption</h3>
+                  <h3 className="text-white font-bold mb-1">{t('settings.localEncryption')}</h3>
                   <p className="text-slate-400 text-sm">
-                    Encrypt recordings stored on this device with AES-256
+                    {t('settings.localEncryptionDesc')}
                   </p>
                 </div>
               </div>
@@ -387,11 +454,11 @@ function SecuritySettings({ onClose, onOpenBackup }) {
               >
                 <div className="flex items-center gap-3">
                   <Lock size={18} weight="bold" className={encryptionEnabled ? 'text-purple-400' : 'text-slate-500'} />
-                  <div className="text-left">
+                  <div className="text-start">
                     <p className="text-white text-sm font-medium">
-                      {isInitializingEncryption ? 'Initializing...' : 'Encrypt Recordings'}
+                      {isInitializingEncryption ? t('settings.initializing') : t('settings.encryptRecordings')}
                     </p>
-                    <p className="text-slate-500 text-xs">AES-256-GCM encryption at rest</p>
+                    <p className="text-slate-500 text-xs">{t('settings.encryptionType')}</p>
                   </div>
                 </div>
                 <div className={`w-11 h-6 rounded-full transition-colors ${encryptionEnabled ? 'bg-purple-600' : 'bg-slate-700'}`}>
@@ -404,7 +471,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                 <div className="flex items-start gap-2">
                   <Shield size={14} weight="bold" className="text-purple-500 mt-0.5 flex-shrink-0" />
                   <p className="text-slate-500 text-xs">
-                    <span className="text-purple-400 font-bold">How it works:</span> When enabled, new recordings are encrypted before being saved to your device. This protects your data if someone gains access to your device's storage.
+                    <span className="text-purple-400 font-bold">{t('settings.encryptionHowItWorks')}</span> {t('settings.encryptionExplanation')}
                   </p>
                 </div>
               </div>
@@ -423,12 +490,12 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                   <div className="p-2 rounded-lg bg-blue-600/20">
                     <Shield size={20} weight="bold" className="text-blue-400" />
                   </div>
-                  <div className="text-left">
-                    <h3 className="text-white font-bold">Cloud Backup</h3>
-                    <p className="text-slate-400 text-sm">Encrypted backup to Cloudflare R2</p>
+                  <div className="text-start">
+                    <h3 className="text-white font-bold">{t('settings.cloudBackup')}</h3>
+                    <p className="text-slate-400 text-sm">{t('settings.cloudBackupDesc')}</p>
                   </div>
                 </div>
-                <CaretRight size={20} weight="bold" className="text-slate-500" />
+                <CaretRight size={20} weight="bold" className="text-slate-500 rtl:scale-x-[-1]" />
               </button>
             )}
           </div>
@@ -436,62 +503,90 @@ function SecuritySettings({ onClose, onOpenBackup }) {
           {/* Footer */}
           <div className="flex-shrink-0 p-4 border-t border-slate-700 bg-slate-800/30">
             <p className="text-slate-500 text-xs text-center">
-              SafeNeighbor Security protects your data locally on this device
+              {t('settings.footerText')}
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Remove PIN Confirmation */}
       {showRemoveConfirm && (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-700">
-            <h3 className="text-xl font-bold text-white mb-2">Remove PIN?</h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowRemoveConfirm(false)}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-700 relative"
+          >
+            <h3 className="text-xl font-bold text-white mb-2">{t('settings.removePinTitle')}</h3>
             <p className="text-slate-400 text-sm mb-6">
-              Anyone will be able to access your app by tapping the screen when it locks.
-              {duressEnabled && ' This will also remove your decoy PIN.'}
+              {t('settings.removePinDesc')}
+              {duressEnabled && ` ${t('settings.removePinDuressNote')}`}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowRemoveConfirm(false)}
                 className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl"
               >
-                Cancel
+                {t('settings.cancelButton')}
               </button>
               <button
                 onClick={handleRemovePin}
                 className="flex-1 bg-red-700 hover:bg-red-600 text-white font-bold py-3 rounded-xl"
               >
-                Remove PIN
+                {t('settings.removePinButton')}
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
       {/* Remove Duress PIN Confirmation */}
       {showDuressRemoveConfirm && (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-amber-700/50">
-            <h3 className="text-xl font-bold text-white mb-2">Remove Decoy PIN?</h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowDuressRemoveConfirm(false)}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-amber-700/50 relative"
+          >
+            <h3 className="text-xl font-bold text-white mb-2">{t('settings.removeDecoyTitle')}</h3>
             <p className="text-slate-400 text-sm mb-6">
-              You will no longer have a decoy option if forced to unlock your app.
+              {t('settings.removeDecoyDesc')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDuressRemoveConfirm(false)}
                 className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl"
               >
-                Cancel
+                {t('settings.cancelButton')}
               </button>
               <button
                 onClick={handleRemoveDuressPin}
                 className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-xl"
               >
-                Remove
+                {t('settings.remove')}
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
@@ -506,25 +601,39 @@ function SecuritySettings({ onClose, onOpenBackup }) {
 
       {/* PIN Verification Modal for Disabling Protected Features */}
       {showPinVerify && (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-700">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={handleCancelVerify}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-700 relative"
+          >
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-red-600/20">
                 <Lock size={20} weight="bold" className="text-red-400" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">Verify PIN</h3>
+                <h3 className="text-xl font-bold text-white">{t('settings.verifyPin')}</h3>
                 <p className="text-slate-500 text-sm">
                   {pendingDisableAction === 'encryption'
-                    ? 'Required to disable encryption'
-                    : 'Required to disable metadata stripping'
+                    ? t('settings.verifyEncryption')
+                    : t('settings.verifyMetadata')
                   }
                 </p>
               </div>
             </div>
 
             <p className="text-slate-400 text-sm mb-4">
-              Enter your PIN to confirm disabling this security feature.
+              {t('settings.verifyPrompt')}
             </p>
 
             {/* PIN Input */}
@@ -545,7 +654,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                     handleVerifyPinSubmit();
                   }
                 }}
-                placeholder="Enter PIN"
+                placeholder={t('settings.enterPin')}
                 className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-red-500"
                 autoFocus
               />
@@ -571,17 +680,17 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                 onClick={handleCancelVerify}
                 className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-colors"
               >
-                Cancel
+                {t('settings.cancelButton')}
               </button>
               <button
                 onClick={handleVerifyPinSubmit}
                 disabled={verifyPin_.length < 4 || isVerifying}
                 className="flex-1 bg-red-700 hover:bg-red-600 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors"
               >
-                {isVerifying ? 'Verifying...' : 'Confirm'}
+                {isVerifying ? t('settings.verifying') : t('settings.confirm')}
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
     </>

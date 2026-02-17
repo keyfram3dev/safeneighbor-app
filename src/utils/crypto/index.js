@@ -25,7 +25,14 @@ export {
   rotateKey,
   deleteMasterKey,
   getEncryptionStatus,
-  ensureEncryptionReady
+  ensureEncryptionReady,
+  // PIN-derived key wrapping
+  isKeyWrapped,
+  isMasterKeyInMemory,
+  wrapMasterKeyWithPin,
+  unwrapMasterKeyWithPin,
+  rewrapMasterKeyWithPin,
+  removeKeyWrapping
 } from './keyManager';
 
 // Helper to check if crypto is available
