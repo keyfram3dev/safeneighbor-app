@@ -1114,7 +1114,7 @@ User question: ${input}`
           onClick={() => setView('status')}
           className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
             view === 'status'
-              ? 'bg-rose-600 text-white shadow-lg'
+              ? 'bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-lg shadow-red-500/20'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -1229,7 +1229,7 @@ User question: ${input}`
           <p className="text-slate-400 text-sm mb-6">{t('legal.constitutionalRightsSubtitle')}</p>
 
           {/* 1st Amendment - Collapsible */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1240,14 +1240,14 @@ User question: ${input}`
               className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
             >
               <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white">{t('legal.amendment1st')}</h3>
+                <h3 className="text-xl font-bold text-white group-hover:text-purple-100 transition-colors">{t('legal.amendment1st')}</h3>
                 <p className="text-slate-400 text-sm">{t('legal.amendment1stDesc')}</p>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('1st') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400" />
+                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-purple-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1384,7 +1384,7 @@ User question: ${input}`
           </div>
 
           {/* 4th Amendment - Collapsible */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1395,14 +1395,14 @@ User question: ${input}`
               className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
             >
               <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white">{t('legal.amendment4th')}</h3>
+                <h3 className="text-xl font-bold text-white group-hover:text-red-100 transition-colors">{t('legal.amendment4th')}</h3>
                 <p className="text-slate-400 text-sm">{t('legal.amendment4thDesc')}</p>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('4th') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400" />
+                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-red-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1455,7 +1455,7 @@ User question: ${input}`
           </div>
 
           {/* 5th Amendment - Collapsible */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1466,14 +1466,14 @@ User question: ${input}`
               className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
             >
               <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white">{t('legal.amendment5th')}</h3>
+                <h3 className="text-xl font-bold text-white group-hover:text-blue-100 transition-colors">{t('legal.amendment5th')}</h3>
                 <p className="text-slate-400 text-sm">{t('legal.amendment5thDesc')}</p>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('5th') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400" />
+                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-blue-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1525,7 +1525,7 @@ User question: ${input}`
           </div>
 
           {/* 6th Amendment - Collapsible */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1536,14 +1536,14 @@ User question: ${input}`
               className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
             >
               <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white">{t('legal.amendment6th')}</h3>
+                <h3 className="text-xl font-bold text-white group-hover:text-emerald-100 transition-colors">{t('legal.amendment6th')}</h3>
                 <p className="text-slate-400 text-sm">{t('legal.amendment6thDesc')}</p>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('6th') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400" />
+                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1603,7 +1603,7 @@ User question: ${input}`
           </div>
 
           {/* 14th Amendment - Collapsible */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1614,14 +1614,14 @@ User question: ${input}`
               className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
             >
               <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white">{t('legal.amendment14th')}</h3>
+                <h3 className="text-xl font-bold text-white group-hover:text-amber-100 transition-colors">{t('legal.amendment14th')}</h3>
                 <p className="text-slate-400 text-sm">{t('legal.amendment14thDesc')}</p>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('14th') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400" />
+                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-amber-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1701,7 +1701,7 @@ User question: ${input}`
             <div className="space-y-4">
 
             {/* History & Legal Framework */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -1712,14 +1712,14 @@ User question: ${input}`
                 className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold text-white">{t('legal.historyLegalFramework')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-teal-100 transition-colors">{t('legal.historyLegalFramework')}</h3>
                   <p className="text-slate-400 text-sm hidden sm:block">{t('legal.constitutionalProtections')}</p>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('cd-history') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -1855,7 +1855,7 @@ User question: ${input}`
             </div>
 
             {/* Your Rights If Arrested */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -1866,14 +1866,14 @@ User question: ${input}`
                 className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold text-white">{t('legal.yourRightsIfArrested')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-teal-100 transition-colors">{t('legal.yourRightsIfArrested')}</h3>
                   <p className="text-slate-400 text-sm hidden sm:block">{t('legal.whatToKnowAndDo')}</p>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('cd-arrested') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -1975,7 +1975,7 @@ User question: ${input}`
             </div>
 
             {/* Common Charges at Protests */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -1986,14 +1986,14 @@ User question: ${input}`
                 className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold text-white">{t('legal.commonChargesAtProtests')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-teal-100 transition-colors">{t('legal.commonChargesAtProtests')}</h3>
                   <p className="text-slate-400 text-sm hidden sm:block">{t('legal.knowWhatYouMayFace')}</p>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('cd-charges') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2058,7 +2058,7 @@ User question: ${input}`
             </div>
 
             {/* Practical Safety */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2069,14 +2069,14 @@ User question: ${input}`
                 className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold text-white">{t('legal.practicalSafety')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-teal-100 transition-colors">{t('legal.practicalSafety')}</h3>
                   <p className="text-slate-400 text-sm hidden sm:block">{t('legal.beforeDuringAfter')}</p>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('cd-safety') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2197,7 +2197,7 @@ User question: ${input}`
             </div>
 
             {/* The Philosophical Tradition */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2208,14 +2208,14 @@ User question: ${input}`
                 className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold text-white">{t('legal.philosophicalTradition')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-teal-100 transition-colors">{t('legal.philosophicalTradition')}</h3>
                   <p className="text-slate-400 text-sm hidden sm:block">{t('legal.stoicsKingsConscience')}</p>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('cd-philosophy') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2292,7 +2292,7 @@ User question: ${input}`
             <p className="text-slate-400 text-sm mb-6">{t('legal.commonScenariosSubtitle')}</p>
 
             {/* At Your Door */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4 transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2304,13 +2304,13 @@ User question: ${input}`
               >
                 <div className="flex items-center gap-4">
                   <House size={24} weight="bold" className="text-cyan-400" />
-                  <h3 className="text-xl font-bold text-white">{t('legal.scenarioAtYourDoor')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-cyan-100 transition-colors">{t('legal.scenarioAtYourDoor')}</h3>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('door') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-cyan-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2361,7 +2361,7 @@ User question: ${input}`
             </div>
 
             {/* In Public */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4 transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2373,13 +2373,13 @@ User question: ${input}`
               >
                 <div className="flex items-center gap-4">
                   <MapPin size={24} weight="bold" className="text-green-400" />
-                  <h3 className="text-xl font-bold text-white">{t('legal.scenarioInPublic')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-green-100 transition-colors">{t('legal.scenarioInPublic')}</h3>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('public') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-green-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2430,7 +2430,7 @@ User question: ${input}`
             </div>
 
             {/* At Work */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4 transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2442,13 +2442,13 @@ User question: ${input}`
               >
                 <div className="flex items-center gap-4">
                   <Briefcase size={24} weight="bold" className="text-orange-400" />
-                  <h3 className="text-xl font-bold text-white">{t('legal.scenarioAtWork')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-orange-100 transition-colors">{t('legal.scenarioAtWork')}</h3>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('work') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-orange-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2499,7 +2499,7 @@ User question: ${input}`
             </div>
 
             {/* In a Vehicle */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4 transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2511,13 +2511,13 @@ User question: ${input}`
               >
                 <div className="flex items-center gap-4">
                   <Car size={24} weight="bold" className="text-violet-400" />
-                  <h3 className="text-xl font-bold text-white">{t('legal.scenarioInVehicle')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-violet-100 transition-colors">{t('legal.scenarioInVehicle')}</h3>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('vehicle') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-violet-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2568,7 +2568,7 @@ User question: ${input}`
             </div>
 
             {/* 100-Mile Border Zone */}
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden mb-4 transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2580,13 +2580,13 @@ User question: ${input}`
               >
                 <div className="flex items-center gap-4">
                   <ShieldWarning size={24} weight="bold" className="text-red-400" />
-                  <h3 className="text-xl font-bold text-white">{t('legal.scenario100MileBorderZone')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-red-100 transition-colors">{t('legal.scenario100MileBorderZone')}</h3>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('border') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-red-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2725,7 +2725,7 @@ User question: ${input}`
             <h2 className="text-2xl font-black text-white mb-2">{t('legal.forWitnessesTitle')}</h2>
             <p className="text-slate-400 text-sm mb-6">{t('legal.forWitnessesSubtitle')}</p>
 
-            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2737,13 +2737,13 @@ User question: ${input}`
               >
                 <div className="flex items-center gap-4">
                   <Eye size={24} weight="bold" className="text-pink-400" />
-                  <h3 className="text-xl font-bold text-white">{t('legal.witnessingEncounter')}</h3>
+                  <h3 className="text-xl font-bold text-white group-hover:text-pink-100 transition-colors">{t('legal.witnessingEncounter')}</h3>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('witness') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400" />
+                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-pink-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -3127,11 +3127,19 @@ User question: ${input}`
                   const c = section.urgency === 'critical' ? { ...colorMap[persona.color], bg: colorMap[persona.color].critBg, border: colorMap[persona.color].critBorder, text: 'text-red-300', itemText: 'text-red-100', itemDim: 'text-red-200/60' } : colorMap[persona.color];
                   const isExpanded = expandedStatus.has(section.id);
 
+                  const hoverMap = {
+                    red: { hover: 'hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5', overlay: 'group-hover:from-red-500/5 group-hover:to-rose-500/5' },
+                    emerald: { hover: 'hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5', overlay: 'group-hover:from-emerald-500/5 group-hover:to-teal-500/5' },
+                    amber: { hover: 'hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5', overlay: 'group-hover:from-amber-500/5 group-hover:to-orange-500/5' },
+                  };
+                  const hc = hoverMap[persona.color] || hoverMap.red;
+
                   return (
                     <div
                       key={section.id}
-                      className={`bg-gradient-to-br ${c.bg} border ${c.border} rounded-2xl overflow-hidden transition-all`}
+                      className={`group relative bg-gradient-to-br ${c.bg} border ${c.border} rounded-2xl overflow-hidden transition-all duration-300 ${hc.hover} hover:-translate-y-0.5`}
                     >
+                      <div className={`absolute inset-0 bg-gradient-to-br from-transparent to-transparent ${hc.overlay} rounded-2xl transition-all duration-300 pointer-events-none`} />
                       <button
                         onClick={() => setExpandedStatus(prev => {
                           const next = new Set(prev);
@@ -3139,7 +3147,7 @@ User question: ${input}`
                           else next.add(section.id);
                           return next;
                         })}
-                        className="w-full p-4 flex items-center justify-between text-start"
+                        className="relative w-full p-4 flex items-center justify-between text-start"
                       >
                         <div className="flex items-center gap-3">
                           {section.urgency === 'critical' && <ProhibitInset size={20} weight="bold" className="text-red-400 shrink-0" />}
@@ -3159,7 +3167,7 @@ User question: ${input}`
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.3 }}
-                            className="overflow-hidden"
+                            className="relative overflow-hidden"
                           >
                             <div className="px-4 pb-4 space-y-4">
                               {section.items.map((item, i) => (

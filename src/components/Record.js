@@ -112,8 +112,10 @@ const Record = ({ isDuressMode = false }) => {
   const [needsPin, setNeedsPin] = useState(false);
 
   // Refs
-  const videoRef = useRef(null);
+  const videoRef = useRef(null);    // Live camera preview
+  const playbackRef = useRef(null); // Recorded video playback (separate element avoids Safari srcObject→src bug)
   const streamRef = useRef(null);
+  const wakeLockRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
@@ -246,7 +248,49 @@ const Record = ({ isDuressMode = false }) => {
     clearInterval(timerRef.current);
     cancelAnimationFrame(animationRef.current);
     closeRecordingNotification();
+    releaseWakeLock();
   };
+
+  // Screen Wake Lock — keeps screen on during recording (iOS 16.4+, all modern browsers)
+  const acquireWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try { wakeLockRef.current = await navigator.wakeLock.request('screen'); } catch {}
+    }
+  };
+
+  const releaseWakeLock = () => {
+    wakeLockRef.current?.release();
+    wakeLockRef.current = null;
+  };
+
+  // Set up playback video when a recording is ready.
+  // Uses a SEPARATE element from the live preview to avoid Safari's srcObject→src transition bug.
+  useEffect(() => {
+    const vid = playbackRef.current;
+    if (!vid || !recordedUrl) return;
+    vid.src = recordedUrl;
+    // Force Safari to decode and display the first frame
+    const showFirstFrame = () => {
+      vid.currentTime = 0.01;
+      vid.removeEventListener('loadeddata', showFirstFrame);
+    };
+    vid.addEventListener('loadeddata', showFirstFrame);
+    // Fallback: if blob URL fails on Safari, try data URL
+    const tryDataUrl = () => {
+      vid.removeEventListener('error', tryDataUrl);
+      if (recordedBlob && vid.src?.startsWith('blob:')) {
+        const reader = new FileReader();
+        reader.onload = () => { vid.src = reader.result; vid.load(); };
+        reader.readAsDataURL(recordedBlob);
+      }
+    };
+    vid.addEventListener('error', tryDataUrl);
+    vid.load();
+    return () => {
+      vid.removeEventListener('loadeddata', showFirstFrame);
+      vid.removeEventListener('error', tryDataUrl);
+    };
+  }, [recordedUrl, recordedBlob]);
 
   const loadVault = async () => {
     try {
@@ -335,6 +379,13 @@ const Record = ({ isDuressMode = false }) => {
       };
 
       const video = document.createElement('video');
+      // Append to DOM — Safari requires video elements to be in the document tree for decoding
+      video.style.position = 'fixed';
+      video.style.opacity = '0';
+      video.style.pointerEvents = 'none';
+      video.style.width = '1px';
+      video.style.height = '1px';
+      document.body.appendChild(video);
       video.src = URL.createObjectURL(blob);
       video.muted = true;
       video.playsInline = true;
@@ -439,24 +490,38 @@ const Record = ({ isDuressMode = false }) => {
       clearInterval(timerRef.current);
       pulseHaptic();
       closeRecordingNotification();
-      // Use the actual mimeType from recorded data, or recorder's mimeType
-      const actualType = chunksRef.current[0]?.type || recorder.mimeType || 'video/mp4';
-      const blob = new Blob(chunksRef.current, { type: actualType });
+      releaseWakeLock();
 
-      // Use blob URL directly (simpler, works better for downloads)
+      // Stop camera and release decoder BEFORE any state updates so Safari
+      // fully releases the media pipeline before the playback element loads
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+      if (videoRef.current) videoRef.current.srcObject = null;
+      setCameraActive(false);
+
+      // WebKit recommended pattern: always concatenate chunks into a new Blob
+      // using recorder.mimeType (the actual format chosen by the browser)
+      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/mp4' });
+
       const blobUrl = URL.createObjectURL(blob);
       setRecordedBlob(blob);
-      setRecordedUrl(blobUrl);
+      setRecordedUrl(blobUrl); // triggers useEffect that transitions videoRef to playback
       setIsRecording(false);
-      stopCamera();
-      const thumbnail = await generateThumbnail(blob);
-      await saveToVault(blob, duration, 'video', thumbnail);
+
+      // Defer thumbnail so the playback video can establish its media session first
+      setTimeout(async () => {
+        const thumbnail = await generateThumbnail(blob);
+        await saveToVault(blob, duration, 'video', thumbnail);
+      }, 500);
     };
-    recorder.start(1000);
+    recorder.start(1000); // 1-second timeslice (WebKit recommended pattern)
     mediaRecorderRef.current = recorder;
     setIsRecording(true);
     setDuration(0);
     timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+    acquireWakeLock();
   };
 
   const stopVideoRecording = () => {
@@ -467,10 +532,10 @@ const Record = ({ isDuressMode = false }) => {
 
   const recordMore = async () => {
     if (recordedUrl) URL.revokeObjectURL(recordedUrl);
-    setRecordedUrl(null);
+    setRecordedUrl(null); // unmounts playback element
     setRecordedBlob(null);
     setDuration(0);
-    setUsedNativeCamera(false); // Reset since we're using in-app camera now
+    setUsedNativeCamera(false);
     await startCamera();
     setTimeout(() => {
       if (streamRef.current) startVideoRecording();
@@ -487,7 +552,7 @@ const Record = ({ isDuressMode = false }) => {
 
   const resetVideo = () => {
     if (recordedUrl) URL.revokeObjectURL(recordedUrl);
-    setRecordedUrl(null);
+    setRecordedUrl(null); // unmounts playback element
     setRecordedBlob(null);
     setDuration(0);
     setUsedNativeCamera(false);
@@ -531,12 +596,14 @@ const Record = ({ isDuressMode = false }) => {
         cancelAnimationFrame(animationRef.current);
         pulseHaptic();
         closeRecordingNotification();
+        releaseWakeLock();
         setAudioLevels(new Array(64).fill(0));
         
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        // WebKit recommended pattern: always concatenate chunks with recorder.mimeType
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/mp4' });
         setAudioUrl(URL.createObjectURL(blob));
         setIsRecordingAudio(false);
-        
+
         // Clean up audio stream
         if (audioStreamRef.current) {
           audioStreamRef.current.getTracks().forEach(t => t.stop());
@@ -546,17 +613,18 @@ const Record = ({ isDuressMode = false }) => {
           audioContextRef.current.close();
           audioContextRef.current = null;
         }
-        
+
         await saveToVault(blob, audioDuration, 'audio', null);
       };
 
-      recorder.start(1000);
+      recorder.start(1000); // 1-second timeslice (WebKit recommended pattern)
       mediaRecorderRef.current = recorder;
       pulseHaptic();
       showRecordingNotification();
       setIsRecordingAudio(true);
       setAudioDuration(0);
       timerRef.current = setInterval(() => setAudioDuration(d => d + 1), 1000);
+      acquireWakeLock();
     } catch (err) {
       setError(`Mic error: ${err.message}`);
     }
@@ -668,9 +736,17 @@ const Record = ({ isDuressMode = false }) => {
       // Ensure we have a proper Blob object
       let blob = decryptedRec.blob;
       if (!(blob instanceof Blob)) {
-        // Convert Uint8Array or ArrayBuffer to Blob (fix operator precedence)
-        const mimeType = rec._mimeType || (rec.type === 'video' ? 'video/webm' : 'audio/webm');
+        // Convert Uint8Array or ArrayBuffer to Blob — use mp4 as fallback (universally playable)
+        const mimeType = rec._mimeType || (rec.type === 'video' ? 'video/mp4' : 'audio/mp4');
         blob = new Blob([blob], { type: mimeType });
+      }
+
+      // Fix wrongly-labeled recordings: Safari can't play WebM, so if the stored type
+      // says webm but the browser doesn't support it, re-label as mp4 (the actual codec)
+      if (blob.type?.includes('webm') && typeof MediaRecorder !== 'undefined'
+          && !MediaRecorder.isTypeSupported?.('video/webm')) {
+        const correctedType = rec.type === 'video' ? 'video/mp4' : 'audio/mp4';
+        blob = new Blob([blob], { type: correctedType });
       }
 
       setSelectedVaultItem({ ...rec, blob, url: URL.createObjectURL(blob) });
@@ -1039,7 +1115,8 @@ const Record = ({ isDuressMode = false }) => {
         <div className="space-y-4">
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-slate-700/50">
             <div className="relative aspect-video bg-black flex items-center justify-center">
-              {/* Live camera preview - only show when camera is active AND no recorded video */}
+              {/* Live camera preview — always in DOM so startCamera() can set srcObject.
+                  Hidden via CSS (not unmounted) when not active. */}
               <video
                 ref={videoRef}
                 muted
@@ -1047,64 +1124,67 @@ const Record = ({ isDuressMode = false }) => {
                 className={`w-full h-full object-cover ${cameraActive && !recordedUrl ? '' : 'hidden'}`}
               />
 
-              {/* Recorded video playback */}
+              {/* Recorded video playback — separate element, conditionally rendered.
+                  Safari can't transition a single element from srcObject→src, so we use
+                  a fresh element that has never had srcObject set on it. */}
               {recordedUrl && (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-black p-4">
                   <video
+                    ref={playbackRef}
                     controls
                     playsInline
+                    preload="auto"
                     className="w-full max-h-[70%] object-contain"
-                    src={recordedUrl}
                     onError={(e) => {
                       console.error('Video playback error:', e.target.error);
                       setError(t('record.videoPreviewUnavailable'));
                     }}
                   />
-                  {/* Save/Share button - uses Web Share API on mobile, download on desktop */}
-                  <button
-                    onClick={async () => {
-                      if (!recordedBlob) return;
+                  {/* Save/Share button */}
+                <button
+                  onClick={async () => {
+                    if (!recordedBlob) return;
 
-                      const blobType = recordedBlob.type || 'video/webm';
-                      const fileExt = blobType.includes('mp4') ? 'mp4' : 'webm';
-                      const filename = `SafeNeighbor_${Date.now()}.${fileExt}`;
-                      const mimeType = blobType;
+                    const blobType = recordedBlob.type || 'video/webm';
+                    const fileExt = blobType.includes('mp4') ? 'mp4' : 'webm';
+                    const filename = `SafeNeighbor_${Date.now()}.${fileExt}`;
+                    const mimeType = blobType;
 
-                      // Only use Web Share API on mobile (desktop Safari opens unhelpful share sheet)
-                      if (isMobileDevice() && navigator.share && navigator.canShare) {
-                        try {
-                          const file = new File([recordedBlob], filename, { type: mimeType });
-                          if (navigator.canShare({ files: [file] })) {
-                            await navigator.share({
-                              files: [file],
-                              title: 'SafeNeighbor Recording'
-                            });
-                            return; // Success, exit early
-                          }
-                        } catch (err) {
-                          if (err.name === 'AbortError') return; // User cancelled
-                          // Fall through to download
+                    // Only use Web Share API on mobile (desktop Safari opens unhelpful share sheet)
+                    if (isMobileDevice() && navigator.share && navigator.canShare) {
+                      try {
+                        const file = new File([recordedBlob], filename, { type: mimeType });
+                        if (navigator.canShare({ files: [file] })) {
+                          await navigator.share({
+                            files: [file],
+                            title: 'SafeNeighbor Recording'
+                          });
+                          return; // Success, exit early
                         }
+                      } catch (err) {
+                        if (err.name === 'AbortError') return; // User cancelled
+                        // Fall through to download
                       }
+                    }
 
-                      // Download fallback for desktop browsers
-                      const url = URL.createObjectURL(recordedBlob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = filename;
-                      a.style.display = 'none';
-                      document.body.appendChild(a);
-                      a.click();
-                      setTimeout(() => {
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                      }, 100);
-                    }}
-                    className="mt-3 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"
-                  >
-                    <DownloadSimple size={16} weight="bold" />
-                    {isMobileDevice() ? t('record.saveToPhotos') : t('record.download')}
-                  </button>
+                    // Download fallback for desktop browsers
+                    const url = URL.createObjectURL(recordedBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }, 100);
+                  }}
+                  className="mt-3 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"
+                >
+                  <DownloadSimple size={16} weight="bold" />
+                  {isMobileDevice() ? t('record.saveToPhotos') : t('record.download')}
+                </button>
                   <p className="text-slate-400 text-xs mt-2">
                     {isMobileDevice() ? t('record.saveToPhotosHint') : t('record.downloadHint')}
                   </p>
@@ -1640,10 +1720,21 @@ const Record = ({ isDuressMode = false }) => {
                     {selectedVaultItem.url && (
                       selectedVaultItem.type === 'video' ? (
                         <video
-                          src={selectedVaultItem.url}
                           controls
                           playsInline
+                          preload="auto"
+                          src={selectedVaultItem.url}
                           className="w-full rounded-lg bg-black max-h-48"
+                          key={selectedVaultItem.url}
+                          onLoadedData={(e) => { e.target.currentTime = 0.01; }}
+                          onError={(e) => {
+                            // Fallback: if blob URL fails on Safari, try data URL
+                            if (selectedVaultItem.blob && e.target.src?.startsWith('blob:')) {
+                              const reader = new FileReader();
+                              reader.onload = () => { e.target.src = reader.result; e.target.load(); };
+                              reader.readAsDataURL(selectedVaultItem.blob);
+                            }
+                          }}
                         />
                       ) : (
                         <audio

@@ -4,6 +4,12 @@
   "description": "Know your rights during ICE encounters, report and view ICE incidents, record interactions with encrypted storage, learn de-escalation techniques, and access state-by-state recording laws. Free and works offline.",
   "icons": [
     {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
       "src": "logo192.png",
       "type": "image/png",
       "sizes": "192x192",
@@ -32,6 +38,7 @@
   "id": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "theme_color": "#0f172a",
   "background_color": "#0f172a",
   "categories": ["utilities", "security"],
@@ -45,5 +52,25 @@
       "text": "shareText",
       "url": "shareUrl"
     }
-  }
+  },
+  "shortcuts": [
+    {
+      "name": "Record",
+      "short_name": "Record",
+      "url": "/?tab=record",
+      "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Know Your Rights",
+      "short_name": "Rights",
+      "url": "/?tab=rights",
+      "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Report Incident",
+      "short_name": "Report",
+      "url": "/?tab=report",
+      "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
 }

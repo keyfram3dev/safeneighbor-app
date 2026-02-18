@@ -130,13 +130,34 @@
 - [x] Firestore rules updated to accept encrypted document format (backward compatible with plaintext)
 - [x] LiveLocationViewer decrypts client-side; shows "Cannot Decrypt" if key missing/invalid
 
+### PWA & Offline Reliability
+- [x] Centralized `useOnlineStatus` hook (`useSyncExternalStore`) — replaced inline online/offline listeners across App.js, CommunityReports.js, useEncounterSync.js
+- [x] IndexedDB `pendingReports` store for offline report queuing (localStorageDB.js v2)
+- [x] Service worker true background sync — `sync-pending-reports` tag processes IndexedDB queue when connectivity returns
+- [x] Fixed missing `deviceId` in SW background sync — baked into `serverPayload` at queue time (SW can't access localStorage)
+- [x] Migrated CommunityReports offline submit from localStorage to IndexedDB queuing with encrypted payloads
+- [x] All rights guides, legal scripts, scenarios, and breathing guide pre-cached — static JS imports compiled into bundles, SW caches all JS/CSS from asset-manifest
+- [x] i18n translations for all 21 languages cached offline — CRA compiles dynamic imports into JS chunks included in asset-manifest
+- [x] Recorded evidence cached locally via IndexedDB with optional AES-256-GCM encryption
+- [x] Offline indicator banner enhanced — shows what works offline (rights, scenarios, breathing, recordings) and what needs internet (live location, AI Q&A)
+- [x] By Status tab expandable cards — added Home-style hover effects (lift, border glow, gradient overlay) per persona color
+
 ### Animation & UX Polish
 - [x] Initial page load uses scale-up + fade animation instead of left-slide (direction=0 handling)
+- [x] Security Settings button restyled with emerald gradient matching Features (violet) and Welcome (blue) button pattern
+- [x] Screen Wake Lock during recording — prevents screen dimming on iOS 16.4+ and Android
+- [x] PWA Manifest Shortcuts — Record, Know Your Rights, Report Incident quick actions from home screen icon
+- [x] Query param routing (`?tab=record|rights|report`) for manifest shortcut deep linking
 
 ### Browser Compatibility
 - [x] Instagram/Facebook/TikTok in-app WebView graceful degradation (map fallback UI, WebView detection banner)
 - [x] Global ErrorBoundary component for render crash recovery (suggests opening in Safari/Chrome)
 - [x] Fix "BY STATUS" tab icon misalignment on mobile (whitespace-nowrap prevents two-word label wrapping)
+- [x] Fix Safari video playback (black screen / crossed-out play icon) — root cause: CSP missing `media-src 'self' blob: data:` directive, blocking blob URLs for `<video>`/`<audio>` elements
+- [x] WebKit-recommended MediaRecorder pattern — `recorder.start(1000)` timeslice + `new Blob(chunks, { type: recorder.mimeType })` for proper fMP4 concatenation
+- [x] Safari MIME type detection fix — detect empty blob `.type` from Safari's MediaRecorder, use `MediaRecorder.isTypeSupported` fallback
+- [x] Data URL fallback for video playback — if blob URL fails on Safari, auto-retry with `FileReader.readAsDataURL`
+- [x] Service worker skip `blob:` and `data:` URL requests to prevent SW interception of media playback
 
 ### Map UX Improvements
 - [x] Tighten heat map radius/blur so it doesn't cover all of Ohio when zoomed out
@@ -147,7 +168,8 @@
 - [x] Fix heatmap density — lower per-point intensity so overlapping reports create visible hotspots
 - [x] Zoom-responsive heatmap radius (geographic size stays constant, dampened scaling with 14px minimum)
 - [x] Tune heatmap opacity (minOpacity 0.55, gradient with balanced alpha values)
-- [x] US View zoom out further (zoom 3) to see all activity at a glance
+- [x] US View zoom out further (zoom 3) to see coast-to-coast activity at a glance
+- [x] Initial map load centers on user GPS at zoom 7 (regional view) instead of zoom 11 (too close)
 - [x] Fix Resources toggle reliability (auto-retry on failure, mapLoaded fallback, error state UI)
 
 ### Immigration Rights "By Status" Tab (Legal Section) ✅
@@ -200,17 +222,55 @@
 
 ## What's Left
 
-### App Features (Code Changes)
-- [x] **Family Kit multi-language** — All FamilyKit.js content uses i18n `t()` — translates with language selector
-- [x] **Offline Rights Card** — Two-sided know-your-rights card (dark side: your rights, red side: show to agent), print wallet cards, share/copy/email, fully offline, translated to all 21 languages
+All app features are complete. Remaining work is infrastructure, translation quality, and outreach.
+
+### iOS Push Notifications & Proximity Alerts
+**Context**: iOS 16.4+ supports Web Push API for home-screen PWAs. However, PWAs **cannot** access background geolocation, Geofencing API, or Background Sync reliably on iOS. True background proximity alerts require a native app wrapper.
+
+#### Option 1: Foreground Proximity Alerts (PWA — no native wrapper needed)
+- [ ] While app is open, periodically check user's GPS against community report clusters
+- [ ] Show in-app alert when approaching an area with recent ICE activity reports
+- [ ] Calculate proximity radius (e.g., 0.5–1 mile) against Firestore report data
+- [ ] Visual + haptic warning with option to view nearby reports on map
+- [ ] Only works while SafeNeighbor is actively open in the foreground
+
+#### Option 2: "Check My Route" Feature (PWA — no native wrapper needed)
+- [ ] User enters a destination address or drops a pin
+- [ ] App draws the route and flags any ICE activity hotspots along the path
+- [ ] Show report density heat overlay on the route
+- [ ] Suggest alternative routes if hotspots are detected
+- [ ] Uses Leaflet routing + existing community report data
+
+#### Option 3: Scheduled Push Digests (Server-side — requires Web Push setup)
+- [ ] Implement Web Push API subscription (iOS 16.4+ home screen PWAs)
+- [ ] Cloud Function sends periodic digest notifications (e.g., daily or when new reports appear near saved location)
+- [ ] User saves a "home area" or frequently visited locations
+- [ ] Server checks new reports against saved locations and pushes alerts
+- [ ] No background GPS needed — server compares report locations against user's saved zones
+- [ ] Requires VAPID keys, push subscription management, and notification permission flow
+
+#### Option 4: Native App Wrapper (Capacitor/PWA Builder — full native capabilities)
+- [ ] Wrap PWA in Capacitor or PWA Builder for App Store distribution
+- [ ] Enables true background geolocation via native plugins
+- [ ] Enables iOS Geofencing API for automatic proximity triggers
+- [ ] Can show native push notifications even when app is backgrounded
+- [ ] Requires Apple Developer Program ($99/year) and App Store review
+- [ ] Most capable option but highest effort and ongoing maintenance
+
+**iOS PWA Limitations to keep in mind:**
+- No background geolocation access
+- No Geofencing API
+- Limited Background Sync support
+- Web Push only works for home-screen installed PWAs (not in Safari tabs)
 
 ### Infrastructure
 - [ ] **EU data migration** — Evaluate moving Firestore report storage off US infrastructure (Supabase on EU VPS recommended)
 
 ### Translation Quality
 - [ ] **Native speaker review** for Tier 2-4 translations (16 languages, all AI-translated at 100% coverage)
+  - Review CSVs generated: run `node scripts/export-review-csvs.js` → outputs to `scripts/review-csvs/`
   - Tier 2: Arabic, Tagalog
-  - Tier 3: French, Somali, Amharic, Dari/Farsi, Nepali, Punjabi, Hindi, Burmese
+  - Tier 3: French, Somali, Amharic, Dari/Farsi, Nepali, Punjabi, Hindi, Burmese, Haitian Creole, Portuguese
   - Tier 4 (lowest confidence): K'iche', Marshallese, Russian
   - Resources: [Translators Without Borders](https://translatorswithoutborders.org/volunteer/), [Respond Crisis Translation](https://respondcrisistranslation.org/en/get-involved), [Tarjimly](https://www.tarjimly.org/)
 
@@ -230,6 +290,102 @@
 
 ### Known iOS Safari Limitations (Cannot Fix)
 - **Vault save to Photos**: iOS Safari blocks saving IndexedDB-reconstructed blobs to Photos. Workaround: save immediately after recording, use native camera, or use cloud backup.
+
+---
+
+## PWA Offline Customization Reference
+
+### How Offline PWA Works (The Big Picture)
+Three files control the experience:
+1. **manifest.json** — controls look and feel (icon, splash screen, name, theme color, display mode)
+2. **service-worker.js** — the engine. Intercepts every network request and decides: serve from cache, fetch from network, or show a fallback
+3. **React app code** — detects online/offline status and adapts the UI accordingly
+
+### What You Can Customize
+
+#### 1. Splash Screen & Theming (manifest.json)
+Controls what users see when they tap the icon before the app loads:
+```json
+{
+  "name": "SafeNeighbor",
+  "short_name": "SafeNeighbor",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
+```
+- `"display": "standalone"` — looks like a native app with no browser chrome
+- Maskable icon ensures icon looks right on Android's adaptive icon shapes
+- `"display": "fullscreen"` for zero system UI
+
+#### 2. Service Worker Caching Strategies
+The heart of offline functionality. Pre-cache critical assets so they load instantly — even with no internet:
+```js
+// service-worker.js
+const CACHE_NAME = 'safeneighbor-v1';
+
+// Cached at install time — available offline immediately
+const PRECACHE_URLS = [
+  '/', '/index.html', '/static/js/main.js', '/static/css/main.css',
+  '/rights-guide', '/emergency-breathing',
+  '/scenario/traffic-stop', '/scenario/home-visit',
+  '/offline.html'
+];
+
+// INSTALL: pre-cache critical resources
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(PRECACHE_URLS))
+      .then(() => self.skipWaiting())
+  );
+});
+
+// ACTIVATE: clean up old caches when you deploy updates
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
+  );
+});
+
+// FETCH: intercept requests and decide what to serve
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request).then(cached => {
+      if (cached) {
+        // "Stale while revalidate" — serve cached, update in background
+        fetch(event.request).then(response => {
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, response);
+          });
+        });
+        return cached;
+      }
+      // Not in cache — try network, fall back to offline page
+      return fetch(event.request).catch(() => {
+        return caches.match('/offline.html');
+      });
+    })
+  );
+});
+```
+- **Install event** — downloads and caches every URL in PRECACHE_URLS on first visit/install
+- **Activate event** — when you push a new version (change CACHE_NAME to v2), old cache gets deleted
+- **Fetch event** — every request goes through this; checks cache first (instant load), quietly updates from network in background
+
+#### 3. Adaptive UI Based on Connection Status
+Detect online/offline in React components and change the experience accordingly.
 
 ---
 
@@ -260,9 +416,15 @@
 - [x] Community Resources — Overpass API safe zone mapping, color-coded markers, walking directions
 
 ### Multi-Language Translation ✅
-- [x] 21 languages (1 English + 20 translated) at 100% coverage (1,942/1,942 keys each)
+- [x] 21 languages (1 English + 20 translated) at 100% coverage (1,975 keys each)
 - [x] Language selector with search + tiered grouping, lazy loading, RTL support
 - [x] Tier 1 (high confidence): Spanish, Chinese, Vietnamese, Korean
 - [x] Tier 2-4 (AI-translated): Arabic, Tagalog, French, Somali, Amharic, Dari/Farsi, Nepali, Punjabi, Hindi, Burmese, K'iche', Marshallese, Russian, Haitian Creole, Portuguese
+
+### Final Features ✅
+- [x] Family Kit multi-language — All FamilyKit.js content uses i18n `t()` — translates with language selector
+- [x] Offline Rights Card — Two-sided know-your-rights card (dark/red), print wallet cards, share/copy/email, fully offline, all 21 languages
+- [x] Translation review CSV export tooling (`scripts/export-review-csvs.js`)
+- [x] Git commit & push — 138 files, +63,508 lines
 
 </details>

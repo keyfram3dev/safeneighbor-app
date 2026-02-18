@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { UsersThree, MapPinSimple, MapPinSimpleArea, MapTrifold, ShieldCheck, Scales, X, Check, Shield, LockKey, Eye, EyeSlash, Timer, UserCircle, Fire, Buildings } from '@phosphor-icons/react';
@@ -17,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { reverseGeocode } from './utils/locationShare';
+import { savePendingReport, getAllPendingReports, deletePendingReport } from './utils/localStorageDB';
 
 
 // Detect standalone PWA mode (iOS adds to home screen)
@@ -1161,7 +1163,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [, setSelectedReport] = useState(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { isOnline } = useOnlineStatus();
   const [pendingReports, setPendingReports] = useState([]);
   const [sortBy, setSortBy] = useState('newest');
   const [userCoords, setUserCoords] = useState(null);
@@ -1371,12 +1373,46 @@ const CommunityReports = ({ isDuressMode = false }) => {
             if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown' });
           }
         } else {
-          // Offline: store locally
-          const pendingReport = { ...pendingSensitiveFields, timestamp: roundedTimestamp, verified: false, verifiers: [], id: `pending_${Date.now()}`, pending: true };
-          const stored = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
-          stored.push(pendingReport);
-          localStorage.setItem(PENDING_KEY, JSON.stringify(stored));
-          setPendingReports(prev => [...prev, pendingReport]);
+          // Offline: encrypt and queue to IndexedDB for background sync
+          const reportId = `pending_${Date.now()}`;
+          const displayFields = {
+            ...pendingSensitiveFields,
+            timestamp: roundedTimestamp,
+            verified: false,
+            verifiers: [],
+            id: reportId,
+            pending: true
+          };
+
+          // Build the exact body the Cloud Function expects, including deviceId,
+          // so the SW can POST it directly without needing localStorage access.
+          const swPayload = pendingServerReport.encryptedPayload
+            ? {
+                encryptedPayload: pendingServerReport.encryptedPayload,
+                payloadVersion: pendingServerReport.payloadVersion,
+                timestamp: pendingServerReport.timestamp,
+                deviceId: getOrCreateVerifierId()
+              }
+            : {
+                ...pendingServerReport,
+                deviceId: getOrCreateVerifierId()
+              };
+
+          await savePendingReport({
+            id: reportId,
+            serverPayload: swPayload,
+            displayFields,
+          });
+          setPendingReports(prev => [...prev, displayFields]);
+
+          // Register background sync so SW can send it headlessly
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then((reg) => {
+              if ('sync' in reg) {
+                reg.sync.register('sync-pending-reports').catch(() => {});
+              }
+            });
+          }
         }
 
         setSubmitted(true);
@@ -1491,25 +1527,20 @@ const CommunityReports = ({ isDuressMode = false }) => {
     };
   }, [reports]);
 
+  // Online/offline tracking handled by useOnlineStatus hook above.
+  // SW message listener kept for background sync notifications.
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Listen for background sync trigger from service worker
-    const handleSWMessage = (event) => {
-      if (event.data && event.data.type === 'SYNC_PENDING_REPORTS') {
-        if (navigator.onLine) setIsOnline(true);
+    const handleSWMessage = async (event) => {
+      if (event.data && (event.data.type === 'SYNC_PENDING_REPORTS' || event.data.type === 'SYNC_COMPLETED')) {
+        // Reload pending reports from IndexedDB when SW signals sync completed
+        try {
+          const records = await getAllPendingReports();
+          setPendingReports(records.map(r => ({ ...r.displayFields, id: r.id, pending: true })));
+        } catch { setPendingReports([]); }
       }
     };
     navigator.serviceWorker?.addEventListener('message', handleSWMessage);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      navigator.serviceWorker?.removeEventListener('message', handleSWMessage);
-    };
+    return () => navigator.serviceWorker?.removeEventListener('message', handleSWMessage);
   }, []);
 
   // Show legal notice on first visit + request notification permission
@@ -1540,15 +1571,52 @@ const CommunityReports = ({ isDuressMode = false }) => {
   useEffect(() => {
     console.log('Setting up Firebase listener...');
 
-    const pending = localStorage.getItem(PENDING_KEY);
-    if (pending) {
+    // Migrate any legacy localStorage pending reports to IndexedDB, then load from IndexedDB
+    (async () => {
       try {
-        const parsed = JSON.parse(pending);
-        if (Array.isArray(parsed)) {
-          setPendingReports(parsed.filter(r => !isExpired(r.timestamp || '')));
+        // One-time migration from localStorage
+        const legacy = localStorage.getItem(PENDING_KEY);
+        if (legacy) {
+          const parsed = JSON.parse(legacy);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            for (const report of parsed) {
+              if (isExpired(report.timestamp || '')) continue;
+              // Encrypt for serverPayload and include deviceId for SW
+              const deviceId = getOrCreateVerifierId();
+              let swPayload;
+              try {
+                const { id, pending: _p, verified, verifiers, ...sensitiveFields } = report;
+                const encrypted = await encryptReport(sensitiveFields);
+                swPayload = {
+                  encryptedPayload: encrypted.encryptedPayload,
+                  payloadVersion: encrypted.payloadVersion,
+                  timestamp: report.timestamp,
+                  deviceId
+                };
+              } catch {
+                // Fallback to unencrypted
+                const { id, pending: _p, verified, verifiers, ...rest } = report;
+                swPayload = { ...rest, deviceId };
+              }
+              await savePendingReport({
+                id: report.id || `pending_${Date.now()}`,
+                serverPayload: swPayload,
+                displayFields: report,
+              });
+            }
+            localStorage.removeItem(PENDING_KEY);
+            console.log(`Migrated ${parsed.length} pending reports from localStorage to IndexedDB`);
+          }
         }
-      } catch (e) { console.error(e); }
-    }
+
+        // Load from IndexedDB
+        const records = await getAllPendingReports();
+        const active = records
+          .map(r => ({ ...r.displayFields, id: r.id, pending: true }))
+          .filter(r => !isExpired(r.timestamp || ''));
+        setPendingReports(active);
+      } catch (e) { console.error('Failed to load pending reports:', e); }
+    })();
 
     const reportsRef = collection(db, 'iceReports');
     const q = query(reportsRef, orderBy('timestamp', 'desc'));
@@ -1677,54 +1745,36 @@ const CommunityReports = ({ isDuressMode = false }) => {
     const syncPendingReports = async () => {
       if (isOnline && pendingReports.length > 0) {
         console.log('Syncing', pendingReports.length, 'pending reports via Cloud Function...');
-        const failedReports = [];
+        // Read full records from IndexedDB (includes serverPayload)
+        let records;
+        try { records = await getAllPendingReports(); } catch { return; }
+        if (!records.length) return;
 
-        for (const report of pendingReports) {
-          const { id, ...reportData } = report;
-          const result = await submitReportToServer(reportData);
-
+        let synced = 0;
+        for (const record of records) {
+          const result = await submitReportToServer(record.serverPayload);
           if (!result.success) {
             if (result.rateLimited) {
-              // Rate limited - keep remaining reports for later
               console.log('Rate limited, will retry remaining reports later');
-              failedReports.push(report, ...pendingReports.slice(pendingReports.indexOf(report) + 1));
               break;
-            } else {
-              console.error('Failed to sync report:', result.error);
-              failedReports.push(report);
             }
-          } else {
-            console.log('Synced report:', result.reportId);
+            console.error('Failed to sync report:', result.error);
+            continue;
           }
+          console.log('Synced report:', result.reportId);
+          await deletePendingReport(record.id);
+          synced++;
         }
 
-        if (failedReports.length === 0) {
-          console.log('All pending reports synced!');
-          setPendingReports([]);
-          localStorage.removeItem(PENDING_KEY);
-        } else {
-          console.log(`${pendingReports.length - failedReports.length} reports synced, ${failedReports.length} remaining`);
-          setPendingReports(failedReports);
-        }
+        // Refresh state from IndexedDB
+        const remaining = await getAllPendingReports();
+        setPendingReports(remaining.map(r => ({ ...r.displayFields, id: r.id, pending: true })));
+        console.log(`${synced} reports synced, ${remaining.length} remaining`);
       }
     };
 
     syncPendingReports();
-
-    // Register background sync when offline with pending reports
-    if (!isOnline && pendingReports.length > 0 && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then((registration) => {
-        if ('sync' in registration) {
-          registration.sync.register('sync-pending-reports')
-            .catch(err => console.log('Background sync registration failed:', err));
-        }
-      });
-    }
-  }, [isOnline, pendingReports]);
-
-  useEffect(() => {
-    localStorage.setItem(PENDING_KEY, JSON.stringify(pendingReports));
-  }, [pendingReports]);
+  }, [isOnline, pendingReports.length]);
 
   useEffect(() => {
     if (mapRef.current) return;
@@ -1732,7 +1782,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
       try {
         const mapContainer = document.getElementById('report-map');
         if (!mapContainer || !window.L) return false;
-        const mapInstance = window.L.map('report-map', { zoomControl: false }).setView([formData.lat, formData.lng], 11);
+        const mapInstance = window.L.map('report-map', { zoomControl: false }).setView([formData.lat, formData.lng], 7);
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap contributors',
           crossOrigin: true
@@ -2259,8 +2309,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
 
   const handleOverviewUS = () => {
     if (mapRef.current) {
-      const currentZoom = mapRef.current.getZoom();
-      mapRef.current.flyTo([39.8283, -98.5795], currentZoom, { duration: 1.5 });
+      mapRef.current.flyTo([39.8283, -98.5795], 3, { duration: 1.5 });
     }
   };
 
@@ -3149,6 +3198,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
       {showResourcesDisclaimer && (
         <ResourcesDisclaimerModal onClose={handleCloseResourcesDisclaimer} />
       )}
+
     </div>
   );
 };

@@ -188,7 +188,7 @@ const Home = ({ onNavigate, onNavigateToScenario, onOpenSettings, onShowWelcome,
         <div className="mt-4 flex items-center justify-center gap-2">
           <button
             onClick={onOpenSettings}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/50 rounded-full text-slate-400 hover:text-white text-xs transition-all"
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-600/80 to-emerald-500/80 hover:from-emerald-500/80 hover:to-emerald-400/80 border border-emerald-500/50 rounded-full text-white text-xs transition-all shadow-sm shadow-emerald-500/20"
           >
             <Settings size={14} />
             <span>{t('home.security')}</span>

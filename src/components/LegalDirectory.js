@@ -225,7 +225,7 @@ function LegalDirectory() {
                 href={d.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 bg-emerald-950/40 border border-emerald-800/30 rounded-xl px-4 py-3 text-sm active:scale-95 transition-all"
+                className="flex items-center gap-3 bg-emerald-950/40 border border-emerald-800/30 rounded-xl px-4 py-3 text-sm active:scale-95 transition-all hover:-translate-y-0.5 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5"
               >
                 <ArrowSquareOut size={16} weight="bold" className="text-emerald-400 shrink-0" />
                 <span className="text-white font-semibold flex-1 min-w-0 truncate">{d.name}</span>
@@ -255,7 +255,7 @@ function ResourceCard({ resource, expanded, onToggle, stripPhone, t }) {
   const CategoryIcon = CATEGORY_ICONS[resource.category] || ListBullets;
 
   return (
-    <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+    <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
       <button
         onClick={onToggle}
         className="w-full text-start px-4 py-3.5 flex items-start gap-3 active:scale-[0.99] transition-transform"
@@ -276,7 +276,7 @@ function ResourceCard({ resource, expanded, onToggle, stripPhone, t }) {
               </span>
             )}
           </div>
-          <h4 className="text-white font-bold text-sm leading-tight">{resource.name}</h4>
+          <h4 className="text-white font-bold text-sm leading-tight group-hover:text-emerald-100 transition-colors">{resource.name}</h4>
           {!expanded && (
             <p className="text-slate-400 text-xs mt-1 line-clamp-1">{resource.description}</p>
           )}
@@ -286,7 +286,7 @@ function ResourceCard({ resource, expanded, onToggle, stripPhone, t }) {
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
           className="mt-1 shrink-0"
         >
-          <CaretRight size={14} weight="bold" className="text-slate-500" />
+          <CaretRight size={14} weight="bold" className="text-slate-500 group-hover:text-emerald-400 transition-colors" />
         </motion.div>
       </button>
 
@@ -306,7 +306,7 @@ function ResourceCard({ resource, expanded, onToggle, stripPhone, t }) {
               {resource.phone && (
                 <a
                   href={`tel:${stripPhone(resource.phone)}`}
-                  className="flex items-center gap-3 bg-red-950/30 border border-red-700/30 rounded-xl px-4 py-3 text-sm active:scale-95 transition-all"
+                  className="flex items-center gap-3 bg-red-950/30 border border-red-700/30 rounded-xl px-4 py-3 text-sm active:scale-95 transition-all hover:-translate-y-0.5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5"
                 >
                   <Phone size={16} weight="bold" className="text-red-400 shrink-0" />
                   <span className="text-white font-semibold flex-1 min-w-0">{resource.name}</span>

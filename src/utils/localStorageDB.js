@@ -11,7 +11,8 @@ import {
 
 const DB_NAME = 'SafeNeighborDB';
 const STORE_NAME = 'recordings';
-const DB_VERSION = 1;
+const PENDING_REPORTS_STORE = 'pendingReports';
+const DB_VERSION = 2;
 
 // ─────────────────────────────────────────────────────────────
 // Encryption helpers
@@ -84,6 +85,11 @@ const openDB = () => {
         const objectStore = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         objectStore.createIndex('createdAt', 'createdAt', { unique: false });
       }
+      // v2: add pendingReports store for offline report queuing
+      if (!db.objectStoreNames.contains(PENDING_REPORTS_STORE)) {
+        const pendingStore = db.createObjectStore(PENDING_REPORTS_STORE, { keyPath: 'id' });
+        pendingStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
     };
   });
 };
@@ -98,7 +104,11 @@ export const saveRecording = async (recordingData) => {
   // Encrypt the blob if encryption is enabled
   let encryptedBlob = blob;
   let isEncrypted = false;
-  let originalMimeType = blob?.type || 'video/webm';
+  // Safari's MediaRecorder may produce blobs with empty .type — detect the correct
+  // codec based on browser capabilities rather than defaulting to webm (which Safari can't play)
+  let originalMimeType = blob?.type ||
+    (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported?.('video/mp4')
+      ? 'video/mp4' : 'video/webm');
 
   if (blob) {
     const encryptResult = await encryptBlob(blob);
@@ -321,5 +331,78 @@ export const markAsBackedUp = async (id, backupInfo, provider) => {
 export const markBackupFailed = async (id, errorMessage) => {
   return updateRecording(id, {
     backupError: errorMessage,
+  });
+};
+
+// ─────────────────────────────────────────────────────────────
+// Pending Reports (offline report queue for background sync)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Save a pending report for later sync.
+ * @param {Object} report - { id, serverPayload, displayFields, createdAt, attempts }
+ */
+export const savePendingReport = async (report) => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PENDING_REPORTS_STORE], 'readwrite');
+    const store = tx.objectStore(PENDING_REPORTS_STORE);
+    const record = {
+      id: report.id || Date.now().toString(),
+      createdAt: report.createdAt || new Date().toISOString(),
+      attempts: report.attempts || 0,
+      serverPayload: report.serverPayload,
+      displayFields: report.displayFields,
+    };
+    const request = store.put(record);
+    request.onsuccess = () => resolve(record);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+/** Get all pending reports, sorted newest-first. */
+export const getAllPendingReports = async () => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PENDING_REPORTS_STORE], 'readonly');
+    const store = tx.objectStore(PENDING_REPORTS_STORE);
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const reports = request.result;
+      reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      resolve(reports);
+    };
+    request.onerror = () => reject(request.error);
+  });
+};
+
+/** Delete a pending report by id (after successful sync). */
+export const deletePendingReport = async (id) => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PENDING_REPORTS_STORE], 'readwrite');
+    const store = tx.objectStore(PENDING_REPORTS_STORE);
+    const request = store.delete(id);
+    request.onsuccess = () => resolve(true);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+/** Update a pending report (e.g. increment attempts). */
+export const updatePendingReport = async (id, updates) => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PENDING_REPORTS_STORE], 'readwrite');
+    const store = tx.objectStore(PENDING_REPORTS_STORE);
+    const getReq = store.get(id);
+    getReq.onsuccess = () => {
+      const record = getReq.result;
+      if (!record) { resolve(null); return; }
+      const updated = { ...record, ...updates };
+      const putReq = store.put(updated);
+      putReq.onsuccess = () => resolve(updated);
+      putReq.onerror = () => reject(putReq.error);
+    };
+    getReq.onerror = () => reject(getReq.error);
   });
 };

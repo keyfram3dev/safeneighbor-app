@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Home as HomeIcon, List, MapPin, Video, Scale, Megaphone } from 'lucide-react';
 import { GearSix, WarningCircle, Door, User, Car, Shield, Trash, LockLaminated, NavigationArrowIcon as NavigationArrow, CheckIcon as Check, NotePencilIcon as NotePencil, ClockIcon as Clock2, FirstAidKitIcon as FirstAidKit } from '@phosphor-icons/react';
@@ -124,7 +125,17 @@ function App() {
   const [isLocked, setIsLocked] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isDuressMode, setIsDuressMode] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { isOnline } = useOnlineStatus({
+    onReconnect: useCallback(() => {
+      import('./utils/backup/encounterLogSync').then(({ getEncounterLogSync, getLogsFromStorage }) => {
+        const autoOn = localStorage.getItem('safeneighbor_encounter_log_autobackup') !== 'false';
+        if (autoOn) {
+          const sync = getEncounterLogSync();
+          sync.initialize().then(() => sync.syncAllDirty(getLogsFromStorage()));
+        }
+      }).catch(() => {});
+    }, [])
+  });
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [showLanguageSelector, setShowLanguageSelector] = useState(() => !localStorage.getItem(getLanguageStorageKey()));
@@ -231,27 +242,7 @@ function App() {
     };
   }, [isLocked, resetLockTimer]);
 
-  // Online/offline tracking
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      // Catch-up encounter log sync when coming back online
-      import('./utils/backup/encounterLogSync').then(({ getEncounterLogSync, getLogsFromStorage }) => {
-        const autoOn = localStorage.getItem('safeneighbor_encounter_log_autobackup') !== 'false';
-        if (autoOn) {
-          const sync = getEncounterLogSync();
-          sync.initialize().then(() => sync.syncAllDirty(getLogsFromStorage()));
-        }
-      }).catch(() => {});
-    };
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+  // Online/offline tracking is handled by useOnlineStatus hook above
 
   // Service worker update detection
   useEffect(() => {
@@ -314,6 +305,15 @@ function App() {
       const sharedTitle = params.get('shareTitle') || '';
       window.__safeneighbor_shared = { text: sharedText, url: sharedUrl, title: sharedTitle };
       setCurrentPage('reports');
+      window.history.replaceState({}, '', '/');
+      return;
+    }
+
+    // Manifest shortcut deep links (?tab=record|rights|report)
+    const tab = params.get('tab');
+    if (tab) {
+      const tabMap = { record: 'record', rights: 'legal', report: 'reports' };
+      if (tabMap[tab]) setCurrentPage(tabMap[tab]);
       window.history.replaceState({}, '', '/');
     }
   }, []);
@@ -1280,13 +1280,18 @@ function App() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -40, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="fixed left-0 right-0 z-[45] flex items-center justify-center bg-amber-900/90 backdrop-blur-sm border-b border-amber-600/50 text-amber-200 text-xs font-bold uppercase tracking-widest pt-4 pb-1.5 px-4 leading-none"
+            className="fixed left-0 right-0 z-[45] bg-amber-900/90 backdrop-blur-sm border-b border-amber-600/50 text-amber-200 pt-4 pb-2 px-4"
             style={{ top: 'calc(72px + env(safe-area-inset-top, 0px))' }}
           >
-            <span className="inline-flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              {t('offline.message')}
-            </span>
+            <div className="flex items-center justify-center">
+              <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest leading-none">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                {t('offline.message')}
+              </span>
+            </div>
+            <p className="text-center text-amber-300/70 text-[10px] mt-1.5 leading-snug">
+              {t('offline.available')} · {t('offline.limited')}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>

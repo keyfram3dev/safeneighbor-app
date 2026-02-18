@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getEncounterLogSync } from '../utils/backup/encounterLogSync';
+import { useOnlineStatus } from './useOnlineStatus';
 
 const AUTO_BACKUP_KEY = 'safeneighbor_encounter_log_autobackup';
 
@@ -76,17 +77,14 @@ export function useEncounterSync(activeLog, allLogs) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLog?.endedAt, autoBackup, backupConfigured]);
 
-  // ── Online catch-up ──────────────────────────────────────
-  useEffect(() => {
-    const handler = () => {
-      if (readAutoBackup() && allLogs?.length) {
-        sync.syncAllDirty(allLogs);
-      }
-    };
-    window.addEventListener('online', handler);
-    return () => window.removeEventListener('online', handler);
+  // ── Online catch-up (via centralized hook) ──────────────
+  const onReconnect = useCallback(() => {
+    if (readAutoBackup() && allLogs?.length) {
+      sync.syncAllDirty(allLogs);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allLogs]);
+  useOnlineStatus({ onReconnect });
 
   // ── Public setters ───────────────────────────────────────
   const setAutoBackup = useCallback((val) => {
