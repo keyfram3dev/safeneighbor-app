@@ -1,0 +1,6 @@
+name = "safeneighbor-ors-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# The ORS_API_KEY should be set as a secret, not here
+# Run: npx wrangler secret put ORS_API_KEY

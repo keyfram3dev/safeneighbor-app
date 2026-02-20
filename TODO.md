@@ -227,35 +227,36 @@ All app features are complete. Remaining work is infrastructure, translation qua
 ### iOS Push Notifications & Proximity Alerts
 **Context**: iOS 16.4+ supports Web Push API for home-screen PWAs. However, PWAs **cannot** access background geolocation, Geofencing API, or Background Sync reliably on iOS. True background proximity alerts require a native app wrapper.
 
-#### Option 1: Foreground Proximity Alerts (PWA — no native wrapper needed)
-- [ ] While app is open, periodically check user's GPS against community report clusters
-- [ ] Show in-app alert when approaching an area with recent ICE activity reports
-- [ ] Calculate proximity radius (e.g., 0.5–1 mile) against Firestore report data
-- [ ] Visual + haptic warning with option to view nearby reports on map
-- [ ] Only works while SafeNeighbor is actively open in the foreground
+#### Option 1: Foreground Proximity Alerts ✅ (complete)
+- [x] 3-tier alert system: CRITICAL (≤ 0.5 mi full-screen modal), HIGH (≤ 1.5 mi bottom toast, 8s auto-dismiss), MODERATE (≤ 4 mi top banner)
+- [x] Session-key AES-256-GCM encryption for in-memory report coordinate cache (key evaporates on tab close)
+- [x] `getCurrentPosition` interval polling (default 1 min) — GPS coords exist only in callback scope, never stored
+- [x] Configurable poll interval: 1 / 5 / 10 / 30 min (instant hook reactivity via StorageEvent)
+- [x] Configurable re-alert cooldown: 5 min / 15 min / 30 min / 1 hr / 2 hr
+- [x] Saved locations as custom proximity watchpoints — each with configurable radius slider (0.5–4 mi)
+- [x] Add location by GPS (current position) OR address search (Nominatim geocoding)
+- [x] GPS denied → saved location checks still run on every poll tick
+- [x] CRITICAL modal CTAs: "Record Now" (→ Evidence Vault) + "View Safety Plan" (→ FamilyKit)
+- [x] Haptic feedback on alert (warningHaptic for CRITICAL, alertHaptic for HIGH/MODERATE)
+- [x] All 21 languages, all settings reactive with no page reload
 
-#### Option 2: "Check My Route" Feature (PWA — no native wrapper needed)
-- [ ] User enters a destination address or drops a pin
-- [ ] App draws the route and flags any ICE activity hotspots along the path
-- [ ] Show report density heat overlay on the route
-- [ ] Suggest alternative routes if hotspots are detected
-- [ ] Uses Leaflet routing + existing community report data
+#### Option 2: "Check My Route" Feature ✅
+- [x] User enters a destination address
+- [x] App draws the route and flags any ICE activity hotspots along the path
+- [x] Suggest alternative routes if hotspots are detected (sorted safest-first)
+- [x] Dual entry point: Home page accent card + Reports map toolbar button
+- [x] Privacy consent dialog before first use (location + routing data disclosure)
+- [x] OpenRouteService Directions API via Cloudflare Worker proxy (API key server-side)
+- [x] OSRM fallback + straight-line corridor last resort
+- [x] Nominatim forward geocoding (free, no API key)
+- [x] All 21 languages supported
+- [x] **TESTED 2/19**: Verified real driving routes render correctly with ORS integration
 
-#### Option 3: Scheduled Push Digests (Server-side — requires Web Push setup)
-- [ ] Implement Web Push API subscription (iOS 16.4+ home screen PWAs)
-- [ ] Cloud Function sends periodic digest notifications (e.g., daily or when new reports appear near saved location)
-- [ ] User saves a "home area" or frequently visited locations
-- [ ] Server checks new reports against saved locations and pushes alerts
-- [ ] No background GPS needed — server compares report locations against user's saved zones
-- [ ] Requires VAPID keys, push subscription management, and notification permission flow
+#### Option 3: Push Digests — removed
+Push digests UI was removed. Root cause: the `sendPushDigests` Cloud Function checks for plaintext `lat`/`lng` fields, but all new reports use `encryptedPayload` with no plaintext coordinates in Firestore — so push digests silently never fired for any encrypted report. Foreground proximity alerts (Option 1) cover the same use case without the privacy tradeoff of storing location data.
 
-#### Option 4: Native App Wrapper (Capacitor/PWA Builder — full native capabilities)
-- [ ] Wrap PWA in Capacitor or PWA Builder for App Store distribution
-- [ ] Enables true background geolocation via native plugins
-- [ ] Enables iOS Geofencing API for automatic proximity triggers
-- [ ] Can show native push notifications even when app is backgrounded
-- [ ] Requires Apple Developer Program ($99/year) and App Store review
-- [ ] Most capable option but highest effort and ongoing maintenance
+#### Option 4: Native App Wrapper
+See [FutureOptions.md](FutureOptions.md) — deferred, not currently planned.
 
 **iOS PWA Limitations to keep in mind:**
 - No background geolocation access
@@ -264,7 +265,7 @@ All app features are complete. Remaining work is infrastructure, translation qua
 - Web Push only works for home-screen installed PWAs (not in Safari tabs)
 
 ### Infrastructure
-- [ ] **EU data migration** — Evaluate moving Firestore report storage off US infrastructure (Supabase on EU VPS recommended)
+See [FutureOptions.md](FutureOptions.md) — deferred until scale requires it.
 
 ### Translation Quality
 - [ ] **Native speaker review** for Tier 2-4 translations (16 languages, all AI-translated at 100% coverage)
@@ -272,21 +273,260 @@ All app features are complete. Remaining work is infrastructure, translation qua
   - Tier 2: Arabic, Tagalog
   - Tier 3: French, Somali, Amharic, Dari/Farsi, Nepali, Punjabi, Hindi, Burmese, Haitian Creole, Portuguese
   - Tier 4 (lowest confidence): K'iche', Marshallese, Russian
-  - Resources: [Translators Without Borders](https://translatorswithoutborders.org/volunteer/), [Respond Crisis Translation](https://respondcrisistranslation.org/en/get-involved), [Tarjimly](https://www.tarjimly.org/)
+  - **Best starting points**: Respond Crisis Translation and Tarjimly already work in the immigrant rights space and cover Arabic, Somali, Dari/Farsi, Amharic, and Haitian Creole — the highest-need review languages for this app
+  - [Respond Crisis Translation](https://respondcrisistranslation.org/en/get-involved) — specializes in immigration/asylum contexts; covers Arabic, Somali, Dari/Farsi, Amharic, Haitian Creole
+  - [Tarjimly](https://www.tarjimly.org/) — on-demand volunteer translators, strong coverage of Arabic, Somali, Dari/Farsi; ideal for iterative review
+  - [Translators Without Borders](https://translatorswithoutborders.org/volunteer/) — humanitarian focus; broad language coverage including Nepali, Burmese, Punjabi, Hindi
+  - [Charity Translators](https://charitytranslators.org/) — volunteer network for nonprofits; good for languages underserved by the others (K'iche', Marshallese, Tagalog)
 
 ### Outreach & Marketing
-- [ ] Research best platforms for target audience (TikTok, Instagram, X, Facebook, Reddit, Nextdoor)
-- [ ] Create shareable social media graphics/cards (rights tips, "know before they knock" infographics)
-- [ ] Write short-form video scripts for TikTok/Reels (30-60s rights education clips)
-- [ ] Build social media content calendar
-- [ ] Create community ambassador/volunteer outreach program
-- [ ] Partner with existing immigrant rights organizations for cross-promotion
-- [ ] Create printable QR code flyers for community distribution (libraries, churches, community centers)
-- [ ] Set up link-in-bio landing page for social profiles
-- [ ] Engage with relevant subreddits and community forums (r/immigration, local city subs)
-- [ ] Create shareable "Did you know?" rights facts for story/post formats
-- [ ] Word-of-mouth referral strategy (share with 3 neighbors challenge)
-- [ ] Research local community orgs, mutual aid networks, and advocacy groups for partnerships
+
+> **Strategic identity**: Lead with "digital civil rights preparedness and safety app" — not activist tool. This framing builds institutional credibility, reduces platform risk, and lets moderate allies join.
+> **3 message pillars** (every post, page, graphic ladders to one): **Know Your Rights** · **Document Safely** · **Alert Instantly**
+> **Movement frame**: "Prepared Communities. Protected Neighbors."
+> **Safe messaging rule**: Never frame as interfering with law enforcement. Always: documentation, education, safety, legal preparedness.
+>
+> **Competitive differentiation** (use in pitches and press):
+> - *ICEwhistle* — good but limited features. SafeNeighbor has a deeper toolkit (scenarios, evidence vault, encounter log, breathing guide, family preparedness kit)
+> - *Know Your Rights 4 Immigrants* — iOS only, single-developer. SafeNeighbor is web-first: instant access, no download barrier, works on any device immediately
+> - *KYRC App* — backed by Kaepernick's org but broader scope, not laser-focused on encounters
+> - **SafeNeighbor's edge**: a complete emergency preparedness system, not just an information card. The evidence vault, panic wipe, whistle signal, proximity alerts, and community map are genuinely differentiated. Lead with these in marketing.
+
+---
+
+#### Phase 0 — Positioning & Trust Infrastructure (do before growth)
+*People don't adopt safety apps without trust. Build this foundation first.*
+
+**Website additions**
+- [ ] **Plain English Privacy Page** — what is encrypted, what you cannot see, what metadata exists, local vs server storage. Transparency builds viral trust.
+- [ ] **"How It Protects You" Page** — simple visual diagram: User → encrypted locally → sent securely → only user + contact can decrypt
+- [ ] **Legal Advisory Disclaimer** — app provides educational resources, does not encourage interference with law enforcement, supports lawful rights documentation. Protects you and reassures partners.
+- [ ] **Founder Story Page** — why did you build this? People join movements, not apps.
+- [ ] **60–90 sec Explainer Video** — script arc: (1) fear reality "people don't know their rights" → (2) solution "SafeNeighbor helps you…" → (3) proof (encryption, SOS, alerts) → (4) CTA "Download. Share. Protect your community." This becomes your most powerful growth asset.
+- [ ] **FAQ page** (safeneighbor.us/faq) — proactively close the "Trust Gap": "Is this a government app? (No.) Do you track my location? Do you collect emails?" Answer every fear before it blocks adoption. Link from the Know Your Rights scripts. Key questions to answer: zero-knowledge explained in plain language, what happens if you get a subpoena ("can't hand over what we don't have"), whether using the app creates a digital trail.
+- [ ] **Community Guidelines / "Guardian Code" page** — sets tone for reporting accuracy: report only what you personally witness (no rumors), accuracy over speed (check for existing pins before adding), no doxing private citizens, zero tolerance for false alarms, safety first (document from a safe distance). Add a 1-sentence consent reminder before report submission: "By reporting, I confirm I am witnessing this activity personally and agree to the Guardian Code."
+- [ ] **Guardian's Manual PDF** — 1-page free downloadable safety guide combining everything: Stoic mindset (breathe, focus on what you can control), legal scripts for at the door + public stop, how to use the community map, emergency checklist (phone charged, contact memorized, app bookmarked, silence is absolute). Offer as download on site; send to partner orgs to print for community meetings, distribute as "glovebox" resource.
+- [ ] **Technical Security Architecture page** — for privacy advocates, researchers, and org IT teams who need to vet the app before recommending it. Cover: no user accounts (no emails/phones/passwords stored), ephemeral location processing (GPS used locally, not logged), report metadata stripping, TLS 1.3 in transit, pin location jitter (coordinates slightly offset so exact reporter location can't be identified), no third-party ad pixels or tracking scripts, privacy-respecting cookieless analytics. Explicitly state the subpoena-proof policy: "We cannot be compelled to turn over what we do not possess." Link from footer + FAQ.
+
+**Social profile setup**
+- [ ] Set up Instagram, TikTok, Facebook, X (Twitter), and Threads pages with consistent branding
+- [ ] Secure @SafeNeighborUS (or @SafeNeighbor_) handle consistently across all platforms before anyone else takes it
+- [ ] Bio copy: "Civil Rights Preparedness App · Know your rights. Document securely. Alert instantly. 🔐 Zero-knowledge. No tracking."
+- [ ] Set up link-in-bio landing page (Linktree or similar) — Web App, Privacy Policy, Partner Toolkit, Guardian's Manual PDF
+- [ ] Post 3 "seed" posts before promoting — don't let people land on an empty profile grid: (1) Stoic Shield / Manifesto welcome post (2) Security spotlight: "We don't collect your name, email, or phone number" (3) CTA screenshot of "At the Door" script
+- [ ] Pin manifesto post to top of all profiles: mission, three tools (live map, legal scripts, zero-knowledge encryption), Stoic philosophy foundation, safeneighbor.us link
+- [ ] Dual-track posting strategy: **Brand account** (@SafeNeighborUS) = official voice, calm/authoritative, live alerts + scripts + Stoic graphics. **Personal founder account** = behind-the-scenes, "Why I Built This," authentic story. Both accounts active; personal account promotes and reposts brand.
+
+---
+
+#### Phase 1 — Partner Toolkit (build collateral before outreach)
+*This is your "sales collateral." Build it once, use it everywhere.*
+
+- [ ] Design printable QR postcard/sticker — "KNOW YOUR RIGHTS / CONOCE TUS DERECHOS" + safeneighbor.us, downloadable so orgs can print their own. Print on bright yellow or orange cardstock ("Yellow Card" tactic) — looks like an official safety document, easy to spot in a cluttered drawer or wallet. Use Avery 5371 business card template for home printing.
+- [ ] Design window decals for local businesses — "SafeNeighbor Protected Zone. Scan for rights info." Simplified QR sticker for cafes, bodegas, laundromats, remittance shops. Creates visible community infrastructure and generates organic curiosity.
+- [ ] Create double-sided wallet card version: Side A = "Emergency Legal Scripts" (stay calm, remain silent, don't open door) + large QR code. Side B = community tool description + "Zero-knowledge. We don't track your identity." + safeneighbor.us footer with Stoic quote.
+- [ ] Create multi-language bulletin insert (half-page) for church/mosque/gurdwara programs
+- [ ] Write 60-sec explainer blurb orgs can copy-paste into newsletters/emails
+- [ ] Build Partner Toolkit landing page or PDF: QR assets + co-branding instructions + social copy + video
+- [ ] Create downloadable Ambassador Toolkit: social graphics, caption templates, QR code, printable rights cards
+- [ ] Draft partnership pitch email template (ready to personalize and send) — lead with utility and security, not features. Mention: zero-knowledge model, no identity data collected, step-by-step legal scripts, live community heat map. Offer IT/legal team walkthrough of encryption. Include demo link. Close with 10-min call ask. Key personalization: mention a recent local win or campaign of theirs in opening paragraph.
+- [ ] Host "Digital Defense & Physical Safety" webinars — 30–45 min workshops for community orgs or congregation groups (offer Zoom). Teach app usage as part of a broader safety protocol. Positions SafeNeighbor as a service, not just a link to share.
+
+---
+
+#### Phase 2 — Week 1: Seed Trust (target 100–500 early adopters)
+*Private outreach first. Pitch: "We'd love your feedback and would be honored to support your community." Do NOT lead with tracking ICE — lead with rights education + encryption.*
+
+**National org outreach**
+- [ ] ACLU — draft outreach email (lead with civil rights preparedness angle)
+- [ ] United We Dream — largest immigrant youth network nationally
+- [ ] NILC (National Immigration Law Center) — already publishes KYR cards
+- [ ] RAICES — large national org with strong grassroots base
+- [ ] ILRC (Immigrant Legal Resource Center) — works with legal service providers nationwide
+- [ ] FIRM (Fair Immigration Reform Movement) — coalition of grassroots orgs
+- [ ] NDLON (National Day Laborer Organizing Network)
+
+**State/local org outreach**
+- [ ] State coalitions: CIRC (Colorado), MIRA (New England), Immigrant Defense Network (Minnesota)
+- [ ] Local sanctuary churches and immigrant defense coalitions
+- [ ] University immigrant resource centers
+- [ ] Community legal clinics
+
+**Faith community pipeline**
+- [ ] Contact diocesan immigration ministries (Catholic parishes are massive in Latino communities)
+- [ ] Reach out to Interfaith Immigration Coalition
+- [ ] Offer to present at congregation meetings via Zoom
+- [ ] Distribute bulletin inserts through faith community contacts
+
+**Immigration lawyer network**
+- [ ] Contact local immigration bar associations
+- [ ] Present at CLE (Continuing Legal Education) events — attorneys get credit, you get a room full of people who see vulnerable clients every day
+- [ ] Create one-pager lawyers can hand to every client or post in their office
+- [ ] Offer a "Recommended by [Law Firm Name]" co-branded version — attorneys more likely to distribute if their name is on it
+- [ ] Get listed on immigrationadvocates.org as a complementary tech resource
+
+**Privacy community & security validation**
+- [ ] Request security/privacy audit from EFF (Electronic Frontier Foundation) — draft outreach email explaining zero-knowledge architecture, offer to walk through technical implementation. Third-party validation from a credible privacy org = massive credibility multiplier. If EFF endorses or even tweets about it, user adoption will spike.
+- [ ] Identify independent privacy researchers and civic-tech security researchers on X/GitHub to request informal review of the zero-knowledge claims — "Does our architecture actually deliver what we promise?"
+- [ ] Seek listing on privacy-focused app directories (privacyguides.org, prism-break.org, etc.)
+
+**Digital organizer outreach**
+- [ ] Identify active Signal and Telegram groups where community safety organizers already communicate — be a helpful resource in these spaces (share rights guides, answer questions), not a spammer. Never lead with the app; lead with useful information.
+- [ ] Reddit/Quora engagement — answer rights questions in r/Immigration, r/CivilRights, r/legaladvice, and local city subreddits (r/Chicago, r/LosAngeles, etc.). Link to specific guides naturally in context of answering the question; do not post promotional links cold.
+
+---
+
+#### Phase 3 — Week 2: Social Proof (content engine)
+*Repetition is the strategy. Same message, different angles, 3–5x/week.*
+
+**TikTok & Instagram Reels — "Know Your Rights" series**
+- [ ] Script: "What to do if ICE knocks on your door" (30-sec scenario walkthrough)
+- [ ] Script: "Can ICE enter your home without a warrant?"
+- [ ] Script: "3 things you should NEVER do during an ICE encounter"
+- [ ] Script: "This app records everything if you get stopped" (feature demo)
+- [ ] Script: "Your neighbor is being detained — here's what to do RIGHT NOW"
+- [ ] Carousel: "3 Things You Should Never Say…" graphic series
+- [ ] Anonymous testimonials — "A neighbor in [City] used SafeNeighbor when…" format. No names, no identifying details. Social proof without privacy risk.
+- [ ] Founder talking directly to camera — "Why I built this"
+- [ ] All content: English + Spanish captions, fear-to-empowerment arc, trending audio
+
+**"Protect Your Neighbor" ally content**
+- [ ] Content angle: "What to do if you witness an ICE raid on your block" — constitutional rights for ALL residents
+- [ ] Shareable post template: "I downloaded SafeNeighbor. You should too."
+
+**Rapid response prep**
+- [ ] Draft template posts for breaking enforcement news: "[City] — ICE operations reported. Know your rights → safeneighbor.us"
+- [ ] Have posts ready to publish within minutes of major ICE news stories
+
+**Twitter/X thread scripts** (draft and queue these — ready to deploy when accounts are set up)
+- [ ] Thread Option 1 — "Emergency Preparedness" (6 posts): Opens with "Most people think they know their rights but panic takes over" → Post 2: "A knock at the door — do you open it?" + script → Post 3: "Stopped on the street — right to remain silent" → Post 4: "The power of the neighborhood — anonymous live map" → Post 5: "Why trust us? No email, no phone, encrypted on YOUR device" → Post 6: CTA + safeneighbor.us + hashtags
+- [ ] Thread Option 2 — "Privacy Tech / Anti-Surveillance" (5 posts): Appeals to tech/privacy crowd. Opens "Surveillance is everywhere — your safety tools shouldn't be part of the problem" → explains zero-knowledge architecture → "local encryption > cloud storage" → "community heat map, updated by neighbors for neighbors" → CTA
+- [ ] Hashtag strategy: Primary: #SafeNeighbor #KnowYourRights #CivilLiberties #MutualAid — Secondary: #PrivacyMatters #ZeroKnowledge #CommunityProtection #ImmigrationRights
+
+**Stoic brand content**
+- [ ] Create "Stoic Safety" quote graphics series for Instagram/Threads — text-based image posts building the "Guardian" brand identity: Marcus Aurelius, Epictetus quotes framed around community preparedness and civic duty. Calm, authoritative aesthetic.
+- [ ] Press release template (ready to send to local independent news) — angle: "New privacy-first platform empowers neighborhoods to monitor law enforcement activity and protect civil rights." Include screenshot of Know Your Rights scripts. Target: local papers, civil rights bloggers, NPR affiliates, community radio, Spanish-language radio stations.
+
+---
+
+#### Phase 4 — Week 3: Community Champions
+*Find 10 micro-influencers. Offer: early access, live walkthrough, co-hosted Instagram Live, affiliate tracking link.*
+
+- [ ] Immigration attorneys active on TikTok/Instagram
+- [ ] Civil rights educators and community organizers
+- [ ] Latino creators with engaged followings
+- [ ] Privacy advocates and tech journalists
+- [ ] University & student org partnerships — UndocuScholars, campus DACA alliances, multicultural centers
+- [ ] Host "Know Your Rights on Campus" workshops — pre-law clubs and social justice orgs will co-host
+- [ ] Recruit student ambassadors who promote SafeNeighbor on their own channels (they have credibility with their peers that a brand account doesn't)
+
+---
+
+#### Phase 5 — Week 4: Earned Media
+*Pitch angle: "New encrypted civil rights preparedness app launches to help families stay safe."*
+
+- [ ] Local news in immigrant-heavy metros
+- [ ] Independent journalists covering immigration/civil rights
+- [ ] Civil rights and immigration podcasts
+- [ ] Tech privacy blogs
+- [ ] Target publications: Democracy Now!, Latino Rebels, Prism, The Intercept
+- [ ] Spanish-language radio stations (hugely influential, often overlooked)
+- [ ] Local access TV segments in immigrant-heavy metros — often overlooked, loyal viewership
+
+---
+
+#### Phase 6 — QR Code Guerrilla Distribution (ongoing, start local)
+- [ ] Laundromats, bodegas, taquerias, check-cashing stores, remittance shops
+- [ ] Immigration lawyer waiting rooms
+- [ ] ESL classroom bulletin boards
+- [ ] Community health clinics
+- [ ] Public libraries (immigrant resource sections)
+
+---
+
+#### Phase 7 — Retention & Viral Loops (build into app)
+*Most activism apps fail at retention. Build these in-app prompts.*
+*Core messaging principle: "Fear converts once. Preparedness builds retention." Use language like "Prepared doesn't mean afraid" and "Know your rights before you need them" — urgency without panic.*
+
+- [ ] After SOS setup: in-app prompt "Add one more trusted contact"
+- [ ] After reading rights page: in-app prompt "Share this rights card"
+- [ ] Weekly push notification: "Did you review your rights this month?"
+- [ ] Monthly safety tip notifications
+- [ ] Update log transparency (show users what changed and why)
+- [ ] **Monthly community impact transparency posts** — "This month, X neighbors were alerted across Y zones" — posted to social and optionally shown in-app. Builds trust over time; shows the map is alive and useful.
+
+**Guardian Badge gamification system** (browser-based, no accounts, privacy-first)
+*Rewards reporting engagement without tracking identity. Everything stored in localStorage only — evaporates when user clears browser data.*
+- [ ] Level 1 — **The Observer**: First report OR 5 verifications → toast: "Your verification helped [N] people stay safe. You've earned the Observer badge."
+- [ ] Level 2 — **The Sentinel**: 10 verifications / 3 reports → shield with torch icon
+- [ ] Level 3 — **The Guardian**: 25 verifications / 5 reports → shield with interlocking hands
+- [ ] Level 4 — **The Pillar**: 50+ community actions → shield within Greek pillar
+- [ ] "My Impact" page (/my-impact) — reads localStorage, displays earned badges, shows aggregate community actions. Include a "Wipe My History" button that clears localStorage instantly — privacy-first escape hatch.
+- [ ] Social share for badges — generates generic image: "I am a verified Community Guardian on SafeNeighbor.us. I've helped keep my neighborhood informed and protected. #KnowledgeIsProtection" — no location, no identity in the share.
+- [ ] Physical partner incentives (future) — "Sanctuary-Friendly" local business partnerships where showing a Pillar badge earns a discount or free coffee, turning digital engagement into real-world community bonds.
+
+---
+
+#### Phase 8 — Longer Plays (ongoing)
+
+**SEO & Content Marketing**
+- [ ] Write 5–10 blog posts targeting high-intent searches:
+  - "What are my rights if ICE comes to my door"
+  - "Can ICE enter my home without a warrant"
+  - "How to record police encounters legally"
+  - "Know your rights during immigration stop"
+- [ ] State-specific rights pages (50 states = 50 high-value evergreen pages)
+
+**SMS Campaign**
+- [ ] Partner with orgs on "Text RIGHTS to [number]" → sends SafeNeighbor link + rights summary
+- [ ] Evaluate Community.com or Twilio for delivery
+
+**Neighborhood Safety Ambassador Program**
+- [ ] 3-step ask: (1) Download (2) Share with 5 people (3) Post one rights graphic
+- [ ] Make ambassadors feel like leaders — give them a title and a toolkit
+
+### Planned Features (Roadmap)
+
+> **Highest viral potential** (build these first — journalists and community organizers will talk about them):
+> 1. **Rapid Legal Response Button** — one tap to a duty attorney is something no other app does
+> 2. **Family Safety Plan PDF Builder** — parents will share anything that protects their kids
+> 3. **Dead Man's Switch encrypted backup** — solves a real fear (phone seizure) no one else is addressing
+
+#### Community & Trust Building
+- [ ] **Flag False Reports** — Let users flag a map pin as inaccurate or outdated. After 3+ independent flags, auto-hide the pin pending review (or auto-remove after a threshold). Add a "Flag" button on each report card in the activity feed and map popup. Store flag count in Firestore on the report doc (`flagCount` field). Show a "Flagged — under review" state on the pin instead of removing it silently. This is also the foundation for the Guardian Badge "Verify" action (verifying = counter-signal to flags). Rate-limit flagging per deviceId to prevent abuse.
+- [ ] **Verified Witness Network** — Opt-in "Community Witness" role; users agree to respond to nearby encounters as peaceful observers. In-app alert when a report is filed within configurable radius. Research shows ICE de-escalates when witnesses are present.
+- [ ] **Know Your Neighbors** — Anonymous neighborhood safety circles organized by zip code. Coordinate without revealing identity — like a Signal group auto-organized through the app.
+
+#### Family & Household Preparedness
+- [ ] **Family Safety Plan Builder** — Guided wizard: who has custody of kids if a parent is detained, which attorney to call, where documents are stored, emergency contacts. Outputs a printable PDF for physical storage.
+- [ ] **Minor Protection Card Generator** — Printable wallet cards for children: their rights, emergency contacts, and key phrases in multiple languages.
+
+#### Legal & Professional Integration
+- [ ] **Attorney on Call Directory** — Curated, verified directory of immigration attorneys and legal aid orgs by city/county. Seed data from CLINIC (cliniclegal.org), AILA (ailalawyer.com), LawHelp.org, ILRC, and Vera Institute. Tier 1: static hours/phone/languages spoken. Tier 2: partner portal with manual availability toggle. Tier 3: API-based availability from org scheduling tools.
+- [ ] **Rapid Legal Response Button** — One tap sends pre-formatted alert (location, time, description) to a partnered legal org's intake line or duty attorney. Coalition approach: partner with CLINIC or United We Dream at the national level rather than individual orgs.
+- [ ] **Know Before You Go** — Courthouse and federal building safety advisories. Users check a location before entering; ICE has increasingly made arrests near courthouses.
+
+#### Documentation & Evidence
+- [ ] **Dead Man's Switch encrypted backup** — If user doesn't check in within a set time window, encrypted evidence and a pre-written alert message automatically go to designated contacts or legal organizations.
+- [ ] **Witness Upload Portal** — Bystanders who filmed or witnessed an encounter submit footage anonymously to a legal org partner. Not stored on SafeNeighbor servers — routed directly to partner.
+
+#### Education & Outreach
+- [ ] **Know Your Rights Quiz with Shareable Badges** — Short rights literacy quiz with shareable completion certificates. Grassroots marketing: people share badges on social, spreading app awareness organically.
+- [ ] **Scenario Simulator for Kids** — Age-appropriate, non-scary version helping families practice what to say and do together. Designed for schools and community center workshops.
+- [ ] **Clergy & Organizer Dashboard** — Separate view for trusted community leaders: aggregated anonymized activity in their area, push safety alerts to congregation, training materials. Turns faith communities into distribution partners.
+
+#### Accessibility & Reach
+- [ ] **SMS Fallback Mode** — Stripped-down version that works entirely over SMS. Text a keyword to a number and receive rights information back. Expands reach to users with no smartphone or no data.
+- [ ] **Offline-First Mode** — Downloadable package: full rights guide, local attorney contacts, and family plan available with zero connectivity. Critical for rural communities and people who turn off data to avoid tracking.
+- [ ] **Accessibility Mode** — High contrast, large text, screen reader optimization, and audio playback of rights information for users with visual impairments or low literacy.
+
+#### Partnership Outreach
+- [ ] Email CLINIC national office (cliniclegal.org) — attorney directory data partnership pitch
+- [ ] Email ILRC (ilrc.org) — data partnership and rapid response integration
+- [ ] Research RAICES, United We Dream, NILC for Rapid Legal Response coalition
+- [ ] Research local rapid response networks by city ("rapid response network [city]") — SafeNeighbor as the app layer on top of existing Signal/WhatsApp groups
+
+---
 
 ### Known iOS Safari Limitations (Cannot Fix)
 - **Vault save to Photos**: iOS Safari blocks saving IndexedDB-reconstructed blobs to Photos. Workaround: save immediately after recording, use native camera, or use cloud backup.

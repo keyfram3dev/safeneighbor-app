@@ -4,7 +4,7 @@ import { HandWaving, SparkleIcon as Sparkle } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import Disclaimer from './Disclaimer';
 import InstallHelp from './InstallHelp';
-import { Door, MapPin, User, Megaphone, Leaf, VideoCamera, Car, Shield, Eye, Buildings, ClipboardTextIcon as ClipboardText, UsersThreeIcon as UsersThree, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit } from '@phosphor-icons/react';
+import { Door, MapPin, User, Megaphone, Leaf, VideoCamera, Car, Shield, Eye, Buildings, ClipboardTextIcon as ClipboardText, UsersThreeIcon as UsersThree, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit, PathIcon as Path } from '@phosphor-icons/react';
 
 // Map icon string identifiers to Phosphor components
 const iconMap = {
@@ -31,7 +31,7 @@ const ScenarioIcon = ({ iconName, size = 28, className = '', weight = 'bold' }) 
 };
 
 
-const Home = ({ onNavigate, onNavigateToScenario, onOpenSettings, onShowWelcome, onShowFeatures }) => {
+const Home = ({ onNavigate, onNavigateToScenario, onOpenSettings, onShowWelcome, onShowFeatures, onOpenCheckRoute }) => {
   const { t } = useTranslation();
   const [showInstallHelp, setShowInstallHelp] = useState(false);
 
@@ -287,6 +287,30 @@ const Home = ({ onNavigate, onNavigateToScenario, onOpenSettings, onShowWelcome,
             </p>
             <span className="text-emerald-400 text-sm font-semibold inline-flex items-center gap-1 group-hover:gap-2 transition-all">
               {t('home.getStarted')} <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Check My Route — standalone card */}
+      <div
+        onClick={() => onOpenCheckRoute?.()}
+        className="mt-3 group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-blue-700/30 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 hover:-translate-y-0.5"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-cyan-500/0 group-hover:from-blue-500/5 group-hover:to-cyan-500/5 rounded-2xl transition-all duration-300 pointer-events-none" />
+        <div className="relative flex items-start gap-4">
+          <div className="p-3 bg-slate-800 rounded-xl border border-blue-700/30 group-hover:border-blue-500/30 transition-all">
+            <Path size={24} weight="bold" className="text-blue-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold text-white mb-1 group-hover:text-blue-100 transition-colors">
+              {t('home.checkRouteTitle')}
+            </h2>
+            <p className="text-slate-400 text-sm leading-relaxed mb-3">
+              {t('home.checkRouteDesc')}
+            </p>
+            <span className="text-blue-400 text-sm font-semibold inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+              {t('home.checkRoute')} <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
             </span>
           </div>
         </div>

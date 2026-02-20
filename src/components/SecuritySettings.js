@@ -7,6 +7,7 @@ import { X, Lock, Shield, Clock, CaretRight, EyeSlash, Warning, MapPin, FileX, D
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGUAGES, changeLanguage } from '../i18n';
 import PinSetup from './PinSetup';
+import NotificationSettings from './NotificationSettings';
 import { isPinEnabled, isDuressEnabled, clearDuressPin, verifyPin } from '../utils/pinAuth';
 import {
   isMetadataStripEnabled,
@@ -324,6 +325,9 @@ function SecuritySettings({ onClose, onOpenBackup }) {
                 </div>
               </div>
             </div>
+
+            {/* Notification & Proximity Settings */}
+            <NotificationSettings />
 
             {/* Language Section */}
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-violet-700/50 rounded-xl p-4">

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { UsersThree, MapPinSimple, MapPinSimpleArea, MapTrifold, ShieldCheck, Scales, X, Check, Shield, LockKey, Eye, EyeSlash, Timer, UserCircle, Fire, Buildings } from '@phosphor-icons/react';
+import { UsersThree, MapPinSimple, MapPinSimpleArea, MapTrifold, ShieldCheck, Scales, X, Check, Shield, LockKey, Eye, EyeSlash, Timer, UserCircle, Fire, Buildings, Path } from '@phosphor-icons/react';
 import Disclaimer from './components/Disclaimer';
 import DOMPurify from 'dompurify';
 import { detectPII } from './utils/piiDetector';
@@ -19,6 +19,7 @@ import {
 import { db } from './firebase';
 import { reverseGeocode } from './utils/locationShare';
 import { savePendingReport, getAllPendingReports, deletePendingReport } from './utils/localStorageDB';
+import { calculateDistance } from './utils/geo';
 
 
 // Detect standalone PWA mode (iOS adds to home screen)
@@ -1158,7 +1159,7 @@ const ResourcesDisclaimerModal = ({ onClose }) => {
   );
 };
 
-const CommunityReports = ({ isDuressMode = false }) => {
+const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
   const { t } = useTranslation();
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1237,6 +1238,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
     location: '',
     lat: window.__ipLocation?.lat || 37.7749,
     lng: window.__ipLocation?.lng || -122.4194,
+    locationSource: 'manual', // 'gps' = Use My Location, 'manual' = dragged/clicked pin
     date: new Date().toISOString().split('T')[0],
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
     description: '',
@@ -1248,16 +1250,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
   const sessionReportsRef = useRef(new Map()); // Persist reports seen this session
   const prevReportIdsRef = useRef(new Set()); // Track seen report IDs for notifications
 
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 3958.8;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
+  // calculateDistance imported from utils/geo.js
 
   // Find existing report near the given coordinates (within ~0.5 miles, not expired)
   const findNearbyReport = (lat, lng) => {
@@ -1306,21 +1299,27 @@ const CommunityReports = ({ isDuressMode = false }) => {
         const reportTimestamp = new Date(`${pendingSubmission.date}T${pendingSubmission.time}`).toISOString();
 
         // Security: Apply privacy protections
-        const fuzzyLat = fuzzyCoordinate(pendingSubmission.lat);
-        const fuzzyLng = fuzzyCoordinate(pendingSubmission.lng);
+        // Only fuzz GPS-sourced coordinates; manual pins are already user-chosen
+        const isGps = pendingSubmission.locationSource === 'gps';
+        const fuzzyLat = isGps ? fuzzyCoordinate(pendingSubmission.lat) : pendingSubmission.lat;
+        const fuzzyLng = isGps ? fuzzyCoordinate(pendingSubmission.lng) : pendingSubmission.lng;
         const roundedTimestamp = roundTimestamp(reportTimestamp);
 
-        // Get street address and city/state from fuzzed coordinates
+        // Get street address and city/state from coordinates
         const geoData = await reverseGeocode(fuzzyLat, fuzzyLng);
+
+        // For GPS reports, snap to Nominatim's nearest road/address coordinates
+        const reportLat = (isGps && geoData.snappedLat) ? geoData.snappedLat : fuzzyLat;
+        const reportLng = (isGps && geoData.snappedLng) ? geoData.snappedLng : fuzzyLng;
 
         // Encrypt all sensitive fields as a single payload
         const sanitizedPending = sanitizeDescription(pendingSubmission.description);
         const pendingSensitiveFields = {
-          lat: fuzzyLat,
-          lng: fuzzyLng,
+          lat: reportLat,
+          lng: reportLng,
           city: geoData.city || '',
           state: geoData.state || '',
-          location: geoData.address || `~ Near ${fuzzyLat.toFixed(2)}, ${fuzzyLng.toFixed(2)}`,
+          location: geoData.address || `~ Near ${reportLat.toFixed(2)}, ${reportLng.toFixed(2)}`,
           description: sanitizedPending,
           agents: Math.min(50, Math.max(0, parseInt(pendingSubmission.agents) || 0)),
           vehicles: Math.min(20, Math.max(0, parseInt(pendingSubmission.vehicles) || 0)),
@@ -1417,7 +1416,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
 
         setSubmitted(true);
         if (mapRef.current) {
-          mapRef.current.flyTo([fuzzyLat, fuzzyLng], 11, { duration: 1.5 });
+          mapRef.current.flyTo([reportLat, reportLng], 11, { duration: 1.5 });
         }
         setFormData(prev => ({
           ...prev,
@@ -1671,18 +1670,26 @@ const CommunityReports = ({ isDuressMode = false }) => {
       }));
 
       // Split decrypted reports: 12h → markers/feed, 7d → heat map
+      // Merge-and-prune: update existing map rather than wiping it so reports
+      // don't flash away mid-session during async decryption on each snapshot.
       const heatEligible = [];
-      sessionReportsRef.current = new Map();
 
       decrypted.forEach(report => {
         const age = Date.now() - new Date(report.timestamp || 0).getTime();
         if (age <= EXPIRATION_MS) {
-          sessionReportsRef.current.set(report.id, report);
+          sessionReportsRef.current.set(report.id, report); // add or update
+        } else {
+          sessionReportsRef.current.delete(report.id);       // prune if now expired
         }
         if (report.lat && report.lng) {
           heatEligible.push(report);
         }
       });
+      // Remove any report that was deleted from Firestore server-side
+      const snapshotIds = new Set(decrypted.map(r => r.id));
+      for (const id of sessionReportsRef.current.keys()) {
+        if (!snapshotIds.has(id)) sessionReportsRef.current.delete(id);
+      }
 
       const sessionReports = [...sessionReportsRef.current.values()];
       setReports(sessionReports);
@@ -1733,9 +1740,24 @@ const CommunityReports = ({ isDuressMode = false }) => {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Sweep expired reports every 60s so markers disappear promptly at 12 hours
+    // without needing a Firestore snapshot event to trigger the pruning.
+    const expiryTimer = setInterval(() => {
+      let changed = false;
+      for (const [id, report] of sessionReportsRef.current) {
+        const age = Date.now() - new Date(report.timestamp || 0).getTime();
+        if (age > EXPIRATION_MS) {
+          sessionReportsRef.current.delete(id);
+          changed = true;
+        }
+      }
+      if (changed) setReports([...sessionReportsRef.current.values()]);
+    }, 60_000);
+
     return () => {
       console.log('Cleaning up Firebase listener...');
       unsubscribe();
+      clearInterval(expiryTimer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1782,32 +1804,33 @@ const CommunityReports = ({ isDuressMode = false }) => {
       try {
         const mapContainer = document.getElementById('report-map');
         if (!mapContainer || !window.L) return false;
-        const mapInstance = window.L.map('report-map', { zoomControl: false }).setView([formData.lat, formData.lng], 7);
+        const mapInstance = window.L.map('report-map', { zoomControl: false, maxZoom: 19 }).setView([formData.lat, formData.lng], 7);
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap contributors',
-          crossOrigin: true
+          crossOrigin: true,
+          maxZoom: 19
         }).addTo(mapInstance);
 
         const selectionMarker = window.L.marker([formData.lat, formData.lng], {
           draggable: true,
           icon: window.L.divIcon({
             className: 'custom-selection-cursor',
-            html: "<div style='background-color:#ef4444; width:30px; height:30px; border-radius:50%; border:5px solid white; box-shadow:0 0 20px rgba(239,68,68,0.7); display:flex; align-items:center; justify-content:center; color:white; font-size:16px; font-weight:bold;'>+</div>",
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
+            html: "<div style='background-color:#ef4444; width:24px; height:24px; border-radius:50%; border:4px solid white; box-shadow:0 0 20px rgba(239,68,68,0.7); display:flex; align-items:center; justify-content:center; color:white; font-size:13px; font-weight:bold;'>+</div>",
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
           })
         }).addTo(mapInstance);
 
         selectionMarker.on('dragend', () => {
           const pos = selectionMarker.getLatLng();
-          setFormData(prev => ({ ...prev, lat: pos.lat, lng: pos.lng, location: t('reports.manualPin') }));
+          setFormData(prev => ({ ...prev, lat: pos.lat, lng: pos.lng, locationSource: 'manual', location: t('reports.manualPin') }));
           setActiveHubId(null);
         });
 
         mapInstance.on('click', (e) => {
           const { lat, lng } = e.latlng;
           selectionMarker.setLatLng([lat, lng]);
-          setFormData(prev => ({ ...prev, lat, lng, location: t('reports.manualPin') }));
+          setFormData(prev => ({ ...prev, lat, lng, locationSource: 'manual', location: t('reports.manualPin') }));
           setActiveHubId(null);
         });
 
@@ -1877,7 +1900,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
 
   useEffect(() => {
     if (mapLoaded && mapRef.current && window.L) {
-      // Remove previous cluster group (contains all report markers)
+      // Remove previous layers
       if (reportClusterRef.current) {
         mapRef.current.removeLayer(reportClusterRef.current);
         reportClusterRef.current = null;
@@ -1887,10 +1910,11 @@ const CommunityReports = ({ isDuressMode = false }) => {
       const allReports = [...pendingReports, ...reports];
       if (allReports.length === 0) return;
 
-      // Create cluster group (falls back to plain layer group if plugin not loaded)
+      // All reports go through MarkerClusterGroup; clustering disabled at zoom 14+
       const clusterGroup = window.L.markerClusterGroup
         ? window.L.markerClusterGroup({
             maxClusterRadius: 50,
+            disableClusteringAtZoom: 11,
             spiderfyOnMaxZoom: true,
             showCoverageOnHover: false,
             zoomToBoundsOnClick: true,
@@ -1910,52 +1934,92 @@ const CommunityReports = ({ isDuressMode = false }) => {
           })
         : window.L.layerGroup();
 
-      allReports.forEach(report => {
-        if (report.lat && report.lng) {
-          const isPending = pendingReports.some(pr => pr.id === report.id);
-          const isTest = isTestReport(report);
+      // Zoom-responsive pin size: smaller when zoomed out, full at zoom 15+
+      const pinSize = (zoom) => {
+        if (zoom >= 15) return 26;
+        if (zoom >= 13) return 20;
+        if (zoom >= 11) return 17;
+        return 14;
+      };
+      const svgSize = (zoom) => {
+        if (zoom >= 15) return 14;
+        if (zoom >= 13) return 11;
+        return 8;
+      };
 
-          // Set colors based on report type: test (green), pending (amber), or normal (red)
-          let bgColor = isTest ? '#166534' : '#991b1b';
-          let borderColor = isTest ? '#22c55e' : '#ef4444';
-          let pulseColor = isTest ? 'bg-green-600' : 'bg-red-600';
+      // Helper: build icon for a report at a given zoom
+      const buildIcon = (report, zoom) => {
+        const isPending = pendingReports.some(pr => pr.id === report.id);
+        const isTest = isTestReport(report);
+        const sz = pinSize(zoom);
+        const half = Math.round(sz / 2);
+        const svSz = svgSize(zoom);
 
-          let iconContent = isReportVerified(report)
-            ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.62,75.82,119.34,91,124.38a15.44,15.44,0,0,0,10,0c15.2-5.05,91-34.77,91-124.39V56A16,16,0,0,0,208,40Zm-30.46,77.68-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,156.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg>'
-            : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256"><path d="M128,12A84.09,84.09,0,0,0,44,96c0,30.42,14.17,62.79,42.09,96.25a254.09,254.09,0,0,0,38.49,37.12,12,12,0,0,0,14.84,0,254.09,254.09,0,0,0,38.49-37.12C205.83,158.79,220,126.42,220,96A84.09,84.09,0,0,0,128,12Zm0,196.37C109.54,193.75,68,155.36,68,96a60,60,0,0,1,120,0C188,155.35,146.47,193.74,128,208.37ZM128,64a36,36,0,1,0,36,36A36,36,0,0,0,128,64Zm0,48a12,12,0,1,1,12-12A12,12,0,0,1,128,112Z"/></svg>';
+        let bgColor = isTest ? '#166534' : '#991b1b';
+        let borderColor = isTest ? '#22c55e' : '#ef4444';
+        let pulseColor = isTest ? 'bg-green-600' : 'bg-red-600';
 
-          if (isPending) {
-            bgColor = '#d97706';
-            borderColor = '#fbbf24';
-            pulseColor = 'bg-amber-500';
-            iconContent = '🕒';
-          }
+        let iconContent = isReportVerified(report)
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="${svSz}" height="${svSz}" fill="currentColor" viewBox="0 0 256 256"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.62,75.82,119.34,91,124.38a15.44,15.44,0,0,0,10,0c15.2-5.05,91-34.77,91-124.39V56A16,16,0,0,0,208,40Zm-30.46,77.68-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,156.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg>`
+          : `<svg xmlns="http://www.w3.org/2000/svg" width="${svSz}" height="${svSz}" fill="currentColor" viewBox="0 0 256 256"><path d="M128,12A84.09,84.09,0,0,0,44,96c0,30.42,14.17,62.79,42.09,96.25a254.09,254.09,0,0,0,38.49,37.12,12,12,0,0,0,14.84,0,254.09,254.09,0,0,0,38.49-37.12C205.83,158.79,220,126.42,220,96A84.09,84.09,0,0,0,128,12Zm0,196.37C109.54,193.75,68,155.36,68,96a60,60,0,0,1,120,0C188,155.35,146.47,193.74,128,208.37ZM128,64a36,36,0,1,0,36,36A36,36,0,0,0,128,64Zm0,48a12,12,0,1,1,12-12A12,12,0,0,1,128,112Z"/></svg>`;
 
-          const m = window.L.marker([report.lat, report.lng], {
-            icon: window.L.divIcon({
-              className: 'custom-report-marker',
-              html: `<div class="relative flex items-center justify-center">${isPending ? '<div class="absolute -inset-1.5 bg-amber-500 rounded-full animate-ping opacity-25"></div>' : `<div class="absolute -inset-2 ${pulseColor} rounded-full animate-pulse opacity-20"></div>`}<div style='background-color:${bgColor}; width:26px; height:26px; border-radius:50%; border:2px solid ${borderColor}; box-shadow:0 3px 10px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; font-size: 11px;'>${iconContent}</div></div>`,
-              iconSize: [26, 26],
-              iconAnchor: [13, 13]
-            })
-          });
-
-          m.on('click', () => {
-            setSelectedReport(report);
-            mapRef.current.flyTo([report.lat, report.lng], 15, { duration: 1.5 });
-
-            // Scroll to the corresponding report card in the feed
-            setTimeout(() => {
-              const reportCard = document.getElementById(`report-card-${report.id}`);
-              if (reportCard) {
-                reportCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }, 500);
-          });
-          clusterGroup.addLayer(m);
-          reportMarkersRef.current.push(m);
+        if (isPending) {
+          bgColor = '#d97706';
+          borderColor = '#fbbf24';
+          pulseColor = 'bg-amber-500';
+          iconContent = '🕒';
         }
+
+        const showPulse = zoom >= 13;
+        const pulseHtml = showPulse
+          ? (isPending ? '<div class="absolute -inset-1.5 bg-amber-500 rounded-full animate-ping opacity-25"></div>' : `<div class="absolute -inset-2 ${pulseColor} rounded-full animate-pulse opacity-20"></div>`)
+          : '';
+
+        return window.L.divIcon({
+          className: 'custom-report-marker',
+          html: `<div class="relative flex items-center justify-center">${pulseHtml}<div style='background-color:${bgColor}; width:${sz}px; height:${sz}px; border-radius:50%; border:${zoom >= 13 ? 2 : 1}px solid ${borderColor}; box-shadow:0 2px 6px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; font-size:${Math.round(svSz * 0.8)}px;'>${iconContent}</div></div>`,
+          iconSize: [sz, sz],
+          iconAnchor: [half, half]
+        });
+      };
+
+      // Helper: create a marker for a report
+      const makeMarker = (report) => {
+        const zoom = mapRef.current ? mapRef.current.getZoom() : 10;
+        const m = window.L.marker([report.lat, report.lng], {
+          icon: buildIcon(report, zoom)
+        });
+        m._reportData = report; // stash for zoom-based icon updates
+
+        m.on('click', () => {
+          setSelectedReport(report);
+          mapRef.current.flyTo([report.lat, report.lng], 15, { duration: 1.5 });
+          setTimeout(() => {
+            const reportCard = document.getElementById(`report-card-${report.id}`);
+            if (reportCard) {
+              reportCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 500);
+        });
+
+        return m;
+      };
+
+      allReports.forEach(report => {
+        if (!report.lat || !report.lng) return;
+        const m = makeMarker(report);
+        clusterGroup.addLayer(m);
+        reportMarkersRef.current.push(m);
       });
+
+      // Resize pins on zoom change
+      const updatePinSizes = () => {
+        const zoom = mapRef.current ? mapRef.current.getZoom() : 10;
+        reportMarkersRef.current.forEach(m => {
+          if (m._reportData) m.setIcon(buildIcon(m._reportData, zoom));
+        });
+      };
+      mapRef.current.on('zoomend', updatePinSizes);
 
       if (showPins) {
         mapRef.current.addLayer(clusterGroup);
@@ -2130,10 +2194,11 @@ const CommunityReports = ({ isDuressMode = false }) => {
       };
 
       const setupPickerMap = (centerLat, centerLng) => {
-        const mInstance = window.L.map('inline-precision-map', { zoomControl: false }).setView([centerLat, centerLng], 14);
+        const mInstance = window.L.map('inline-precision-map', { zoomControl: false, maxZoom: 19 }).setView([centerLat, centerLng], 14);
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OSM',
-          crossOrigin: true
+          crossOrigin: true,
+          maxZoom: 19
         }).addTo(mInstance);
 
         const circle = window.L.circle([centerLat, centerLng], {
@@ -2162,11 +2227,12 @@ const CommunityReports = ({ isDuressMode = false }) => {
             return false;
           }
           setPickerError(null);
-          setFormData(prev => ({ 
-            ...prev, 
-            lat: pos.lat, 
-            lng: pos.lng, 
-            location: `${t('reports.neighborReport')} (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})` 
+          setFormData(prev => ({
+            ...prev,
+            lat: pos.lat,
+            lng: pos.lng,
+            locationSource: 'manual',
+            location: `${t('reports.neighborReport')} (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`
           }));
           return true;
         };
@@ -2199,7 +2265,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
       setActiveHubId(hub.name);
       markerRef.current.setLatLng([hub.lat, hub.lng]);
       mapRef.current.flyTo([hub.lat, hub.lng], 13, { duration: 1.8 });
-      setFormData(prev => ({ ...prev, lat: hub.lat, lng: hub.lng, location: hub.name }));
+      setFormData(prev => ({ ...prev, lat: hub.lat, lng: hub.lng, locationSource: 'manual', location: hub.name }));
     }
   };
 
@@ -2286,7 +2352,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
         (position) => {
           const { latitude, longitude } = position.coords;
           setUserCoords({ lat: latitude, lng: longitude });
-          setFormData(prev => ({ ...prev, lat: latitude, lng: longitude, location: t('reports.currentPosition') }));
+          setFormData(prev => ({ ...prev, lat: latitude, lng: longitude, locationSource: 'gps', location: t('reports.currentPosition') }));
           setShowLocationPin(true);
           if (mapRef.current && markerRef.current) {
             mapRef.current.flyTo([latitude, longitude], 12, { duration: 1.5 });
@@ -2467,21 +2533,27 @@ const CommunityReports = ({ isDuressMode = false }) => {
       }
 
       // Security: Apply privacy protections
-      const fuzzyLat = fuzzyCoordinate(formData.lat);
-      const fuzzyLng = fuzzyCoordinate(formData.lng);
+      // Only fuzz GPS-sourced coordinates; manual pins are already user-chosen
+      const isGps = formData.locationSource === 'gps';
+      const fuzzyLat = isGps ? fuzzyCoordinate(formData.lat) : formData.lat;
+      const fuzzyLng = isGps ? fuzzyCoordinate(formData.lng) : formData.lng;
       const roundedTimestamp = roundTimestamp(reportTimestamp);
 
-      // Get street address and city/state from fuzzed coordinates
+      // Get street address and city/state from coordinates
       const geoData = await reverseGeocode(fuzzyLat, fuzzyLng);
+
+      // For GPS reports, snap to Nominatim's nearest road/address coordinates
+      const reportLat = (isGps && geoData.snappedLat) ? geoData.snappedLat : fuzzyLat;
+      const reportLng = (isGps && geoData.snappedLng) ? geoData.snappedLng : fuzzyLng;
 
       // Encrypt all sensitive fields as a single payload
       const sanitized = sanitizeDescription(formData.description);
       const sensitiveFields = {
-        lat: fuzzyLat,
-        lng: fuzzyLng,
+        lat: reportLat,
+        lng: reportLng,
         city: geoData.city || '',
         state: geoData.state || '',
-        location: geoData.address || `~ Near ${fuzzyLat.toFixed(2)}, ${fuzzyLng.toFixed(2)}`,
+        location: geoData.address || `~ Near ${reportLat.toFixed(2)}, ${reportLng.toFixed(2)}`,
         description: sanitized,
         agents: Math.min(50, Math.max(0, parseInt(formData.agents) || 0)),
         vehicles: Math.min(20, Math.max(0, parseInt(formData.vehicles) || 0)),
@@ -2535,7 +2607,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
             setSubmitted(true);
 
             if (mapRef.current) {
-              mapRef.current.flyTo([fuzzyLat, fuzzyLng], 11, { duration: 1.5 });
+              mapRef.current.flyTo([reportLat, reportLng], 11, { duration: 1.5 });
             }
 
             setFormData(prev => ({
@@ -2573,7 +2645,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
         setSubmitted(true);
 
         if (mapRef.current) {
-          mapRef.current.flyTo([fuzzyLat, fuzzyLng], 11, { duration: 1.5 });
+          mapRef.current.flyTo([reportLat, reportLng], 11, { duration: 1.5 });
         }
 
         setFormData(prev => ({
@@ -2722,7 +2794,7 @@ const CommunityReports = ({ isDuressMode = false }) => {
               </div>
             </div>
             {/* Row 2: Action buttons */}
-            <div className="flex justify-end items-center gap-1.5">
+            <div className="flex justify-end items-stretch gap-1.5">
               {heatmapEnabled && (
                 <button
                   type="button"
@@ -2762,6 +2834,13 @@ const CommunityReports = ({ isDuressMode = false }) => {
                 className="text-[10px] font-black text-sky-400 hover:text-sky-300 flex items-center gap-1.5 bg-sky-950/40 px-3 py-1.5 rounded-lg border border-sky-900/30 transition-all hover:scale-105 active:scale-95"
               >
                 <MapTrifold size={14} weight="bold" /> {t('reports.usView')}
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenCheckRoute?.()}
+                className="text-[10px] font-black text-blue-400 hover:text-blue-300 flex items-center gap-1.5 bg-blue-950/40 px-3 py-1.5 rounded-lg border border-blue-900/30 transition-all hover:scale-105 active:scale-95"
+              >
+                <Path size={14} weight="bold" /> {t('route.title')}
               </button>
             </div>
           </div>
@@ -3198,7 +3277,6 @@ const CommunityReports = ({ isDuressMode = false }) => {
       {showResourcesDisclaimer && (
         <ResourcesDisclaimerModal onClose={handleCloseResourcesDisclaimer} />
       )}
-
     </div>
   );
 };

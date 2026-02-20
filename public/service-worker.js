@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safeneighbor-v17';
+const CACHE_NAME = 'safeneighbor-v19';
 const TILES_CACHE = 'safeneighbor-tiles-v1';
 const MAX_TILES = 300;
 
@@ -72,8 +72,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip Chrome extension requests
-  if (event.request.url.startsWith('chrome-extension://')) {
+  // Skip Chrome extension and blob/data URL requests
+  if (event.request.url.startsWith('chrome-extension://') ||
+      event.request.url.startsWith('blob:') ||
+      event.request.url.startsWith('data:')) {
     return;
   }
 
@@ -199,15 +201,170 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// ─── IndexedDB helpers (SW context) ──────────────────────────
+const DB_NAME = 'SafeNeighborDB';
+const DB_VERSION = 2;
+const PENDING_STORE = 'pendingReports';
+const SUBMIT_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/submitReport';
+const MAX_ATTEMPTS = 5;
+
+function openSyncDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('recordings')) {
+        const store = db.createObjectStore('recordings', { keyPath: 'id' });
+        store.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(PENDING_STORE)) {
+        const store = db.createObjectStore(PENDING_STORE, { keyPath: 'id' });
+        store.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+    };
+  });
+}
+
+function getAllPending(db) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PENDING_STORE], 'readonly');
+    const req = tx.objectStore(PENDING_STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function deletePending(db, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PENDING_STORE], 'readwrite');
+    const req = tx.objectStore(PENDING_STORE).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function updateAttempts(db, record) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PENDING_STORE], 'readwrite');
+    const req = tx.objectStore(PENDING_STORE).put({ ...record, attempts: (record.attempts || 0) + 1 });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function syncAllPendingReports() {
+  const db = await openSyncDB();
+  const records = await getAllPending(db);
+  if (!records.length) return;
+
+  console.log('SafeNeighbor SW: Syncing', records.length, 'pending reports');
+  let synced = 0;
+
+  for (const record of records) {
+    // Skip records that have exceeded max attempts
+    if ((record.attempts || 0) >= MAX_ATTEMPTS) {
+      console.log('SafeNeighbor SW: Skipping report', record.id, '(max attempts reached)');
+      continue;
+    }
+
+    try {
+      const response = await fetch(SUBMIT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record.serverPayload)
+      });
+
+      if (response.status === 429) {
+        // Rate limited — throw so the browser retries with backoff
+        await updateAttempts(db, record);
+        throw new Error('Rate limited (429)');
+      }
+
+      if (response.ok) {
+        await deletePending(db, record.id);
+        synced++;
+        console.log('SafeNeighbor SW: Synced report', record.id);
+      } else {
+        await updateAttempts(db, record);
+        console.log('SafeNeighbor SW: Report', record.id, 'failed:', response.status);
+      }
+    } catch (err) {
+      console.error('SafeNeighbor SW: Sync error for', record.id, err);
+      throw err; // Let the browser schedule a retry
+    }
+  }
+
+  // Notify any open tabs so they can refresh their UI
+  const clients = await self.clients.matchAll({ type: 'window' });
+  clients.forEach(client => client.postMessage({ type: 'SYNC_COMPLETED', synced }));
+}
+
 // Background Sync: Process pending reports when connectivity returns
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-pending-reports') {
-    event.waitUntil(
-      self.clients.matchAll({ type: 'window' }).then((clients) => {
-        if (clients.length > 0) {
-          clients[0].postMessage({ type: 'SYNC_PENDING_REPORTS' });
-        }
-      })
-    );
+    event.waitUntil(syncAllPendingReports());
   }
+});
+
+// ─── Web Push Notifications ──────────────────────────────────
+
+// Push event — display notification from server payload
+self.addEventListener('push', (event) => {
+  let data = { title: 'SafeNeighbor', body: 'New activity near you' };
+  try {
+    if (event.data) data = event.data.json();
+  } catch (e) {
+    console.error('SafeNeighbor SW: Failed to parse push payload', e);
+  }
+
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/logo192.png',
+    badge: data.badge || '/favicon-32x32.png',
+    data: data.data || { url: '/' },
+    actions: [
+      { action: 'view', title: 'View Reports' },
+      { action: 'dismiss', title: 'Dismiss' },
+    ],
+    vibrate: [100, 50, 100],
+    tag: 'safeneighbor-alert',
+    renotify: true,
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title || 'SafeNeighbor', options));
+});
+
+// Notification click — focus existing tab or open new one
+// SECURITY: Validate same-origin to prevent phishing via crafted push payloads
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  if (event.action === 'dismiss') return;
+
+  const rawUrl = event.notification.data?.url || '/?tab=report';
+
+  // Validate URL is same-origin; reject cross-origin URLs
+  let targetUrl;
+  try {
+    const parsed = new URL(rawUrl, self.location.origin);
+    targetUrl = parsed.origin === self.location.origin ? parsed.href : '/?tab=report';
+  } catch {
+    targetUrl = new URL('/?tab=report', self.location.origin).href;
+  }
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Focus an existing tab if possible
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window
+      return self.clients.openWindow(targetUrl);
+    })
+  );
 });

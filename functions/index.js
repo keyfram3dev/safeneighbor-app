@@ -2,6 +2,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const cors = require('cors')({ origin: true });
 const crypto = require('crypto');
+const webpush = require('web-push');
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -399,4 +400,177 @@ exports.ipLocation = functions.https.onRequest((req, res) => {
       return res.status(500).json({ error: 'Internal error' });
     }
   });
+});
+
+// ─── Web Push Notifications ───────────────────────────────────
+
+// Configure VAPID (set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL in functions/.env)
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:SafeNeighbor.us@proton.me';
+
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
+}
+
+/**
+ * Register a push subscription with coarse geohash prefixes for digest alerts.
+ * PRIVACY: Only geohash-5 prefixes (~5km grid) are stored — no precise
+ * coordinates, labels, or IDs ever reach the server.
+ */
+exports.registerPushSubscription = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    try {
+      const { subscription, geoHashPrefixes } = req.body;
+      if (!subscription || !subscription.endpoint) {
+        return res.status(400).json({ error: 'Subscription endpoint required' });
+      }
+
+      // Validate prefixes are strings of length 5
+      const prefixes = (geoHashPrefixes || []).filter(p => typeof p === 'string' && p.length === 5);
+
+      const endpointHash = crypto.createHash('sha256').update(subscription.endpoint).digest('hex').substring(0, 32);
+
+      await db.collection('pushSubscriptions').doc(endpointHash).set({
+        subscription,
+        geoHashPrefixes: prefixes,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      return res.status(200).json({ success: true, id: endpointHash });
+    } catch (error) {
+      console.error('registerPushSubscription error:', error);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+});
+
+/**
+ * Unregister a push subscription.
+ */
+exports.unregisterPushSubscription = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    try {
+      const { endpoint } = req.body;
+      if (!endpoint) return res.status(400).json({ error: 'Endpoint required' });
+
+      const endpointHash = crypto.createHash('sha256').update(endpoint).digest('hex').substring(0, 32);
+      await db.collection('pushSubscriptions').doc(endpointHash).delete();
+
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('unregisterPushSubscription error:', error);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+});
+
+/**
+ * Server-side geohash-5 encoder (same algorithm as client).
+ * Used to convert report lat/lng to a geohash prefix for matching.
+ */
+const GH_BASE32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+function encodeGeohash(lat, lng, precision) {
+  precision = precision || 5;
+  let latMin = -90, latMax = 90, lngMin = -180, lngMax = 180;
+  let hash = '', bit = 0, ch = 0, isLng = true;
+  while (hash.length < precision) {
+    if (isLng) {
+      const mid = (lngMin + lngMax) / 2;
+      if (lng >= mid) { ch |= (1 << (4 - bit)); lngMin = mid; } else { lngMax = mid; }
+    } else {
+      const mid = (latMin + latMax) / 2;
+      if (lat >= mid) { ch |= (1 << (4 - bit)); latMin = mid; } else { latMax = mid; }
+    }
+    isLng = !isLng;
+    bit++;
+    if (bit === 5) { hash += GH_BASE32[ch]; bit = 0; ch = 0; }
+  }
+  return hash;
+}
+
+/**
+ * Scheduled push digest — runs every 2 hours.
+ * PRIVACY: Matches reports to subscribers using geohash-5 prefixes only.
+ * No precise coordinates or location labels are stored or transmitted
+ * through the push notification infrastructure.
+ */
+exports.sendPushDigests = functions.pubsub.schedule('every 2 hours').onRun(async () => {
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+    console.log('VAPID keys not configured — skipping push digests');
+    return;
+  }
+
+  // 1. Get reports from the last 2 hours that have plaintext lat/lng
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  const reportsSnap = await db.collection('iceReports')
+    .where('timestamp', '>', cutoff)
+    .get();
+
+  // Convert each report's lat/lng to a geohash-5 prefix
+  const reportGeohashes = new Set();
+  let reportCount = 0;
+  reportsSnap.forEach((doc) => {
+    const data = doc.data();
+    if (typeof data.lat === 'number' && typeof data.lng === 'number') {
+      reportGeohashes.add(encodeGeohash(data.lat, data.lng));
+      reportCount++;
+    }
+  });
+
+  if (reportCount === 0) {
+    console.log('No recent unencrypted reports — skipping digest');
+    return;
+  }
+
+  // 2. Get all push subscriptions
+  const subsSnap = await db.collection('pushSubscriptions').get();
+  if (subsSnap.empty) {
+    console.log('No push subscribers');
+    return;
+  }
+
+  let sent = 0;
+  let cleaned = 0;
+
+  for (const subDoc of subsSnap.docs) {
+    const { subscription, geoHashPrefixes } = subDoc.data();
+    if (!subscription || !geoHashPrefixes || geoHashPrefixes.length === 0) continue;
+
+    // Check if any report geohash matches any subscriber prefix
+    const prefixSet = new Set(geoHashPrefixes);
+    let matched = false;
+    for (const gh of reportGeohashes) {
+      if (prefixSet.has(gh)) { matched = true; break; }
+    }
+
+    if (!matched) continue;
+
+    // PRIVACY: Generic notification body — never include location labels or counts
+    const payload = JSON.stringify({
+      title: 'SafeNeighbor',
+      body: 'Activity reported near your area',
+      icon: '/logo192.png',
+      badge: '/favicon-32x32.png',
+      data: { url: '/?tab=report' },
+    });
+
+    try {
+      await webpush.sendNotification(subscription, payload);
+      sent++;
+    } catch (err) {
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        await subDoc.ref.delete();
+        cleaned++;
+      } else {
+        console.error('Push send error:', err.statusCode, err.message);
+      }
+    }
+  }
+
+  console.log(`Push digest: ${sent} sent, ${cleaned} expired subscriptions cleaned`);
 });

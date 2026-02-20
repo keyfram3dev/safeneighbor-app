@@ -26,6 +26,7 @@ import RightsCard from './components/RightsCard';
 import EncounterLog from './components/EncounterLog';
 import PostEncounterGuide from './components/PostEncounterGuide';
 import InstallHelp from './components/InstallHelp';
+import CheckMyRoute from './components/CheckMyRoute';
 import { getTrustedContacts } from './utils/backup/accessGrants';
 import {
   acquireLocation,
@@ -46,6 +47,9 @@ import LanguageSelector from './components/LanguageSelector';
 import { getLanguageStorageKey } from './i18n';
 import i18n from './i18n';
 import useDirection from './hooks/useDirection';
+import { ReportsProvider } from './contexts/ReportsContext';
+import useProximityAlerts from './hooks/useProximityAlerts';
+import ProximityAlert from './components/ProximityAlert';
 
 // Auto-lock timeout: 7 minutes of inactivity
 const AUTO_LOCK_TIMEOUT_MS = 7 * 60 * 1000;
@@ -146,6 +150,10 @@ function App() {
     return hasLanguage && !hasSeenWelcome;
   });
   const [showFeatures, setShowFeatures] = useState(false);
+  const [showCheckRoute, setShowCheckRoute] = useState(false);
+
+  // Proximity alerts
+  const { activeAlert, dismissAlert } = useProximityAlerts();
 
   // Location sharing state
   const [isAcquiringLocation, setIsAcquiringLocation] = useState(false);
@@ -436,6 +444,7 @@ function App() {
             onOpenSettings={() => { setShowSettings(true); track('modal_open', { modal: 'settings', source: 'home' }); }}
             onShowWelcome={() => { setShowWelcome(true); track('modal_open', { modal: 'welcome' }); }}
             onShowFeatures={() => { setShowFeatures(true); track('modal_open', { modal: 'features' }); }}
+            onOpenCheckRoute={() => { setShowCheckRoute(true); track('modal_open', { modal: 'check_route', source: 'home' }); }}
           />
         );
       case 'scenarios':
@@ -511,7 +520,7 @@ function App() {
           </LayoutGroup>
         );
       case 'reports':
-        return <CommunityReports isDuressMode={isDuressMode} />;
+        return <CommunityReports isDuressMode={isDuressMode} onOpenCheckRoute={() => { setShowCheckRoute(true); track('modal_open', { modal: 'check_route', source: 'reports' }); }} />;
       case 'record':
         return <Record isDuressMode={isDuressMode} />;
       case 'legal': 
@@ -526,6 +535,7 @@ function App() {
             onOpenSettings={() => { setShowSettings(true); track('modal_open', { modal: 'settings', source: 'home' }); }}
             onShowWelcome={() => { setShowWelcome(true); track('modal_open', { modal: 'welcome' }); }}
             onShowFeatures={() => { setShowFeatures(true); track('modal_open', { modal: 'features' }); }}
+            onOpenCheckRoute={() => { setShowCheckRoute(true); track('modal_open', { modal: 'check_route', source: 'home' }); }}
           />
         );
     }
@@ -1272,6 +1282,15 @@ function App() {
 
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
 
+      {/* Proximity Alert Banner */}
+      <ProximityAlert
+        alert={activeAlert}
+        onDismiss={dismissAlert}
+        onViewMap={() => { dismissAlert(); handleNavigate('reports'); }}
+        onRecord={() => { dismissAlert(); handleNavigate('record'); }}
+        onSafetyPlan={() => { dismissAlert(); handleNavigateToScenario({ id: 'family-kit' }); }}
+      />
+
       {/* Offline Indicator Banner */}
       <AnimatePresence>
         {!isOnline && (
@@ -1340,6 +1359,9 @@ function App() {
             SafeNeighbor.us@proton.me
           </a>
         </p>
+        <p className="text-slate-600 text-[10px] tracking-wide mt-1">
+          Owned and Operated by SafeNeighbor LLC
+        </p>
       </footer>
 
       {/* App Update Toast */}
@@ -1384,6 +1406,9 @@ function App() {
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      {/* Check My Route Modal */}
+      <CheckMyRoute isOpen={showCheckRoute} onClose={() => setShowCheckRoute(false)} />
     </div>
   );
 }
@@ -1406,7 +1431,9 @@ function NavButton({ icon: Icon, label, active, onClick }) {
 
 const AppWithBoundary = () => (
   <ErrorBoundary>
-    <App />
+    <ReportsProvider>
+      <App />
+    </ReportsProvider>
   </ErrorBoundary>
 );
 

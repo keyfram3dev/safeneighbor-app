@@ -90,14 +90,18 @@ export const reverseGeocode = async (lat, lng, retryCount = 0) => {
       address = null;
     }
 
-    return { address, city, state };
+    // Nominatim returns lat/lon of the matched address (typically on/near a road)
+    const snappedLat = data.lat ? parseFloat(data.lat) : null;
+    const snappedLng = data.lon ? parseFloat(data.lon) : null;
+
+    return { address, city, state, snappedLat, snappedLng };
   } catch (error) {
     if (retryCount < MAX_RETRIES) {
       await new Promise((r) => setTimeout(r, 1500));
       return reverseGeocode(lat, lng, retryCount + 1);
     }
 
-    return { address: null, city: '', state: '' };
+    return { address: null, city: '', state: '', snappedLat: null, snappedLng: null };
   }
 };
 
