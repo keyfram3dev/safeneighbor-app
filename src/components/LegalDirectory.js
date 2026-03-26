@@ -19,6 +19,7 @@ import {
   ArrowSquareOut,
   Translate,
   CaretDown,
+  Buildings,
 } from '@phosphor-icons/react';
 import {
   RESOURCE_CATEGORIES,
@@ -28,6 +29,7 @@ import {
   LAST_VERIFIED,
 } from '../data/legalResourceData';
 import Disclaimer from './Disclaimer';
+import PolicyAlerts from './PolicyAlerts';
 
 const CATEGORY_ICONS = {
   all: ListBullets,
@@ -117,30 +119,35 @@ function LegalDirectory() {
 
       {/* Search Bar */}
       <div className="relative">
+        <label htmlFor="legal-directory-search" className="sr-only">
+          {t('legalDirectory.searchPlaceholder')}
+        </label>
         <MagnifyingGlass
           size={18}
           weight="bold"
           className="absolute start-4 top-1/2 -translate-y-1/2 text-slate-500"
         />
         <input
+          id="legal-directory-search"
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t('legalDirectory.searchPlaceholder')}
-          className="w-full bg-slate-900 border border-slate-800 rounded-2xl ps-11 pe-4 py-3.5 text-white text-sm placeholder-slate-600 focus:border-emerald-500 outline-none transition-colors"
+          className="w-full bg-slate-900 border border-slate-800 rounded-2xl ps-11 pe-4 py-3.5 text-white text-sm placeholder-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-emerald-400 focus:border-emerald-500"
         />
       </div>
 
       {/* State Selector */}
       <div>
-        <label className="text-slate-500 text-xs font-bold uppercase tracking-wider block mb-2">
+        <label htmlFor="legal-directory-state" className="text-slate-500 text-xs font-bold uppercase tracking-wider block mb-2">
           {t('legalDirectory.selectState')}
         </label>
         <div className="relative">
           <select
+            id="legal-directory-state"
             value={selectedState}
             onChange={(e) => setSelectedState(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 focus:border-emerald-500 outline-none transition-colors appearance-none cursor-pointer"
+            className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 transition-colors appearance-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-emerald-400 focus:border-emerald-500"
           >
             <option value="">{t('legalDirectory.allStates')}</option>
             {ALL_STATES.map((s) => (
@@ -157,8 +164,26 @@ function LegalDirectory() {
         </div>
       </div>
 
+      {/* Policy Alerts */}
+      <PolicyAlerts />
+
+      {/* Immigration Advocates Network Directory Link */}
+      <a
+        href="https://www.immigrationadvocates.org/nonprofit/legaldirectory/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 bg-gradient-to-r from-amber-950/40 to-emerald-950/40 border border-amber-700/30 hover:border-amber-500/30 rounded-2xl px-4 py-3.5 active:scale-[0.98] transition-all hover:-translate-y-0.5"
+      >
+        <Buildings size={22} weight="bold" className="text-amber-400 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <span className="text-white font-bold text-sm block">{t('legalDirectory.ianTitle')}</span>
+          <span className="text-slate-400 text-xs">{t('legalDirectory.ianDesc')}</span>
+        </div>
+        <ArrowSquareOut size={16} weight="bold" className="text-amber-400 shrink-0" />
+      </a>
+
       {/* Category Filter Chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+      <div className="flex flex-wrap justify-center gap-2">
         {RESOURCE_CATEGORIES.map((cat) => {
           const Icon = CATEGORY_ICONS[cat.id];
           const isActive = activeCategory === cat.id;

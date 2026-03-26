@@ -28,6 +28,13 @@ import {
   rewrapMasterKeyWithPin,
   removeKeyWrapping
 } from '../utils/crypto';
+import {
+  isLocationsKeyWrapped,
+  wrapLocationsKeyWithPin,
+  unwrapLocationsKeyWithPin,
+  rewrapLocationsKeyWithNewPin,
+  removeLocationsKeyPin,
+} from '../utils/locationsKey';
 
 const MAX_ATTEMPTS = 5;
 
@@ -151,6 +158,9 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
             if (isKeyWrapped()) {
               await removeKeyWrapping(pin);
             }
+            if (isLocationsKeyWrapped()) {
+              await removeLocationsKeyPin(pin);
+            }
             clearPin();
             clearDuressPin();
           }
@@ -163,6 +173,9 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
         // so it's in memory for rewrapping with the new PIN in the confirm step
         if (!isDuressMode && isKeyWrapped()) {
           await unwrapMasterKeyWithPin(pin);
+        }
+        if (!isDuressMode && isLocationsKeyWrapped()) {
+          await unwrapLocationsKeyWithPin(pin);
         }
 
         // Move to enter new PIN
@@ -198,6 +211,12 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
               // First PIN setup: wrap the key for the first time
               await wrapMasterKeyWithPin(pin);
             }
+          }
+          // Wrap the locations key with the same PIN
+          if (isLocationsKeyWrapped()) {
+            await rewrapLocationsKeyWithNewPin(pin);
+          } else {
+            await wrapLocationsKeyWithPin(pin);
           }
         }
         onSuccess?.();

@@ -5,8 +5,10 @@ service cloud.firestore {
     // ICE Reports Collection - Community reporting with validation
     match /iceReports/{reportId} {
 
-      // Anyone can read reports (needed for community awareness)
-      allow read: if true;
+      // Anyone can read individual reports (needed for community awareness)
+      // List queries are capped to prevent bulk scraping of the collection
+      allow get: if true;
+      allow list: if request.query.limit <= 100;
 
       // Create: Accept encrypted payload format OR legacy plaintext format
       allow create: if
@@ -47,19 +49,30 @@ service cloud.firestore {
          (!('verifiers' in request.resource.data) ||
            request.resource.data.verifiers is list));
 
-      // Update: Only allow modifying verification fields
+      // Update: Only allow modifying verification and flagging fields
+      // Cap verifiers and flaggers lists to prevent spam
       allow update: if
-        // Only verifiers and verified fields can be modified
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verifiers', 'verified']) &&
+        // Only verifiers, verified, and flaggers fields can be modified
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['verifiers', 'verified', 'flaggers']) &&
 
         // Verified must be boolean
         request.resource.data.verified is bool &&
 
-        // Verifiers must be list
+        // Verifiers must be list, can only grow by exactly 1, max 50
         request.resource.data.verifiers is list &&
+        request.resource.data.verifiers.size() == resource.data.verifiers.size() + 1 &&
+        request.resource.data.verifiers.size() <= 50 &&
 
-        // Verifiers list can only grow (no removal of verifiers)
-        request.resource.data.verifiers.size() >= resource.data.verifiers.size();
+        // Flaggers: if being updated, must be a list that grows by exactly 1, max 50
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['flaggers']) ||
+          (
+            request.resource.data.flaggers is list &&
+            request.resource.data.flaggers.size() == resource.data.get('flaggers', []).size() + 1 &&
+            request.resource.data.flaggers.size() <= 50
+          )
+        );
 
       // Delete: Not allowed from client - server-side cleanup deletes reports after 48 hours
       allow delete: if false;
@@ -68,8 +81,10 @@ service cloud.firestore {
     // Live Location Sharing — shareId acts as an unguessable secret
     // Location data is encrypted end-to-end (AES-256-GCM); key shared via URL fragment
     match /liveLocations/{shareId} {
-      // Anyone with the shareId can read (it's the auth token)
-      allow read: if true;
+      // Only allow reading a specific document (requires knowing the shareId)
+      // Deny list queries to prevent enumeration of all live locations
+      allow get: if true;
+      allow list: if false;
 
       // Create: encrypted or plaintext (legacy) format
       allow create: if
@@ -99,6 +114,11 @@ service cloud.firestore {
 
       // Never delete from client — TTL cleanup via Cloud Function
       allow delete: if false;
+    }
+
+    // Rate limits — server-only (managed by Cloud Functions)
+    match /rateLimits/{limitId} {
+      allow read, write: if false;
     }
 
     // Push notification subscriptions — server-only (managed by Cloud Functions)

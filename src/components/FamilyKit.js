@@ -14,14 +14,17 @@ import {
   EnvelopeSimple,
   CopySimple,
   ShareNetwork,
-  Printer,
   DownloadSimple,
   ArrowsClockwise,
+  FilePdf,
+  MagnifyingGlass,
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { getTrustedContacts } from '../utils/backup/accessGrants';
 import { generateFamilyPlan } from '../utils/familyKitDocument';
+import { openFamilyPlanPDF } from '../utils/familyKitPDF';
 import { scenarios } from '../data/scenarioData';
+import { readEncrypted, writeEncrypted } from '../utils/encryptedStorage';
 import Disclaimer from './Disclaimer';
 import InstallHelp from './InstallHelp';
 
@@ -69,8 +72,8 @@ const scenarioSteps = scenarios['family-kit']?.emergencyScript || [];
 // Component
 // ────────────────────────────────────────────────────────────
 
-const FamilyKit = ({ onBack, onNavigateToContacts }) => {
-  const { t } = useTranslation();
+const FamilyKit = ({ onBack, onNavigateToContacts, onOpenLegalResponse }) => {
+  const { t, i18n } = useTranslation();
 
   const RELATIONSHIP_OPTIONS = [
     { value: 'Family', label: t('familyKit.relationshipFamily') },
@@ -158,26 +161,26 @@ const FamilyKit = ({ onBack, onNavigateToContacts }) => {
     },
   ];
   const [showInstallHelp, setShowInstallHelp] = useState(false);
-  const [formData, setFormData] = useState(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Merge with defaults so new fields are always present
-        return {
-          ...DEFAULT_DATA,
-          ...parsed,
-          poa: { ...DEFAULT_DATA.poa, ...parsed.poa },
-          documents: { ...DEFAULT_DATA.documents, ...parsed.documents },
-          school: { ...DEFAULT_DATA.school, ...parsed.school },
-          goBag: { ...DEFAULT_DATA.goBag, ...parsed.goBag },
-          keyNumbers: { ...DEFAULT_DATA.keyNumbers, ...parsed.keyNumbers },
-          communication: { ...DEFAULT_DATA.communication, ...parsed.communication },
-        };
-      }
-    } catch { /* ignore */ }
-    return { ...DEFAULT_DATA, contacts: [{ ...EMPTY_CONTACT }] };
-  });
+  const [formData, setFormData] = useState({ ...DEFAULT_DATA, contacts: [{ ...EMPTY_CONTACT }] });
+
+  // Async load from encrypted storage on mount
+  useEffect(() => {
+    let cancelled = false;
+    readEncrypted(STORAGE_KEY, null).then((parsed) => {
+      if (cancelled || !parsed) return;
+      setFormData({
+        ...DEFAULT_DATA,
+        ...parsed,
+        poa: { ...DEFAULT_DATA.poa, ...parsed.poa },
+        documents: { ...DEFAULT_DATA.documents, ...parsed.documents },
+        school: { ...DEFAULT_DATA.school, ...parsed.school },
+        goBag: { ...DEFAULT_DATA.goBag, ...parsed.goBag },
+        keyNumbers: { ...DEFAULT_DATA.keyNumbers, ...parsed.keyNumbers },
+        communication: { ...DEFAULT_DATA.communication, ...parsed.communication },
+      });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [expandedStep, setExpandedStep] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -190,7 +193,7 @@ const FamilyKit = ({ onBack, onNavigateToContacts }) => {
   const save = useCallback((data) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      writeEncrypted(STORAGE_KEY, data).catch(() => {});
     }, 500);
   }, []);
 
@@ -214,8 +217,8 @@ const FamilyKit = ({ onBack, onNavigateToContacts }) => {
 
   // ── Import from Trusted Contacts ───────────────────────
 
-  const handleImportContacts = () => {
-    const existing = getTrustedContacts();
+  const handleImportContacts = async () => {
+    const existing = await getTrustedContacts();
     if (existing.length === 0) {
       alert(t('familyKit.noTrustedContactsAlert'));
       return;
@@ -263,14 +266,8 @@ const FamilyKit = ({ onBack, onNavigateToContacts }) => {
   };
 
   const handlePrint = () => {
-    const doc = getDocument();
     trackEvent('family_kit_share', { method: 'print' });
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(`<pre style="font-family:monospace;white-space:pre-wrap;max-width:700px;margin:auto;padding:24px;font-size:13px;">${doc.replace(/</g, '&lt;')}</pre>`);
-      w.document.close();
-      w.print();
-    }
+    openFamilyPlanPDF(formData, t, i18n.language || 'en');
   };
 
   // ── Render helpers ─────────────────────────────────────
@@ -565,6 +562,16 @@ const FamilyKit = ({ onBack, onNavigateToContacts }) => {
         </div>
       ))}
       <button onClick={() => addListItem('keyNumbers', 'additionalNumbers', EMPTY_NUMBER)} className={addBtnClass}><Plus size={14} weight="bold" /> {t('familyKit.keyNumbersAddNumber')}</button>
+
+      {onOpenLegalResponse && (
+        <button
+          onClick={onOpenLegalResponse}
+          className="mt-3 w-full bg-slate-800/60 hover:bg-slate-800 border border-amber-700/30 hover:border-amber-600/50 text-amber-400 font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+        >
+          <MagnifyingGlass size={16} weight="bold" />
+          {t('familyKit.findLegalHelp')}
+        </button>
+      )}
     </div>
   );
 
@@ -744,7 +751,12 @@ const FamilyKit = ({ onBack, onNavigateToContacts }) => {
             <p className="text-slate-400 text-xs mb-5">{t('familyKit.shareModalDescription')}</p>
 
             <div className="space-y-3">
-              <button onClick={handleEmail} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 active:scale-95">
+              <button onClick={handlePrint} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 active:scale-95">
+                <FilePdf size={20} weight="bold" />
+                <span>{t('familyKit.downloadPDF')}</span>
+              </button>
+
+              <button onClick={handleEmail} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 active:scale-95">
                 <EnvelopeSimple size={20} weight="bold" />
                 <span>{t('familyKit.sendViaEmail')}</span>
               </button>
@@ -760,11 +772,6 @@ const FamilyKit = ({ onBack, onNavigateToContacts }) => {
                   <span>{t('familyKit.share')}</span>
                 </button>
               )}
-
-              <button onClick={handlePrint} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 active:scale-95">
-                <Printer size={20} weight="bold" />
-                <span>{t('familyKit.print')}</span>
-              </button>
             </div>
 
             <button onClick={() => setShowShareModal(false)} className="w-full mt-4 text-slate-400 hover:text-white text-sm font-medium uppercase tracking-wider transition-colors py-2">
@@ -794,7 +801,7 @@ const FamilyKit = ({ onBack, onNavigateToContacts }) => {
                 window.deferredPrompt = null;
               });
             } else {
-              alert(t('home.installAlert'));
+              setShowInstallHelp(true);
             }
           }}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 inline-flex items-center gap-2"
@@ -805,12 +812,6 @@ const FamilyKit = ({ onBack, onNavigateToContacts }) => {
         <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
           {t('emergency.installRecommended')}
         </p>
-        <button
-          onClick={() => setShowInstallHelp(true)}
-          className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
-        >
-          {t('emergency.installHelp')}
-        </button>
       </div>
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>

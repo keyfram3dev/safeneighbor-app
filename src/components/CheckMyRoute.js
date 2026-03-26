@@ -368,15 +368,14 @@ function CheckMyRoute({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={onClose}
+        className="absolute inset-0"
       />
 
       {/* Modal */}
@@ -385,7 +384,7 @@ function CheckMyRoute({ isOpen, onClose }) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className="bg-slate-900 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden overflow-x-hidden border border-slate-700 relative z-10"
+        className="bg-slate-900 rounded-2xl w-full max-w-md h-[90vh] flex flex-col overflow-hidden overflow-x-hidden border border-slate-700 relative z-10 overscroll-contain"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
@@ -395,7 +394,11 @@ function CheckMyRoute({ isOpen, onClose }) {
             </div>
             <h2 className="text-white font-bold text-base">{t('route.title')}</h2>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
+            aria-label="Close route checker"
+          >
             <X size={18} weight="bold" />
           </button>
         </div>

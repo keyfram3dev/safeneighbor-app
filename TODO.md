@@ -489,16 +489,36 @@ See [FutureOptions.md](FutureOptions.md) — deferred until scale requires it.
 
 > **Highest viral potential** (build these first — journalists and community organizers will talk about them):
 > 1. **Rapid Legal Response Button** — one tap to a duty attorney is something no other app does
-> 2. **Family Safety Plan PDF Builder** — parents will share anything that protects their kids
+> 2. ~~**Family Safety Plan PDF Builder**~~ ✅ Done (FamilyKit.js + familyKitPDF.js)
 > 3. **Dead Man's Switch encrypted backup** — solves a real fear (phone seizure) no one else is addressing
 
 #### Community & Trust Building
-- [ ] **Flag False Reports** — Let users flag a map pin as inaccurate or outdated. After 3+ independent flags, auto-hide the pin pending review (or auto-remove after a threshold). Add a "Flag" button on each report card in the activity feed and map popup. Store flag count in Firestore on the report doc (`flagCount` field). Show a "Flagged — under review" state on the pin instead of removing it silently. This is also the foundation for the Guardian Badge "Verify" action (verifying = counter-signal to flags). Rate-limit flagging per deviceId to prevent abuse.
-- [ ] **Verified Witness Network** — Opt-in "Community Witness" role; users agree to respond to nearby encounters as peaceful observers. In-app alert when a report is filed within configurable radius. Research shows ICE de-escalates when witnesses are present.
+- [x] **Flag False Reports** — Flag button on each report card, `flaggers` array in Firestore with per-device tracking, auto-hide at 4+ flags with "under review" state, FlagBanner icon with fill state for already-flagged
+- [x] **Verified Witness Network (Passive Model)** — Opt-in "Community Witness Mode" toggle in Notification Settings (localStorage only, zero server footprint). Enhanced CRITICAL alerts with teal witness badge, "Respond as Witness" button (→ Encounter Log Now mode), expandable 4-step quick reference guide. Enhanced HIGH alerts with teal witness button. All 21 languages. Included in data wipe.
+- [x] **Trusted Contacts refresh from Legal Help** — Clicking "Manage Trusted Contacts" from Get Legal Help now forces TrustedContacts to re-mount, picking up any organizations/hotlines saved during the session.
 - [ ] **Know Your Neighbors** — Anonymous neighborhood safety circles organized by zip code. Coordinate without revealing identity — like a Signal group auto-organized through the app.
 
+#### Community Witnessing Guide ✅
+A legally-grounded, non-confrontational guide for community members who want to document ICE/DHS/USBP activity as witnesses — not participants. Framed as civil liberties literacy, not activism. Everything grounded in First Amendment case law (Glik v. Cunniff, Fields v. City of Philadelphia).
+
+**Guide sections (CommunityWitnessing.js — 378 lines, full i18n across 21 languages):**
+- [x] **Positioning & Distance** — Safe/lawful distance rules, compliance guidance, 4-point checklist
+- [x] **What to Document** — 8-item tap-to-check documentation checklist (agency, badges, plates, warrant, name, etc.)
+- [x] **The Name-to-Detention Pipeline** — 5-step pipeline: get name → ICE Detainee Locator → connect family/attorneys
+- [x] **How to Respond if Agents Approach** — Script callout: "I am observing from a public space and exercising my First Amendment rights."
+- [x] **The "Witness vs. Party" Legal Distinction** — Do/Don't split with clear obstruction warning
+- [x] **De-escalation & Stoic Presence** — Marcus Aurelius quote, emotional regulation guidance
+- [x] **Offline-first** — All guide content compiled into JS bundles, works without signal
+
+**App integrations:**
+- [x] Scenario card `community-witnessing` in Scenarios list and Home page
+- [ ] Evidence Vault "Witness Report" template — pre-structured for detention documentation (distinct from "I'm being encountered" mode)
+- [ ] Community Reports map: "I witnessed this detention — what now?" deep link into witnessing guide + name pipeline
+- [ ] Encounter Log "Witnessing Mode" — separate logging flow distinct from personal encounter mode
+- [x] Features modal addition under Community category
+
 #### Family & Household Preparedness
-- [ ] **Family Safety Plan Builder** — Guided wizard: who has custody of kids if a parent is detained, which attorney to call, where documents are stored, emergency contacts. Outputs a printable PDF for physical storage.
+- [x] **Family Safety Plan Builder** — Guided 7-step wizard (FamilyKit.js), localStorage persistence, printable PDF generation (familyKitPDF.js), shareable document, import from Trusted Contacts, all 21 languages.
 - [ ] **Minor Protection Card Generator** — Printable wallet cards for children: their rights, emergency contacts, and key phrases in multiple languages.
 
 #### Legal & Professional Integration

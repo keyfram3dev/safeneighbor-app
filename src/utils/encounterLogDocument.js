@@ -8,6 +8,13 @@ const CATEGORY_LABELS = {
   details: 'DETAILS',
 };
 
+const WITNESS_CATEGORY_LABELS = {
+  observation: 'OBSERVATION',
+  detained: 'DETAINED PERSON',
+  scene: 'SCENE',
+  documentation: 'DOCUMENTATION',
+};
+
 function formatTime(isoString) {
   return new Date(isoString).toLocaleTimeString('en-US', {
     hour: 'numeric',
@@ -40,8 +47,14 @@ export function generateEncounterReport(log) {
   const divider = '\u2500'.repeat(56);
   const heavyDivider = '\u2550'.repeat(56);
 
+  const labels = log.witnessLog ? WITNESS_CATEGORY_LABELS : CATEGORY_LABELS;
+
   lines.push(heavyDivider);
-  lines.push('        ENCOUNTER LOG \u2014 TIMESTAMPED RECORD');
+  if (log.witnessLog) {
+    lines.push('        WITNESS LOG \u2014 BYSTANDER DOCUMENTATION');
+  } else {
+    lines.push('        ENCOUNTER LOG \u2014 TIMESTAMPED RECORD');
+  }
   lines.push('        SafeNeighbor \u2014 Know Your Rights');
   lines.push(heavyDivider);
   lines.push('');
@@ -91,7 +104,7 @@ export function generateEncounterReport(log) {
   );
 
   for (const event of sortedEvents) {
-    const categoryLabel = CATEGORY_LABELS[event.category] || event.category.toUpperCase();
+    const categoryLabel = labels[event.category] || event.category.toUpperCase();
     lines.push(`  ${formatTime(event.timestamp)}  [${categoryLabel}] ${event.label}`);
     if (event.note) {
       lines.push(`              Note: ${event.note}`);
@@ -116,7 +129,10 @@ export function generateEncounterReport(log) {
 
   // Footer
   lines.push(heavyDivider);
-  if (log.afterTheFact) {
+  if (log.witnessLog) {
+    lines.push('This log was created by a community witness documenting');
+    lines.push('from a public space. First Amendment protected activity.');
+  } else if (log.afterTheFact) {
     lines.push('IMPORTANT: This log was reconstructed after the encounter.');
     lines.push('Times and dates were entered from memory by the user.');
   } else {
@@ -139,9 +155,10 @@ export function generateEncounterSummary(log) {
   const location = log.location?.address || 'Unknown location';
   const duration = log.endedAt ? formatDuration(log.startedAt, log.endedAt) : 'ongoing';
 
+  const labels = log.witnessLog ? WITNESS_CATEGORY_LABELS : CATEGORY_LABELS;
   const categories = {};
   for (const event of log.events || []) {
-    const label = CATEGORY_LABELS[event.category] || event.category;
+    const label = labels[event.category] || event.category;
     categories[label] = (categories[label] || 0) + 1;
   }
   const summary = Object.entries(categories)
@@ -149,7 +166,7 @@ export function generateEncounterSummary(log) {
     .join(', ');
 
   return (
-    `ENCOUNTER LOG from SafeNeighbor:\n` +
+    `${log.witnessLog ? 'WITNESS LOG' : 'ENCOUNTER LOG'} from SafeNeighbor:\n` +
     `Started: ${start} | Duration: ${duration}\n` +
     `Location: ${location}\n` +
     `${eventCount} events logged${summary ? ` (${summary})` : ''}\n` +

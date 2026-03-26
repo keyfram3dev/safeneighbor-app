@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CaretRight, ChatCircle, Scroll, Warning, Lightbulb, Check, X, DownloadSimple, House, Car, Briefcase, MapPin, FileText, Eye, ShieldWarning, IdentificationCard, User, CreditCard, Lifebuoy, ProhibitInset } from '@phosphor-icons/react';
+import DOMPurify from 'dompurify';
+import { CaretRight, ChatCircle, Scroll, Warning, Lightbulb, Check, X, DownloadSimple, House, Car, Briefcase, MapPin, FileText, Eye, ShieldWarning, IdentificationCard, User, CreditCard, Lifebuoy, ProhibitInset, ScalesIcon as Scales } from '@phosphor-icons/react';
 import Disclaimer from './Disclaimer';
 import InstallHelp from './InstallHelp';
+import FaqCta from './FaqCta';
+import { useRotatingQuote } from '../utils/quoteRotation';
 import LegalDirectory from './LegalDirectory';
+import CaseLawSearch from './CaseLawSearch';
 import { Scale } from 'lucide-react';
 import {
   STATUS_PERSONAS,
@@ -1010,8 +1014,9 @@ const recordRequest = () => {
   localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(requests));
 };
 
-function Legal() {
+function Legal({ onOpenLegalResponse, onNavigate }) {
   const { t } = useTranslation();
+  const legalQuote = useRotatingQuote('legal.nietzscheQuote', 'legal.nietzscheAuthor', 'legal');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [view, setView] = useState('constitution');
   const [messages, setMessages] = useState([]);
@@ -1088,6 +1093,15 @@ User question: ${input}`
         <h1 className="text-3xl font-black text-white tracking-wide mb-2">{t('legal.title')}</h1>
         <p className="text-slate-400">{t('legal.subtitle')}</p>
       </div>
+
+      {/* Get Legal Help — one-tap legal response */}
+      <button
+        onClick={onOpenLegalResponse}
+        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-700 to-emerald-800 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg active:scale-95 mb-6"
+      >
+        <Scales size={20} weight="bold" />
+        {t('legalResponse.buttonLabel')}
+      </button>
 
       <div className="flex gap-1.5 mb-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-700/50">
         <button
@@ -2660,7 +2674,7 @@ User question: ${input}`
                 <div className="space-y-3">
                   <p className="text-green-100 text-sm flex items-start gap-2">
                     <Check size={14} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
-                    <span dangerouslySetInnerHTML={{ __html: t('legal.judicialSignedByJudge') }} />
+                    <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t('legal.judicialSignedByJudge')) }} />
                   </p>
                   <p className="text-green-100 text-sm flex items-start gap-2">
                     <Check size={14} weight="bold" className="text-green-400 flex-shrink-0 mt-0.5" />
@@ -2689,7 +2703,7 @@ User question: ${input}`
                 <div className="space-y-3">
                   <p className="text-red-100 text-sm flex items-start gap-2">
                     <X size={14} weight="bold" className="text-red-400 flex-shrink-0 mt-0.5" />
-                    <span dangerouslySetInnerHTML={{ __html: t('legal.adminSignedByIce') }} />
+                    <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t('legal.adminSignedByIce')) }} />
                   </p>
                   <p className="text-red-100 text-sm flex items-start gap-2">
                     <X size={14} weight="bold" className="text-red-400 flex-shrink-0 mt-0.5" />
@@ -2956,16 +2970,26 @@ User question: ${input}`
               </div>
             )}
 
-            {/* Nietzsche Quote */}
-            <div className="text-center mt-10 mb-8">
+            {/* Case Law Search */}
+            <div className="mt-6">
+              <CaseLawSearch />
+            </div>
+
+            {/* Rotating Quote */}
+            <div className="text-center mt-10 mb-10">
               <p className="text-slate-400 italic text-sm mb-2">
-                {t('legal.nietzscheQuote')}
+                {legalQuote.quote}
               </p>
-              <p className="text-slate-500 text-xs">{t('legal.nietzscheAuthor')}</p>
+              <p className="text-slate-500 text-xs">{legalQuote.author}</p>
+            </div>
+
+            {/* FAQ Link */}
+            <div className="mb-6">
+              <FaqCta onNavigate={onNavigate} />
             </div>
 
             {/* Disclaimer */}
-            <div className="mb-6">
+            <div className="mb-8">
               <Disclaimer>
                 {t('legal.disclaimerLine1')}
                 <br />{t('legal.disclaimerLine2')}
@@ -2987,7 +3011,7 @@ User question: ${input}`
                       window.deferredPrompt = null;
                     });
                   } else {
-                    alert(t('legal.installAlert'));
+                    setShowInstallHelp(true);
                   }
                 }}
                 className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto"
@@ -2998,12 +3022,6 @@ User question: ${input}`
               <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
                 {t('legal.installRecommended')}
               </p>
-              <button
-                onClick={() => setShowInstallHelp(true)}
-                className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
-              >
-                {t('legal.installHelp')}
-              </button>
             </div>
           </div>
         </div>
@@ -3243,19 +3261,6 @@ User question: ${input}`
             })}
           </div>
 
-          {/* Install button */}
-          <div className="text-center mt-8 space-y-2">
-            <div className="flex items-center justify-center gap-2 text-slate-500 text-xs">
-              <DownloadSimple size={14} weight="bold" />
-              <span className="font-semibold uppercase tracking-wider">{t('legal.installOfflineAccess')}</span>
-            </div>
-            <button
-              onClick={() => setShowInstallHelp(true)}
-              className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
-            >
-              {t('legal.installHelp')}
-            </button>
-          </div>
         </div>
       )}
       {view === 'directory' && (

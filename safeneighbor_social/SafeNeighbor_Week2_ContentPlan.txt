@@ -1,0 +1,338 @@
+╔══════════════════════════════════════════════════════════════════╗
+║           SAFENEIGHBOR.US — WEEK 2 CONTENT PLAN                ║
+║              Days 8–14 · All Platforms                         ║
+╚══════════════════════════════════════════════════════════════════╝
+
+WEEK 2 STRATEGY
+───────────────
+Primary focus: Feature deep-dives — show HOW each tool works
+Goals: Audience growth + App installs + Partner outreach (all three)
+Post mix: 2x Feature Deep-Dives, 2x Rights Education,
+          1x Partnership, 1x How-To Carousel, 1x Founder/Mission
+
+
+════════════════════════════════════════════════════════════════════
+DAY 8 — EMERGENCY MODE: HOW IT WORKS
+Platforms: Instagram, Facebook, LinkedIn
+Goals: Installs + Audience
+════════════════════════════════════════════════════════════════════
+
+KITTL PROMPT
+─────────────
+[Global Style Block first, then:]
+
+Three-panel instructional layout on deep navy (#0A1628).
+Top third: 'EMERGENCY MODE.' in heavy condensed white all-caps, left-aligned, large.
+Gold (#C9982A) 3px horizontal rule below headline.
+Middle section: three numbered steps in a vertical stack — each step has a small gold
+circle with number (01, 02, 03) in navy, followed by short white sans-serif text:
+'01 — Tap EMERGENCY' / '02 — Choose your scenario' / '03 — Follow your guided script.'
+Step text in light white sans, 14–16px, left-aligned with consistent indent.
+Bottom band: full-width gold (#C9982A) bar — inside in navy small caps:
+'GUIDED SCRIPTS FOR LIVE ENCOUNTERS · safeneighbor.us'
+Mood: A step-by-step field manual. Clear. No panic. You've been here before.
+
+CAPTION
+────────
+When the knock comes, you don't have time to think. Emergency Mode does the thinking for you.
+
+Tap EMERGENCY → Choose your situation → Follow your guided script.
+
+Traffic stop. Door encounter. Stopped on the street. Each one has its own set of calm,
+legally grounded words — exactly what to say, step by step.
+
+Free. Offline. No sign-up. safeneighbor.us
+
+HASHTAGS
+─────────
+#SafeNeighbor #EmergencyMode #KnowYourRights #GuidedScripts #CivicTools #FreeApp #ICERights #ConstitutionalRights
+
+LINKEDIN NOTE
+─────────────
+Lead with: "We built a tool that gives you the exact words to say during a law enforcement
+encounter. Here's how it works in three steps." — frames it for partners and legal orgs.
+
+
+════════════════════════════════════════════════════════════════════
+DAY 9 — EVIDENCE VAULT: YOUR PROOF, YOUR DEVICE
+Platforms: Instagram, Facebook, X/Threads
+Goals: Installs + Audience
+════════════════════════════════════════════════════════════════════
+
+KITTL PROMPT
+─────────────
+[Global Style Block first, then:]
+
+Bold typographic post on deep navy (#0A1628).
+Top 60%: the word 'YOURS.' in the heaviest possible condensed gold (#C9982A) all-caps
+— massive, left-aligned, filling available width.
+Below a 2px gold rule: three short white lines in light sans-serif, left-aligned —
+'Stored on your device.' / 'Encrypted by default.' / 'Never uploaded without your action.'
+Each line preceded by a small gold checkmark (✓).
+Below that in smaller italic white serif: 'The Evidence Vault — SafeNeighbor.'
+Bottom-left: 'safeneighbor.us' in gold monospace.
+Mood: A property deed. This is yours. Full stop.
+
+CAPTION
+────────
+Your recordings don't live on our servers. They don't live in the cloud. They live on your
+device — encrypted, inaccessible to anyone who doesn't have your PIN.
+
+✓ Stored locally on your device
+✓ Encrypted by default
+✓ Never uploaded without your explicit action
+
+The Evidence Vault exists because documentation matters — and because your evidence belongs to you.
+
+safeneighbor.us
+
+HASHTAGS
+─────────
+#SafeNeighbor #EvidenceVault #PrivacyFirst #ZeroKnowledge #KnowYourRights #DocumentEverything #CivicTech
+
+LINKEDIN NOTE
+─────────────
+Strong for privacy-focused orgs and legal aid partners. Add: "Built on a zero-knowledge
+architecture — if we were served a subpoena, we'd have nothing to hand over."
+
+
+════════════════════════════════════════════════════════════════════
+DAY 10 — THE 4TH AMENDMENT: SEARCH & SEIZURE
+Platforms: ALL platforms — high share potential
+Goals: Audience + Installs
+════════════════════════════════════════════════════════════════════
+
+KITTL PROMPT
+─────────────
+[Global Style Block first, then:]
+
+High-impact protest poster design on deep navy (#0A1628).
+Large type, left-aligned, top 65% of canvas: 'I DO NOT CONSENT TO ANY SEARCHES.'
+in heaviest condensed white all-caps — each phrase on its own line if needed, tight leading.
+The word 'CONSENT' highlighted — set in gold (#C9982A) instead of white.
+Below 2px gold rule: small light white sans-serif — '4th Amendment. You have this right.'
+Full-width gold (#C9982A) bar at very bottom — inside in navy small caps:
+'SAFENEIGHBOR.US — FREE CONSTITUTIONAL RIGHTS TOOLS'
+Mood: A legal declaration. The kind of thing someone screenshots and memorizes.
+
+CAPTION
+────────
+Six words that activate your Fourth Amendment rights:
+
+"I do not consent to any searches."
+
+You don't need to explain why. You don't need to be hostile. You just need to say it —
+calmly, clearly, once.
+
+The Fourth Amendment protects you from unreasonable searches and seizures.
+Invoking it is not resistance. It is the law.
+
+Save this. Share it.
+
+safeneighbor.us
+
+HASHTAGS
+─────────
+#FourthAmendment #KnowYourRights #SafeNeighbor #SearchAndSeizure #ConstitutionalRights #DoNotConsent #CivicEducation #RightsEducation
+
+LINKEDIN NOTE
+─────────────
+Frame as: "One of the most underused constitutional protections — and one of the simplest
+to invoke. Here's the exact language."
+
+
+════════════════════════════════════════════════════════════════════
+DAY 11 — FAMILY PREP WIZARD: BUILD YOUR PLAN
+Platforms: Instagram (carousel), Facebook, LinkedIn
+Goals: Installs + Audience
+════════════════════════════════════════════════════════════════════
+
+KITTL PROMPT — 4-SLIDE CAROUSEL
+──────────────────────────────────
+[Global Style Block first, then:]
+
+Structured instructional carousel — 4 slides, 1080×1080px each. Same template across all.
+
+Slide 01 — Cover: 'FAMILY PREP WIZARD.' in heavy condensed white all-caps, large,
+left-aligned. Subtext: 'Build your emergency plan in minutes.' Gold rule.
+Bottom-left: 'safeneighbor.us'. Top-right: '01/04' in small gold monospace.
+
+Slide 02 — Step 1: Gold circle '01' top-left. Headline: 'ADD YOUR CONTACTS.'
+Body: 'Name trusted family members and emergency contacts.' Icon: small gold phone outline.
+
+Slide 03 — Step 2: Gold circle '02'. Headline: 'ANSWER THE QUESTIONS.'
+Body: 'The wizard walks you through your household's specific needs.' Icon: small gold checklist.
+
+Slide 04 — Output: Gold circle '03'. Headline: 'GET YOUR PDF PLAN.'
+Body: 'Bilingual. Printable. Ready when you need it.'
+Bottom strip: full gold bar — 'FREE · OFFLINE · safeneighbor.us' in navy caps.
+
+CAPTION
+────────
+The best time to make a plan is before you need one.
+
+The Family Prep Wizard walks you through your household's specific situation
+and generates a bilingual (English + Spanish) PDF emergency plan — printable,
+shareable, and ready before anything happens.
+
+Swipe to see how it works →
+
+Free. No sign-up. Works offline.
+safeneighbor.us
+
+HASHTAGS
+─────────
+#SafeNeighbor #FamilyPrepWizard #EmergencyPrep #FamilySafety #BilingualTools #KnowYourRights #CommunityFirst #FreeTools
+
+LINKEDIN NOTE
+─────────────
+Strong for immigrant advocacy orgs, schools, community centers. Add: "Generates a bilingual
+PDF plan — a resource many families have never had access to before."
+
+
+════════════════════════════════════════════════════════════════════
+DAY 12 — BUILT FOR YOUR CLIENTS (PARTNERSHIP POST)
+Platforms: LinkedIn primary, Facebook secondary
+Goals: Partners + Audience
+════════════════════════════════════════════════════════════════════
+
+KITTL PROMPT
+─────────────
+[Global Style Block first, then:]
+
+Clean, professional design on deep navy (#0A1628).
+Top section: small gold label pill — 'FOR LEGAL AID · CIVIL RIGHTS · ADVOCACY ORGS'.
+Headline: 'YOUR CLIENTS NEED THIS.' in heavy condensed white all-caps, large, left-aligned.
+Gold 2px rule. Below: three short white lines in light sans —
+'Free constitutional rights tools.' / 'Available 24/7 — offline.' / 'No sign-up. No data collected.'
+Below: 'We built SafeNeighbor for the moments you can't be there.' in light italic white serif.
+Bottom-left: 'safeneighbor.us' in gold monospace.
+Mood: A professional introduction. Earned confidence, not a pitch.
+
+CAPTION
+────────
+To civil rights organizations, legal aid offices, public defenders, and advocacy groups:
+
+SafeNeighbor is a free, nonprofit civic technology platform built for the moments
+your clients face alone — a knock at the door at 6am, a traffic stop, a street encounter.
+
+Guided rights scripts. Evidence documentation. Family emergency planning.
+Attorney directory. All free. All offline. No sign-up required.
+
+We'd love to connect. If this serves your community, share it — or reach out
+to explore how we can support your work.
+
+safeneighbor.us
+
+HASHTAGS
+─────────
+#SafeNeighbor #CivilRights #LegalAid #ImmigrantRights #PublicDefender #CivicTech #NonprofitTech #KnowYourRights #Partnership
+
+LINKEDIN NOTE
+─────────────
+THIS IS your LinkedIn anchor post. Tag 2–3 relevant orgs in your area in the comments.
+Follow up with a direct message to their social team the same day.
+
+
+════════════════════════════════════════════════════════════════════
+DAY 13 — THE 5TH AMENDMENT: YOUR RIGHT TO SILENCE
+Platforms: ALL platforms — highest share potential of the week
+Goals: Audience + Installs
+════════════════════════════════════════════════════════════════════
+
+KITTL PROMPT
+─────────────
+[Global Style Block first, then:]
+
+Maximum typographic impact on deep navy (#0A1628).
+Stacked statement layout — three lines descending in size:
+Line 1 (largest): 'I INVOKE' — heavy condensed white all-caps.
+Line 2 (same size): 'MY FIFTH' — same weight, white.
+Line 3 (same size): 'AMENDMENT RIGHT.' — same weight but set in gold (#C9982A).
+Below 3px gold rule: small light white sans —
+'To remain silent. To not answer questions. To speak only with an attorney.'
+Full-width gold bar at bottom — 'SAFENEIGHBOR.US · FREE CONSTITUTIONAL RIGHTS TOOLS' in navy caps.
+Mood: A legal declaration etched in authority. Memorize it.
+
+CAPTION
+────────
+The Fifth Amendment gives you the right to remain silent. Here is the exact language to use:
+
+"I am invoking my Fifth Amendment right to remain silent.
+I will not answer questions without an attorney present."
+
+Say it once. Clearly. Then stay silent.
+
+You do not need to explain. You do not need to justify.
+This right exists specifically for moments like this — use it.
+
+Save this post. safeneighbor.us
+
+HASHTAGS
+─────────
+#FifthAmendment #RightToRemainSilent #KnowYourRights #SafeNeighbor #ConstitutionalRights #InvokeYourRights #CivicEducation #LegalLiteracy
+
+LINKEDIN NOTE
+─────────────
+Reframe: "Constitutional literacy gap: most people don't know the specific language
+to invoke the Fifth Amendment. Here it is."
+
+
+════════════════════════════════════════════════════════════════════
+DAY 14 — ONE BUILDER. NO BUDGET. TWO WEEKS.
+Platforms: ALL platforms — especially X, Threads, LinkedIn
+Goals: Audience + Partners
+════════════════════════════════════════════════════════════════════
+
+KITTL PROMPT
+─────────────
+[Global Style Block first, then:]
+
+Structured recap card on deep navy (#0A1628).
+Top headline: 'TWO WEEKS.' in heavy condensed gold (#C9982A) all-caps, large, left-aligned.
+Below gold 2px rule: a compact facts list in white light sans, left-aligned,
+each item preceded by a gold dash (—):
+'— 1 builder.' / '— 0 outside funding.' / '— 0 investors.' /
+'— 2 languages.' / '— 1 goal: everyone deserves to know their rights.'
+Below a second thin gold rule: small white italic serif — 'Week 3 starts now.'
+Bottom-left: 'safeneighbor.us' in gold monospace.
+Mood: A stoic progress report. No celebration. Just the record.
+
+CAPTION
+────────
+Two weeks in. Here's the honest accounting:
+
+— Built by one person
+— No outside funding
+— No investors, no ads, no agenda
+— Available in English and Spanish
+— Free forever
+— Dedicated to Renée Good and Alex Pretti
+
+SafeNeighbor exists because the gap it fills is real — and because someone had to build it.
+
+If it serves you, share it. That's the whole business model.
+
+Week 3 starts now. safeneighbor.us
+
+HASHTAGS
+─────────
+#SafeNeighbor #SoloFounder #CivicTech #BuildInPublic #NoVCNeeded #KnowYourRights #OpenPlatform #WeekTwo
+
+LINKEDIN NOTE
+─────────────
+Add: "If your organization serves communities that need these tools — DMs are open.
+Happy to explore partnership or distribution." This + Day 12 are your two best LinkedIn
+posts this week.
+
+
+════════════════════════════════════════════════════════════════════
+GLOBAL STYLE BLOCK (paste at top of every Kittl prompt)
+════════════════════════════════════════════════════════════════════
+
+Canvas: 1080×1080px · Background: #0A1628 (deep navy) · Primary accent: #C9982A (gold/amber)
+Body text: #FFFFFF white · No gradients · No drop shadows · No stock photography
+No illustrated people · Headlines: heavy condensed sans-serif, all caps, tight tracking
+(Bebas Neue or Anton) · Subtext: light weight sans-serif or serif
+Bottom-left corner: 'safeneighbor.us' in small gold monospace
+Style: protest poster meets civic institution — stoic, authoritative, flat, graphic.

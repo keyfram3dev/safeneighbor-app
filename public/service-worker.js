@@ -1,6 +1,6 @@
-const CACHE_NAME = 'safeneighbor-v19';
+const CACHE_NAME = 'safeneighbor-v21';
 const TILES_CACHE = 'safeneighbor-tiles-v1';
-const MAX_TILES = 300;
+const MAX_TILES = 1000;
 
 // Essential app shell files
 const SHELL_URLS = [
@@ -10,7 +10,6 @@ const SHELL_URLS = [
   '/logo192.png',
   '/logo512.png',
   '/apple-touch-icon.png',
-  '/favicon.ico',
   '/favicon.svg',
   '/favicon-16x16.png',
   '/favicon-32x32.png',
@@ -194,10 +193,96 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Listen for skip-waiting message from client (update toast)
+// ─── Tile Download State ────────────────────────────────────
+let tileDownloadAborted = false;
+
+async function notifyAllClients(data) {
+  const clients = await self.clients.matchAll({ type: 'window' });
+  clients.forEach(client => client.postMessage(data));
+}
+
+async function downloadTilesInSW(urls) {
+  const cache = await caches.open(TILES_CACHE);
+  const MAX_CONCURRENT = 2; // OSM usage policy
+  const DELAY_MS = 150;
+  let completed = 0;
+  let failed = 0;
+  const total = urls.length;
+
+  for (let i = 0; i < urls.length; i += MAX_CONCURRENT) {
+    if (tileDownloadAborted) {
+      await notifyAllClients({ type: 'TILE_DOWNLOAD_COMPLETE', completed, failed, total, cancelled: true });
+      return;
+    }
+
+    const batch = urls.slice(i, i + MAX_CONCURRENT);
+    await Promise.all(
+      batch.map(async (url) => {
+        try {
+          // Skip already-cached tiles
+          const existing = await cache.match(url);
+          if (existing) { completed++; return; }
+
+          const response = await fetch(url);
+          if (response && (response.status === 200 || response.type === 'opaque')) {
+            await cache.put(url, response);
+            completed++;
+          } else {
+            failed++;
+          }
+        } catch {
+          failed++;
+        }
+      })
+    );
+
+    await notifyAllClients({ type: 'TILE_PROGRESS', completed, failed, total });
+    await new Promise(r => setTimeout(r, DELAY_MS));
+  }
+
+  // Prune if over limit
+  const keys = await cache.keys();
+  if (keys.length > MAX_TILES) {
+    const excess = keys.length - MAX_TILES;
+    for (let i = 0; i < excess; i++) {
+      await cache.delete(keys[i]);
+    }
+  }
+
+  await notifyAllClients({ type: 'TILE_DOWNLOAD_COMPLETE', completed, failed, total, cancelled: false });
+}
+
+// Listen for messages from client
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+
+  if (event.data && event.data.type === 'DOWNLOAD_TILES') {
+    tileDownloadAborted = false;
+    event.waitUntil(downloadTilesInSW(event.data.urls || []));
+  }
+
+  if (event.data && event.data.type === 'CANCEL_TILE_DOWNLOAD') {
+    tileDownloadAborted = true;
+  }
+
+  if (event.data && event.data.type === 'GET_TILE_CACHE_SIZE') {
+    event.waitUntil(
+      caches.open(TILES_CACHE).then(async (cache) => {
+        const keys = await cache.keys();
+        await notifyAllClients({ type: 'TILE_CACHE_SIZE', count: keys.length });
+      })
+    );
+  }
+
+  if (event.data && event.data.type === 'CLEAR_TILE_CACHE') {
+    event.waitUntil(
+      caches.delete(TILES_CACHE).then(async () => {
+        await caches.open(TILES_CACHE); // re-create empty
+        await notifyAllClients({ type: 'TILE_CACHE_CLEARED' });
+      })
+    );
   }
 });
 

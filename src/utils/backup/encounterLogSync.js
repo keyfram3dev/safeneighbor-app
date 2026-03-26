@@ -7,6 +7,7 @@
 import { encrypt, getMasterKey, importKey } from '../crypto';
 import { createS3Client } from './s3Client';
 import { createDriveClient } from './driveClient';
+import { readEncrypted } from '../encryptedStorage';
 
 const SETTINGS_KEY = 'safeneighbor_backup_settings';
 const SYNC_META_KEY = 'safeneighbor_encounter_log_sync';
@@ -320,10 +321,9 @@ export const getEncounterLogSync = () => {
  * Parse all encounter logs from localStorage.
  * Useful for catch-up sync from App.js online handler.
  */
-export const getLogsFromStorage = () => {
+export const getLogsFromStorage = async () => {
   try {
-    const raw = localStorage.getItem(LOGS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return await readEncrypted(LOGS_STORAGE_KEY, []);
   } catch {
     return [];
   }

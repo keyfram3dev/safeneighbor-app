@@ -1,13 +1,15 @@
 // src/components/ProximityAlert.js
 // 3-tier proximity alert: CRITICAL full-screen modal / HIGH toast / MODERATE banner.
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Warning, MapPin, X, VideoCamera, ShieldCheck } from '@phosphor-icons/react';
+import { Warning, MapPin, X, VideoCamera, ShieldCheck, Eye, CaretDown } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 
-function ProximityAlert({ alert, onDismiss, onViewMap, onRecord, onSafetyPlan }) {
+function ProximityAlert({ alert, onDismiss, onViewMap, onRecord, onSafetyPlan, onWitness }) {
   const { t } = useTranslation();
+  const isWitness = localStorage.getItem('safeneighbor_witness_mode') === 'true';
+  const [guideOpen, setGuideOpen] = useState(false);
 
   // Lock body scroll while CRITICAL modal is open
   useEffect(() => {
@@ -61,9 +63,17 @@ function ProximityAlert({ alert, onDismiss, onViewMap, onRecord, onSafetyPlan })
                 <div className="p-2.5 rounded-full bg-red-500/20">
                   <Warning size={24} weight="bold" className="text-red-400" />
                 </div>
-                <p className="text-red-100 text-base font-black pr-8">
-                  {t('proximity.criticalTitle')}
-                </p>
+                <div className="pr-8">
+                  <p className="text-red-100 text-base font-black">
+                    {t('proximity.criticalTitle')}
+                  </p>
+                  {isWitness && (
+                    <span className="inline-flex items-center gap-1 mt-1 bg-teal-900/60 border border-teal-500/40 text-teal-300 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
+                      <Eye size={10} weight="bold" />
+                      {t('proximity.witnessLabel')}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -84,6 +94,42 @@ function ProximityAlert({ alert, onDismiss, onViewMap, onRecord, onSafetyPlan })
                   <VideoCamera size={16} weight="bold" />
                   {t('proximity.recordNow')}
                 </button>
+
+                {isWitness && (
+                  <>
+                    <button
+                      onClick={onWitness}
+                      className="w-full flex items-center justify-center gap-2 bg-teal-700 hover:bg-teal-600 text-white font-bold text-sm py-3 rounded-xl transition-all active:scale-95"
+                    >
+                      <Eye size={16} weight="bold" />
+                      {t('proximity.respondAsWitness')}
+                    </button>
+
+                    {/* Witness Quick Reference — expandable */}
+                    <button
+                      onClick={() => setGuideOpen(v => !v)}
+                      className="w-full flex items-center justify-center gap-1.5 text-teal-400 hover:text-teal-300 text-xs font-semibold py-1.5 transition-colors"
+                    >
+                      <CaretDown
+                        size={12}
+                        weight="bold"
+                        className={`transition-transform ${guideOpen ? 'rotate-180' : ''}`}
+                      />
+                      {t('proximity.witnessGuide')}
+                    </button>
+                    {guideOpen && (
+                      <div className="bg-teal-950/40 border border-teal-700/30 rounded-xl p-3 space-y-1.5">
+                        {[1, 2, 3, 4].map(n => (
+                          <p key={n} className="text-teal-200/80 text-xs flex items-start gap-2">
+                            <span className="text-teal-500 font-bold shrink-0">{n}.</span>
+                            {t(`proximity.witnessTip${n}`)}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
                 <button
                   onClick={onSafetyPlan}
                   className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm py-3 rounded-xl transition-all active:scale-95"
@@ -127,6 +173,15 @@ function ProximityAlert({ alert, onDismiss, onViewMap, onRecord, onSafetyPlan })
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {isWitness && (
+                  <button
+                    onClick={onWitness}
+                    className="flex items-center gap-1 bg-teal-700/60 hover:bg-teal-600/60 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    <Eye size={11} weight="bold" />
+                    {t('proximity.witnessLabel')}
+                  </button>
+                )}
                 <button
                   onClick={onViewMap}
                   className="flex items-center gap-1 bg-orange-700/60 hover:bg-orange-600/60 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-lg transition-colors"

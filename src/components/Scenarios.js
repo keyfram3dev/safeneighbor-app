@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { House, User, Megaphone, VideoCamera, Car, Shield, Buildings, CaretRight, DownloadSimple, HandTap, ClipboardTextIcon as ClipboardText, UsersThreeIcon as UsersThree, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit, IdentificationCardIcon as IdentificationCard } from '@phosphor-icons/react';
+import { House, User, Megaphone, VideoCamera, Car, Shield, Buildings, CaretRight, DownloadSimple, HandTap, ClipboardTextIcon as ClipboardText, UsersThreeIcon as UsersThree, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit, IdentificationCardIcon as IdentificationCard, EyeIcon as Eye, BookOpenTextIcon as BookOpenText, MapPin } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import Disclaimer from './Disclaimer';
 import InstallHelp from './InstallHelp';
+import FaqCta from './FaqCta';
+import { openGuardiansManualPDF } from '../utils/guardiansManualPDF';
+import { useRotatingQuote } from '../utils/quoteRotation';
 
 // Map icon string identifiers to Phosphor components
 const iconMap = {
@@ -16,6 +19,7 @@ const iconMap = {
   building2: Buildings,
   clipboardText: ClipboardText,
   usersThree: UsersThree,
+  mapPin: MapPin,
 };
 // Helper to render scenario icon with Phosphor weight
 const ScenarioIcon = ({ iconName, size = 28, className = '', weight = 'bold' }) => {
@@ -24,8 +28,9 @@ const ScenarioIcon = ({ iconName, size = 28, className = '', weight = 'bold' }) 
   return <IconComponent size={size} weight={weight} className={className} />;
 };
 
-const Scenarios = ({ onSelectScenario }) => {
+const Scenarios = ({ onSelectScenario, onNavigate }) => {
   const { t } = useTranslation();
+  const scenariosQuote = useRotatingQuote('scenariosPage.franklQuote', 'scenariosPage.franklAuthor', 'scenarios');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   const handleScenarioClick = (scenario) => {
@@ -48,18 +53,6 @@ const Scenarios = ({ onSelectScenario }) => {
       description: t('scenariosPage.streetDesc'),
     },
     {
-      id: 'protest',
-      icon: 'megaphone',
-      title: t('scenariosPage.protestTitle'),
-      description: t('scenariosPage.protestDesc'),
-    },
-    {
-      id: 'recording',
-      icon: 'video',
-      title: t('scenariosPage.recordingTitle'),
-      description: t('scenariosPage.recordingDesc'),
-    },
-    {
       id: 'vehicle',
       icon: 'car',
       title: t('scenariosPage.vehicleTitle'),
@@ -76,6 +69,24 @@ const Scenarios = ({ onSelectScenario }) => {
       icon: 'building2',
       title: t('scenariosPage.workplaceTitle'),
       description: t('scenariosPage.workplaceDesc'),
+    },
+    {
+      id: 'protest',
+      icon: 'megaphone',
+      title: t('scenariosPage.protestTitle'),
+      description: t('scenariosPage.protestDesc'),
+    },
+    {
+      id: 'recording',
+      icon: 'video',
+      title: t('scenariosPage.recordingTitle'),
+      description: t('scenariosPage.recordingDesc'),
+    },
+    {
+      id: 'sensitive-locations',
+      icon: 'mapPin',
+      title: t('scenarioData.sensitiveTitle'),
+      description: t('scenarioData.sensitiveDesc'),
     }
   ];
 
@@ -83,9 +94,9 @@ const Scenarios = ({ onSelectScenario }) => {
     <div className="max-w-4xl mx-auto pb-24 px-4">
       {/* Header */}
       <div className="text-center mb-6 pt-4">
-        <div className="flex items-center justify-center gap-3 mb-4">
+        <div className="flex flex-col items-center gap-2 mb-4">
           <HandTap size={36} weight="bold" className="text-blue-400" />
-          <h1 className="text-3xl font-black text-white tracking-wide">{t('scenariosPage.title')}</h1>
+          <h1 className="text-3xl font-black text-white tracking-wide text-center">{t('scenariosPage.title')}</h1>
         </div>
         <p className="text-slate-400 text-sm">
           {t('scenariosPage.subtitle')}
@@ -102,13 +113,13 @@ const Scenarios = ({ onSelectScenario }) => {
           <motion.div
             layoutId="scenario-card-family-kit"
             onClick={() => handleScenarioClick({ id: 'family-kit', icon: 'clipboardText', title: t('scenariosPage.familyKitTitle') })}
-            className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-amber-700/30 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 hover:-translate-y-0.5"
+            className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-orange-700/30 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 hover:-translate-y-0.5"
             transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
           >
             <div className="flex items-start gap-4">
               <motion.div
                 layoutId="scenario-icon-family-kit"
-                className="text-amber-400"
+                className="text-orange-400"
                 transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
               >
                 <ClipboardText size={28} weight="bold" />
@@ -124,7 +135,7 @@ const Scenarios = ({ onSelectScenario }) => {
                 <p className="text-slate-400 text-sm mb-3">
                   {t('scenariosPage.familyKitDesc')}
                 </p>
-                <span className="text-amber-400 text-sm font-medium inline-flex items-center gap-1 hover:text-amber-300">
+                <span className="text-orange-400 text-sm font-medium inline-flex items-center gap-1 hover:text-orange-300">
                   {t('scenariosPage.openGuide')} <CaretRight size={16} weight="bold" />
                 </span>
               </div>
@@ -164,38 +175,6 @@ const Scenarios = ({ onSelectScenario }) => {
             </div>
           </motion.div>
 
-          {/* Know Your Rights Card */}
-          <motion.div
-            layoutId="scenario-card-rights-card"
-            onClick={() => handleScenarioClick({ id: 'rights-card', icon: 'identificationCard', title: t('scenariosPage.rightsCardTitle') })}
-            className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-red-700/30 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 hover:-translate-y-0.5"
-            transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
-          >
-            <div className="flex items-start gap-4">
-              <motion.div
-                layoutId="scenario-icon-rights-card"
-                className="text-red-400"
-                transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
-              >
-                <IdentificationCard size={28} weight="bold" />
-              </motion.div>
-              <div className="flex-1">
-                <motion.h2
-                  layoutId="scenario-title-rights-card"
-                  className="text-lg font-semibold text-white mb-1"
-                  transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
-                >
-                  {t('scenariosPage.rightsCardTitle')}
-                </motion.h2>
-                <p className="text-slate-400 text-sm mb-3">
-                  {t('scenariosPage.rightsCardDesc')}
-                </p>
-                <span className="text-red-400 text-sm font-medium inline-flex items-center gap-1 hover:text-red-300">
-                  {t('scenariosPage.openGuide')} <CaretRight size={16} weight="bold" />
-                </span>
-              </div>
-            </div>
-          </motion.div>
         </div>
       </div>
 
@@ -238,6 +217,39 @@ const Scenarios = ({ onSelectScenario }) => {
             </div>
           </motion.div>
         ))}
+
+        {/* Know Your Rights Card */}
+        <motion.div
+          layoutId="scenario-card-rights-card"
+          onClick={() => handleScenarioClick({ id: 'rights-card', icon: 'identificationCard', title: t('scenariosPage.rightsCardTitle') })}
+          className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-red-700/30 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 hover:-translate-y-0.5"
+          transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
+        >
+          <div className="flex items-start gap-4">
+            <motion.div
+              layoutId="scenario-icon-rights-card"
+              className="text-red-400"
+              transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
+            >
+              <IdentificationCard size={28} weight="bold" />
+            </motion.div>
+            <div className="flex-1">
+              <motion.h2
+                layoutId="scenario-title-rights-card"
+                className="text-lg font-semibold text-white mb-1"
+                transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
+              >
+                {t('scenariosPage.rightsCardTitle')}
+              </motion.h2>
+              <p className="text-slate-400 text-sm mb-3">
+                {t('scenariosPage.rightsCardDesc')}
+              </p>
+              <span className="text-red-400 text-sm font-medium inline-flex items-center gap-1 hover:text-red-300">
+                {t('scenariosPage.openGuide')} <CaretRight size={16} weight="bold" />
+              </span>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Encounter Log — after the fact */}
         <motion.div
@@ -311,13 +323,78 @@ const Scenarios = ({ onSelectScenario }) => {
         </motion.div>
       </div>
 
-      {/* Quote */}
+      {/* Community Witnesses */}
+      <h3 className="text-xs font-bold text-teal-400 uppercase tracking-widest mb-4 mt-6">
+        {t('scenariosPage.communityWitnesses')}
+      </h3>
+      <div className="space-y-4">
+        <motion.div
+          layoutId="scenario-card-community-witnessing"
+          onClick={() => handleScenarioClick({ id: 'community-witnessing', icon: 'eye', title: t('scenariosPage.communityWitnessingTitle') })}
+          className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-teal-700/30 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-teal-500/30 hover:shadow-lg hover:shadow-teal-500/5 hover:-translate-y-0.5"
+          transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
+        >
+          <div className="flex items-start gap-4">
+            <motion.div
+              layoutId="scenario-icon-community-witnessing"
+              className="text-teal-400"
+              transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
+            >
+              <Eye size={28} weight="bold" />
+            </motion.div>
+            <div className="flex-1">
+              <motion.h2
+                layoutId="scenario-title-community-witnessing"
+                className="text-lg font-semibold text-white mb-1"
+                transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
+              >
+                {t('scenariosPage.communityWitnessingTitle')}
+              </motion.h2>
+              <p className="text-slate-400 text-sm mb-3">
+                {t('scenariosPage.communityWitnessingDesc')}
+              </p>
+              <span className="text-teal-400 text-sm font-medium inline-flex items-center gap-1 hover:text-teal-300">
+                {t('scenariosPage.openGuide')} <CaretRight size={16} weight="bold" />
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Rotating Quote */}
       <div className="mt-8 text-center py-6">
         <p className="text-slate-400 italic text-sm">
-          {t('scenariosPage.franklQuote')}
+          {scenariosQuote.quote}
         </p>
-        <p className="text-slate-500 text-xs mt-2 tracking-wider">{t('scenariosPage.franklAuthor')}</p>
+        <p className="text-slate-500 text-xs mt-2 tracking-wider">{scenariosQuote.author}</p>
       </div>
+
+      {/* Guardian's Manual — download */}
+      <div
+        onClick={() => openGuardiansManualPDF(t)}
+        className="mt-3 group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-blue-700/30 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 hover:-translate-y-0.5"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-indigo-500/0 group-hover:from-blue-500/5 group-hover:to-indigo-500/5 rounded-2xl transition-all duration-300 pointer-events-none" />
+        <div className="relative flex items-start gap-4">
+          <div className="p-3 bg-slate-800 rounded-xl border border-blue-700/30 group-hover:border-blue-500/30 transition-all">
+            <BookOpenText size={28} weight="bold" className="text-blue-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold text-white mb-1 group-hover:text-blue-100 transition-colors">
+              {t('guardiansManual.homeCardTitle')}
+            </h2>
+            <p className="text-slate-400 text-sm leading-relaxed mb-3">
+              {t('guardiansManual.homeCardDesc')}
+            </p>
+            <span className="text-blue-400 text-sm font-semibold inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+              {t('guardiansManual.downloadPdf')} <DownloadSimple size={16} weight="bold" />
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* FAQ Link */}
+      <FaqCta onNavigate={onNavigate} />
 
       {/* Disclaimer */}
       <div className="mt-2">
@@ -342,7 +419,7 @@ const Scenarios = ({ onSelectScenario }) => {
                 window.deferredPrompt = null;
               });
             } else {
-              alert(t('home.installAlert'));
+              setShowInstallHelp(true);
             }
           }}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 inline-flex items-center gap-2"
@@ -353,12 +430,6 @@ const Scenarios = ({ onSelectScenario }) => {
         <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
           {t('emergency.installRecommended')}
         </p>
-        <button
-          onClick={() => setShowInstallHelp(true)}
-          className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
-        >
-          {t('emergency.installHelp')}
-        </button>
       </div>
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>

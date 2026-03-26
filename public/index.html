@@ -3,16 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0f172a" />
 
     <!-- SEO Meta Tags -->
-    <title>SafeNeighbor - Your Rights | Report/View ICE Incidents | Community Safety</title>
-    <meta name="description" content="SafeNeighbor (Safe Neighbor) is a free community safety app that helps you know your rights during ICE encounters, report and view ICE incidents in your area, record interactions with encrypted storage, learn de-escalation techniques, and access state-by-state recording laws. Works offline. No account needed." />
-    <meta name="keywords" content="Community Reports, ICE Tracking, ICE Incidents, DHS reports, ICE area reports, Rights Education, Stoic, Civil Rights, Community Education, ICE Heat Map, Constitution, Your Rights, Detained, Lawyer Search, Civil Protection, 1st Amendment, 2nd Amendment, 4th Amendment, 5th Amendment, 6th Amendment, 14th Amendment, Know your Rights, Scenario Scripts, What to say to ICE, ICE Scripts, Record ICE, Record DHS, Border Patrol, Judicial Warrant, Administrative Warrant, ICE is at my door, ICE is at my house, ICE is pulling me over, Right to Record, Right to record ICE, State Guide, ICE encounters, ICE activity tracker, ICE sightings map, report ICE activity, immigration rights, community safety app, constitutional rights, right to remain silent, deportation defense, record police, de-escalation techniques, emergency whistle signals, community incident reporting, two-party consent states, one-party consent states, recording laws by state, immigrant rights app, sanctuary community, border checkpoint rights, workplace raid rights, protest rights, first amendment recording, ICE reporting tool, free safety app, PWA, offline safety app, encrypted video recording, duress PIN, decoy PIN, ICE at work, ICE workplace raid, am I being detained, am I free to go, do not open the door, right to a lawyer, right to remain silent, what are my rights, community safety, neighborhood watch, ICE alert, ICE notification, ICE activity near me, SafeNeighbor, Safe Neighbor, safe neighbor app, safe neighbor community" />
+    <title>SafeNeighbor | Community Safety and Know Your Rights</title>
+    <meta name="description" content="SafeNeighbor is a privacy-first community safety app with know-your-rights guidance, local incident reporting, secure recording tools, and offline-ready support for high-stress situations." />
+    <meta name="keywords" content="SafeNeighbor, know your rights, community safety, incident reporting, privacy-first app, secure recording, offline safety tools, legal guidance" />
     <meta name="author" content="SafeNeighbor" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://safeneighbor.us/" />
@@ -20,8 +19,8 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://safeneighbor.us/" />
-    <meta property="og:title" content="SafeNeighbor - Your Rights | Report/View ICE Incidents | Community Safety" />
-    <meta property="og:description" content="Free community safety app: know your rights during ICE encounters, report and view ICE incidents in your area, record interactions with encrypted storage, learn de-escalation techniques, and access state-by-state recording laws. Works offline." />
+    <meta property="og:title" content="SafeNeighbor | Community Safety and Know Your Rights" />
+    <meta property="og:description" content="Privacy-first tools for know-your-rights guidance, local incident reporting, secure recording, and offline access when you need calm, practical support." />
     <meta property="og:image" content="https://safeneighbor.us/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -31,8 +30,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="SafeNeighbor - Your Rights | Report/View ICE Incidents | Community Safety" />
-    <meta name="twitter:description" content="Free community safety app: know your rights during ICE encounters, report and view ICE incidents in your area, record interactions with encrypted storage, and access state-by-state recording laws." />
+    <meta name="twitter:title" content="SafeNeighbor | Community Safety and Know Your Rights" />
+    <meta name="twitter:description" content="Privacy-first tools for know-your-rights guidance, local incident reporting, secure recording, and offline access when you need calm, practical support." />
     <meta name="twitter:image" content="https://safeneighbor.us/og-image.png" />
     <meta name="twitter:image:alt" content="SafeNeighbor - Your Rights, Community Safety" />
 
@@ -48,7 +47,8 @@
         https://*.googleapis.com
         https://firestore.googleapis.com
         https://nominatim.openstreetmap.org
-        https://*.workers.dev
+        https://safeneighbor-gemini-proxy.mitchgrutter.workers.dev
+        https://safeneighbor-ors-proxy.mitchgrutter.workers.dev
         https://*.cloudfunctions.net
         https://cloud.umami.is
         https://api-gateway.umami.dev
@@ -89,8 +89,8 @@
     <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
     <link rel="dns-prefetch" href="https://cloud.umami.is" />
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV" crossorigin="anonymous" />
     <!-- Umami Analytics (privacy-focused, no cookies, GDPR compliant) -->
     <script defer src="https://cloud.umami.is/script.js" data-website-id="a3ffe10e-a303-4bca-b41f-02f24f3433bc"></script>
 
@@ -165,8 +165,8 @@
         tryNext(0);
       })();
     </script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" integrity="sha384-mFKkGiGvT5vo1fEyGCD3hshDdKmW3wzXW/x+fWriYJArD0R3gawT6lMvLboM22c0" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr" crossorigin="anonymous"></script>
   </body>
 </html>

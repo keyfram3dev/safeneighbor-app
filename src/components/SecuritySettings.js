@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Lock, Shield, Clock, CaretRight, EyeSlash, Warning, MapPin, FileX, Database, GlobeIcon as Globe } from '@phosphor-icons/react';
+import { X, Lock, Shield, Clock, CaretRight, EyeSlash, Warning, MapPin, FileX, Database, GlobeIcon as Globe, DeviceMobileIcon as DeviceMobile, WifiSlashIcon as WifiSlash } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGUAGES, changeLanguage } from '../i18n';
 import PinSetup from './PinSetup';
@@ -22,8 +22,10 @@ import {
   hasMasterKey
 } from '../utils/crypto';
 
-function SecuritySettings({ onClose, onOpenBackup }) {
+function SecuritySettings({ onClose, onOpenBackup, onInstall, onOpenOfflineLibrary }) {
   const { t, i18n } = useTranslation();
+  const isPWA = window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches;
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [pinSetupMode, setPinSetupMode] = useState('setup');
   const [pinEnabled, setPinEnabled] = useState(isPinEnabled());
@@ -100,7 +102,7 @@ function SecuritySettings({ onClose, onOpenBackup }) {
   // Handle PIN verification for disabling protected features
   const handleVerifyPinSubmit = async () => {
     if (verifyPin_.length < 4) {
-      setVerifyError('PIN must be at least 4 digits');
+      setVerifyError(t('settings.pinMinDigits', { min: 4 }));
       return;
     }
 
@@ -126,14 +128,14 @@ function SecuritySettings({ onClose, onOpenBackup }) {
         setVerifyPin('');
       } else if (result.isDuress) {
         // Don't allow duress PIN to disable security features
-        setVerifyError('Invalid PIN');
+        setVerifyError(t('settings.invalidPin'));
         setVerifyPin('');
       } else {
-        setVerifyError('Incorrect PIN');
+        setVerifyError(t('settings.incorrectPin'));
         setVerifyPin('');
       }
     } catch (error) {
-      setVerifyError('Verification failed');
+      setVerifyError(t('settings.verificationFailed'));
     } finally {
       setIsVerifying(false);
     }
@@ -191,14 +193,13 @@ function SecuritySettings({ onClose, onOpenBackup }) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
           className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          onClick={onClose}
         />
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="bg-slate-900 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-slate-700 relative">
+          className="bg-slate-900 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-slate-700 relative overscroll-contain">
           {/* Header */}
           <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-slate-700">
             <div className="flex items-center gap-2">
@@ -207,14 +208,15 @@ function SecuritySettings({ onClose, onOpenBackup }) {
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
+              aria-label="Close security settings"
             >
               <X size={20} weight="bold" />
             </button>
           </div>
 
           {/* Scrollable content area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
             {/* PIN Lock Section */}
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
               <div className="flex items-start gap-3">
@@ -328,6 +330,46 @@ function SecuritySettings({ onClose, onOpenBackup }) {
 
             {/* Notification & Proximity Settings */}
             <NotificationSettings />
+
+            {/* Install App Section — hidden when already installed as PWA */}
+            {!isPWA && (
+              <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-red-600/20">
+                    <DeviceMobile size={20} weight="bold" className="text-red-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-white font-bold mb-1">{t('installBanner.label')}</h3>
+                    <p className="text-slate-400 text-sm mb-3">{t('installBanner.description')}</p>
+                    <button
+                      onClick={onInstall}
+                      className="bg-red-700 hover:bg-red-600 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl transition-all active:scale-95"
+                    >
+                      {t('installBanner.action')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Offline Library Section */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-emerald-600/20">
+                  <WifiSlash size={20} weight="bold" className="text-emerald-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold mb-1">{t('offlineLibrary.title')}</h3>
+                  <p className="text-slate-400 text-sm mb-3">{t('offlineLibrary.settingsDesc')}</p>
+                  <button
+                    onClick={onOpenOfflineLibrary}
+                    className="bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl transition-all active:scale-95"
+                  >
+                    {t('offlineLibrary.open')}
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* Language Section */}
             <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-violet-700/50 rounded-xl p-4">
@@ -612,14 +654,13 @@ function SecuritySettings({ onClose, onOpenBackup }) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            onClick={handleCancelVerify}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-700 relative"
+            className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-700 relative overscroll-contain"
           >
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-red-600/20">

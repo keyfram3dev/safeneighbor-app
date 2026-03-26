@@ -4,17 +4,41 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+  color-scheme: dark;
+  /* Safari: prevent fixed element jump when address bar hides/shows */
+  height: -webkit-fill-available;
+}
+
 body {
   margin: 0;
+  background-color: #020617;
+  color: #e2e8f0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: #020617;
+}
+
+/* Override Tailwind's min-h-screen globally for Safari dvh support */
+.min-h-screen {
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
 }
 
 .App {
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
 }
 
 /* Tailwind-like utilities we're using in the component */
@@ -137,6 +161,9 @@ input[type="time"] {
 
 .safe-bottom-nav {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Safari fix: force GPU layer to prevent nav jump during address bar animation */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 .safe-content-top {

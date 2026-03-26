@@ -17,7 +17,8 @@ import {
   PaperPlaneTiltIcon as PaperPlaneTilt, ShareNetworkIcon as ShareNetwork,
   NotePencilIcon as NotePencil, NavigationArrowIcon as NavigationArrow,
   FirstAidKitIcon as FirstAidKit, ScalesIcon as ScalesFeature, FileTextIcon as FileText,
-  IdentificationCardIcon as IdentificationCard, FireIcon as Fire, GlobeIcon as Globe
+  IdentificationCardIcon as IdentificationCard, FireIcon as Fire, GlobeIcon as Globe,
+  BellRingingIcon as BellRinging, FlagBannerIcon as FlagBanner
 } from '@phosphor-icons/react';
 import { Brain } from 'lucide-react';
 
@@ -30,6 +31,10 @@ const categoryDefs = [
       { icon: Eye, titleKey: 'localActivityTitle', descKey: 'localActivityDesc' },
       { icon: Fire, titleKey: 'heatMapTitle', descKey: 'heatMapDesc' },
       { icon: MapTrifold, titleKey: 'offlineMapsTitle', descKey: 'offlineMapsDesc' },
+      { icon: NavigationArrow, titleKey: 'checkMyRouteTitle', descKey: 'checkMyRouteDesc' },
+      { icon: BellRinging, titleKey: 'proximityAlertsTitle', descKey: 'proximityAlertsDesc' },
+      { icon: FlagBanner, titleKey: 'flagReportTitle', descKey: 'flagReportDesc' },
+      { icon: Eye, titleKey: 'communityWitnessingFeatTitle', descKey: 'communityWitnessingFeatDesc' },
     ],
   },
   {
@@ -107,7 +112,7 @@ const Features = ({ onClose, isOpen = true }) => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+            className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -118,14 +123,15 @@ const Features = ({ onClose, isOpen = true }) => {
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
+                aria-label="Close features dialog"
               >
                 <X size={20} weight="bold" />
               </button>
             </div>
 
             {/* Scrollable Content */}
-            <div className="p-5 overflow-y-auto flex-1">
+            <div className="p-5 overflow-y-auto overscroll-contain flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
               <p className="text-slate-400 text-sm mb-5">
                 {t('features.description')}
               </p>

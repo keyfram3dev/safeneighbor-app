@@ -37,6 +37,7 @@ import {
   removeTrustedContact,
   AccessGrantManager,
 } from '../utils/backup/accessGrants';
+import { readEncrypted, writeEncrypted } from '../utils/encryptedStorage';
 
 // LocalStorage key for backup settings
 const SETTINGS_KEY = 'safeneighbor_backup_settings';
@@ -91,7 +92,9 @@ function BackupSettings({ onClose }) {
   useEffect(() => {
     loadSettings();
     loadStats();
-    setTrustedContacts(getTrustedContacts());
+    (async () => {
+      setTrustedContacts(await getTrustedContacts());
+    })();
     // Check Google sign-in status
     if (isGoogleSignedIn()) {
       setGoogleSignedIn(true);
@@ -101,11 +104,10 @@ function BackupSettings({ onClose }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadSettings = () => {
+  const loadSettings = async () => {
     try {
-      const saved = localStorage.getItem(SETTINGS_KEY);
-      if (saved) {
-        const settings = JSON.parse(saved);
+      const settings = await readEncrypted(SETTINGS_KEY, null);
+      if (settings) {
         setIsConfigured(settings.isConfigured || false);
         setAutoBackup(settings.autoBackup || false);
         setCredentials(settings.credentials || { accountId: '', accessKeyId: '', secretAccessKey: '', bucket: '' });
@@ -154,7 +156,7 @@ function BackupSettings({ onClose }) {
         encryptionKey: keyString,
       };
 
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      await writeEncrypted(SETTINGS_KEY, settings);
       setIsConfigured(true);
 
       // Initialize upload queue if auto-backup is enabled
@@ -212,18 +214,18 @@ function BackupSettings({ onClose }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleAddContact = () => {
+  const handleAddContact = async () => {
     if (newContact.name && newContact.email) {
-      const added = addTrustedContact(newContact);
+      const added = await addTrustedContact(newContact);
       setTrustedContacts([...trustedContacts, added]);
       setNewContact({ name: '', email: '', relationship: '' });
       setShowAddContact(false);
     }
   };
 
-  const handleRemoveContact = (id) => {
+  const handleRemoveContact = async (id) => {
     if (window.confirm(t('backup.removeContactConfirm'))) {
-      removeTrustedContact(id);
+      await removeTrustedContact(id);
       setTrustedContacts(trustedContacts.filter(c => c.id !== id));
     }
   };

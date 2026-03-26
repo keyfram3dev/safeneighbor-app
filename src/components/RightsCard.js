@@ -330,7 +330,7 @@ ${cardPairHtml}
                 window.deferredPrompt = null;
               });
             } else {
-              alert(t('home.installAlert'));
+              setShowInstallHelp(true);
             }
           }}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 inline-flex items-center gap-2"
@@ -341,12 +341,6 @@ ${cardPairHtml}
         <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
           {t('emergency.installRecommended')}
         </p>
-        <button
-          onClick={() => setShowInstallHelp(true)}
-          className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
-        >
-          {t('emergency.installHelp')}
-        </button>
       </div>
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>

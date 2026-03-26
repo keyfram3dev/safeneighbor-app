@@ -1,8 +1,23 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const cors = require('cors')({ origin: true });
 const crypto = require('crypto');
 const webpush = require('web-push');
+
+// Restrict CORS to SafeNeighbor domains only
+const ALLOWED_ORIGINS = [
+  'https://safeneighbor.us',
+  'https://www.safeneighbor.us',
+  'https://safeneighbor-33bb0.web.app',
+  'https://safeneighbor-33bb0.firebaseapp.com',
+];
+const cors = require('cors')({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, server-to-server, curl)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error('CORS: origin not allowed'));
+  },
+});
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -14,10 +29,51 @@ require('dotenv').config();
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const MAX_REPORTS_PER_WINDOW = 3; // Max 3 reports per hour per IP
+const GEMINI_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_GEMINI_PER_WINDOW = 10; // Max 10 Gemini calls per minute per IP
+const PROXY_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_PROXY_PER_WINDOW = 15; // Max 15 proxy calls per minute per IP
+
+/**
+ * Reusable rate limiter — checks/increments a Firestore rate limit doc
+ * @returns {Promise<boolean>} true if request is allowed, false if rate-limited
+ */
+const checkRateLimit = async (prefix, ipHash, windowMs, maxPerWindow, res) => {
+  const now = Date.now();
+  const ref = db.collection('rateLimits').doc(`${prefix}_${ipHash}`);
+  const doc = await ref.get();
+
+  if (doc.exists) {
+    const data = doc.data();
+    if (now - (data.windowStart || 0) < windowMs) {
+      if ((data.count || 0) >= maxPerWindow) {
+        res.status(429).json({ error: 'Rate limit exceeded. Please wait a moment.' });
+        return false;
+      }
+    }
+  }
+
+  // Update after the call succeeds (caller is responsible)
+  return true;
+};
+
+const incrementRateLimit = async (prefix, ipHash, windowMs) => {
+  const now = Date.now();
+  const ref = db.collection('rateLimits').doc(`${prefix}_${ipHash}`);
+  const doc = await ref.get();
+  const data = doc.exists ? doc.data() : {};
+
+  if (now - (data.windowStart || 0) >= windowMs) {
+    await ref.set({ windowStart: now, count: 1, lastReport: now });
+  } else {
+    await ref.update({ count: admin.firestore.FieldValue.increment(1), lastReport: now });
+  }
+};
 
 /**
  * Proxy for Gemini API calls
  * Keeps API key secure on the server side
+ * Rate-limited to prevent abuse
  *
  * Set GEMINI_API_KEY as environment variable or in functions/.env
  */
@@ -29,27 +85,49 @@ exports.geminiProxy = functions.https.onRequest((req, res) => {
     }
 
     try {
+      // Rate limit Gemini calls per IP
+      const clientIP = getClientIP(req);
+      const ipHash = hashIP(clientIP);
+      const now = Date.now();
+      const geminiRateLimitRef = db.collection('rateLimits').doc(`gemini_${ipHash}`);
+      const geminiRateLimitDoc = await geminiRateLimitRef.get();
+
+      if (geminiRateLimitDoc.exists) {
+        const data = geminiRateLimitDoc.data();
+        if (now - (data.windowStart || 0) < GEMINI_RATE_LIMIT_WINDOW_MS) {
+          if ((data.count || 0) >= MAX_GEMINI_PER_WINDOW) {
+            return res.status(429).json({ error: 'Rate limit exceeded. Please wait a moment.' });
+          }
+        }
+      }
+
       // Get API key from environment variable
       const apiKey = process.env.GEMINI_API_KEY;
 
       if (!apiKey) {
         console.error('Gemini API key not configured');
-        return res.status(500).json({
-          error: 'API key not configured. Set GEMINI_API_KEY environment variable.'
-        });
+        return res.status(500).json({ error: 'Service temporarily unavailable' });
       }
 
       // Get the prompt from request body - using stable model name
       const { prompt, model = 'gemini-2.0-flash' } = req.body;
 
-      if (!prompt) {
+      if (!prompt || typeof prompt !== 'string') {
         return res.status(400).json({ error: 'Prompt is required' });
       }
 
+      // Enforce prompt length limit to prevent quota abuse
+      if (prompt.length > 4000) {
+        return res.status(400).json({ error: 'Prompt too long (max 4000 characters)' });
+      }
+
+      // Validate model name to prevent injection into URL
+      const ALLOWED_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+      const safeModel = ALLOWED_MODELS.includes(model) ? model : 'gemini-2.0-flash';
+
       // Call Gemini API
-      // Include Referer header to satisfy API key referrer restrictions
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${safeModel}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: {
@@ -67,23 +145,24 @@ exports.geminiProxy = functions.https.onRequest((req, res) => {
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Gemini API error:', errorText);
-        return res.status(response.status).json({
-          error: 'Gemini API error',
-          details: errorText
-        });
+        console.error('Gemini API error:', response.status);
+        return res.status(502).json({ error: 'AI service error' });
+      }
+
+      // Update rate limit after successful call
+      const geminiRateData = geminiRateLimitDoc.exists ? geminiRateLimitDoc.data() : {};
+      if (now - (geminiRateData.windowStart || 0) >= GEMINI_RATE_LIMIT_WINDOW_MS) {
+        await geminiRateLimitRef.set({ windowStart: now, count: 1, lastReport: now });
+      } else {
+        await geminiRateLimitRef.update({ count: admin.firestore.FieldValue.increment(1), lastReport: now });
       }
 
       const data = await response.json();
       return res.status(200).json(data);
 
     } catch (error) {
-      console.error('Proxy error:', error);
-      return res.status(500).json({
-        error: 'Internal server error',
-        message: error.message
-      });
+      console.error('Proxy error:', error.message);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 });
@@ -103,9 +182,11 @@ exports.health = functions.https.onRequest((req, res) => {
 
 /**
  * Hash an IP address for privacy (we don't store raw IPs)
+ * Uses HMAC with a secret key from env (falls back to static salt for backward compat)
  */
+const IP_HASH_SECRET = process.env.IP_HASH_SECRET || 'safeneighbor_salt';
 const hashIP = (ip) => {
-  return crypto.createHash('sha256').update(ip + 'safeneighbor_salt').digest('hex').substring(0, 16);
+  return crypto.createHmac('sha256', IP_HASH_SECRET).update(ip).digest('hex').substring(0, 16);
 };
 
 /**
@@ -177,7 +258,9 @@ exports.submitReport = functions.https.onRequest((req, res) => {
           timestamp: clientTimestamp,
           verified: false,
           verifiers: [],
-          deviceId: deviceId || 'unknown',
+          deviceId: typeof deviceId === 'string'
+            ? deviceId.replace(/[^a-zA-Z0-9\-_]/g, '').slice(0, 128)
+            : 'unknown',
           createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
       } else {
@@ -266,10 +349,7 @@ exports.submitReport = functions.https.onRequest((req, res) => {
 
     } catch (error) {
       console.error('Submit report error:', error.message);
-      return res.status(500).json({
-        error: 'Internal server error',
-        message: error.message
-      });
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 });
@@ -295,6 +375,7 @@ exports.cleanupRateLimits = functions.pubsub.schedule('every 24 hours').onRun(as
 /**
  * Serve the community report encryption key
  * Key is stored in environment variable (set via Firebase functions:config or .env)
+ * Restricted to allowed origins only
  */
 exports.getReportKey = functions.https.onRequest((req, res) => {
   cors(req, res, () => {
@@ -302,13 +383,22 @@ exports.getReportKey = functions.https.onRequest((req, res) => {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const key = process.env.COMMUNITY_REPORT_KEY;
-    if (!key) {
-      return res.status(500).json({ error: 'Report encryption key not configured' });
+    // Require an allowed origin or referer — no-origin requests are not permitted
+    // for this sensitive endpoint since CORS alone doesn't protect server-to-server calls
+    const origin = req.headers.origin || '';
+    const referer = req.headers.referer || '';
+    const isAllowed = ALLOWED_ORIGINS.some(o => origin === o || referer.startsWith(o));
+    if (!isAllowed) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
-    // Cache for 1 hour on the client
-    res.set('Cache-Control', 'private, max-age=3600');
+    const key = process.env.COMMUNITY_REPORT_KEY;
+    if (!key) {
+      return res.status(500).json({ error: 'Service temporarily unavailable' });
+    }
+
+    // Sensitive key — do not cache
+    res.set('Cache-Control', 'no-store');
     return res.status(200).json({
       key: key,
       version: 1
@@ -388,9 +478,9 @@ exports.ipLocation = functions.https.onRequest((req, res) => {
           const response = await fetch(url);
           if (!response.ok) continue;
           const data = await response.json();
-          const lat = data.latitude;
-          const lng = data.longitude;
-          if (lat && lng) {
+          const lat = parseFloat(data.latitude);
+          const lng = parseFloat(data.longitude);
+          if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
             return res.status(200).json({ lat, lng });
           }
         } catch (e) { /* try next */ }
@@ -428,13 +518,38 @@ exports.registerPushSubscription = functions.https.onRequest((req, res) => {
         return res.status(400).json({ error: 'Subscription endpoint required' });
       }
 
-      // Validate prefixes are strings of length 5
-      const prefixes = (geoHashPrefixes || []).filter(p => typeof p === 'string' && p.length === 5);
+      // Validate subscription structure (must be a valid Web Push subscription)
+      if (typeof subscription.endpoint !== 'string' ||
+          !subscription.endpoint.startsWith('https://') ||
+          subscription.endpoint.length > 2048) {
+        return res.status(400).json({ error: 'Invalid subscription endpoint' });
+      }
+      if (subscription.keys && (
+          typeof subscription.keys.p256dh !== 'string' ||
+          typeof subscription.keys.auth !== 'string')) {
+        return res.status(400).json({ error: 'Invalid subscription keys' });
+      }
+
+      // Only store the fields we need (strip any extra properties)
+      const cleanSubscription = {
+        endpoint: subscription.endpoint,
+        ...(subscription.keys && {
+          keys: {
+            p256dh: subscription.keys.p256dh,
+            auth: subscription.keys.auth,
+          }
+        }),
+      };
+
+      // Validate prefixes are strings of length 5, cap at 20
+      const prefixes = (geoHashPrefixes || [])
+        .filter(p => typeof p === 'string' && p.length === 5)
+        .slice(0, 20);
 
       const endpointHash = crypto.createHash('sha256').update(subscription.endpoint).digest('hex').substring(0, 32);
 
       await db.collection('pushSubscriptions').doc(endpointHash).set({
-        subscription,
+        subscription: cleanSubscription,
         geoHashPrefixes: prefixes,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
@@ -574,3 +689,129 @@ exports.sendPushDigests = functions.pubsub.schedule('every 2 hours').onRun(async
 
   console.log(`Push digest: ${sent} sent, ${cleaned} expired subscriptions cleaned`);
 });
+
+/**
+ * Proxy for Federal Register API
+ * Returns recent immigration-related policy documents (executive orders, rules, notices)
+ * No API key required — public government API
+ */
+exports.federalRegisterAlerts = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+      const ipHash = hashIP(getClientIP(req));
+      const allowed = await checkRateLimit('fedreg', ipHash, PROXY_RATE_LIMIT_WINDOW_MS, MAX_PROXY_PER_WINDOW, res);
+      if (!allowed) return;
+
+      const safePage = Math.max(1, parseInt(req.body.page, 10) || 1);
+
+      const url = `https://www.federalregister.gov/api/v1/documents.json?` +
+        `conditions[agencies][]=homeland-security-department` +
+        `&conditions[agencies][]=executive-office-for-immigration-review` +
+        `&conditions[term]=immigration` +
+        `&order=newest` +
+        `&per_page=10` +
+        `&page=${safePage}` +
+        `&fields[]=title&fields[]=type&fields[]=abstract&fields[]=publication_date&fields[]=html_url&fields[]=pdf_url&fields[]=agencies`;
+
+      const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Federal Register API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const documents = (data.results || []).map((doc) => ({
+        title: doc.title,
+        type: doc.type,
+        abstractText: doc.abstract || '',
+        publicationDate: doc.publication_date,
+        htmlUrl: doc.html_url,
+        pdfUrl: doc.pdf_url,
+        agencies: (doc.agencies || []).map((a) => a.name),
+      }));
+
+      await incrementRateLimit('fedreg', ipHash, PROXY_RATE_LIMIT_WINDOW_MS);
+
+      return res.status(200).json({
+        documents,
+        totalPages: data.total_pages || 1,
+        count: data.count || 0,
+      });
+    } catch (error) {
+      console.error('Federal Register proxy error:', error.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+});
+
+/**
+ * Proxy for CourtListener API
+ * Searches immigration-related case law and court opinions
+ *
+ * Set COURTLISTENER_API_KEY as environment variable or in functions/.env
+ * Get a free API key at https://www.courtlistener.com/sign-in/
+ */
+exports.courtListenerSearch = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+      const ipHash = hashIP(getClientIP(req));
+      const allowed = await checkRateLimit('court', ipHash, PROXY_RATE_LIMIT_WINDOW_MS, MAX_PROXY_PER_WINDOW, res);
+      if (!allowed) return;
+
+      const apiKey = process.env.COURTLISTENER_API_KEY;
+      if (!apiKey) {
+        return res.status(501).json({ error: 'CourtListener API not configured' });
+      }
+
+      const { query } = req.body;
+      const safePage = Math.max(1, parseInt(req.body.page, 10) || 1);
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ error: 'Query is required' });
+      }
+
+      const response = await fetch(
+        `https://www.courtlistener.com/api/rest/v4/search/?q=${encodeURIComponent(query)}&type=o&page_size=5&page=${safePage}`,
+        {
+          headers: {
+            Authorization: `Token ${apiKey}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`CourtListener API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const cases = (data.results || []).map((c) => ({
+        caseName: c.caseName || c.case_name || 'Untitled Case',
+        court: c.court || '',
+        dateFiled: c.dateFiled || c.date_filed || '',
+        snippet: c.snippet || '',
+        absoluteUrl: c.absolute_url ? `https://www.courtlistener.com${c.absolute_url}` : '',
+      }));
+
+      await incrementRateLimit('court', ipHash, PROXY_RATE_LIMIT_WINDOW_MS);
+
+      return res.status(200).json({
+        cases,
+        count: data.count || 0,
+      });
+    } catch (error) {
+      console.error('CourtListener proxy error:', error.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+});
+

@@ -5,6 +5,7 @@
 import { doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { encryptLocationData } from './locationEncryption';
+import { readEncrypted, writeEncrypted, removeEncrypted } from './encryptedStorage';
 
 const LOCATION_STORAGE_KEY = 'safeneighbor_last_known_location';
 
@@ -142,16 +143,15 @@ export const buildLocationMailtoUri = (contacts, message) => {
 
 // ── localStorage Persistence ──────────────────────────────────
 
-export const saveLastKnownLocation = (location) => {
+export const saveLastKnownLocation = async (location) => {
   try {
-    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(location));
+    await writeEncrypted(LOCATION_STORAGE_KEY, location);
   } catch {}
 };
 
-export const getLastKnownLocation = () => {
+export const getLastKnownLocation = async () => {
   try {
-    const stored = localStorage.getItem(LOCATION_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
+    return await readEncrypted(LOCATION_STORAGE_KEY, null);
   } catch {
     return null;
   }
@@ -159,7 +159,7 @@ export const getLastKnownLocation = () => {
 
 export const clearLastKnownLocation = () => {
   try {
-    localStorage.removeItem(LOCATION_STORAGE_KEY);
+    removeEncrypted(LOCATION_STORAGE_KEY);
   } catch {}
 };
 

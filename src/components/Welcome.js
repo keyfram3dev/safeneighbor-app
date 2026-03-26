@@ -7,9 +7,11 @@ import { X, Shield, Lock } from '@phosphor-icons/react';
 import { Scale } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-const Welcome = ({ onClose, onOpenSettings, isOpen = true }) => {
+const Welcome = ({ onClose, onOpenSettings, onInstall, isOpen = true }) => {
   const { t } = useTranslation();
   const hasPinConfigured = !!localStorage.getItem('safeneighbor_pin_hash');
+  const isPWA = window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches;
 
   const quotes = [
     {
@@ -49,7 +51,7 @@ const Welcome = ({ onClose, onOpenSettings, isOpen = true }) => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+            className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -60,14 +62,15 @@ const Welcome = ({ onClose, onOpenSettings, isOpen = true }) => {
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
+                aria-label="Close welcome dialog"
               >
                 <X size={20} weight="bold" />
               </button>
             </div>
 
             {/* Scrollable Content */}
-            <div className="p-6 overflow-y-auto flex-1">
+            <div className="p-6 overflow-y-auto overscroll-contain flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
               {/* Main Welcome Message */}
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
@@ -103,6 +106,24 @@ const Welcome = ({ onClose, onOpenSettings, isOpen = true }) => {
                         {t('welcome.openSettings')}
                       </button>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Install nudge — only when not already a PWA */}
+              {!isPWA && (
+                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 mt-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-slate-200 text-sm font-bold">{t('installBanner.label')}</p>
+                      <p className="text-slate-400 text-xs mt-0.5">{t('installBanner.description')}</p>
+                    </div>
+                    <button
+                      onClick={onInstall}
+                      className="shrink-0 bg-red-600 hover:bg-red-500 text-white font-black text-[10px] uppercase tracking-widest px-3 py-2 rounded-xl transition-all active:scale-95"
+                    >
+                      {t('installBanner.action')}
+                    </button>
                   </div>
                 </div>
               )}

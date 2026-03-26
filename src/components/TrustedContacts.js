@@ -1,46 +1,51 @@
 // src/components/TrustedContacts.js
 // Trusted Contact Network — manage emergency contacts and one-tap SOS alerts
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, UsersThree, Plus, Trash, EnvelopeSimple, Phone, ChatText, PaperPlaneTilt, WarningCircle, UserCirclePlus, CaretDown, CaretUp, DownloadSimple } from '@phosphor-icons/react';
+import { ArrowLeft, UsersThree, Plus, Trash, EnvelopeSimple, Phone, ChatText, PaperPlaneTilt, WarningCircle, UserCirclePlus, CaretDown, CaretUp, DownloadSimple, MagnifyingGlass, Spinner, MapPin } from '@phosphor-icons/react';
 import { getTrustedContacts, addTrustedContact, removeTrustedContact } from '../utils/backup/accessGrants';
-import { buildLocationSmsUri } from '../utils/locationShare';
+import { buildLocationSmsUri, reverseGeocode } from '../utils/locationShare';
 import Disclaimer from './Disclaimer';
 import InstallHelp from './InstallHelp';
 
-const TrustedContacts = ({ onBack }) => {
+const TrustedContacts = ({ onBack, onOpenLegalResponse }) => {
   const { t } = useTranslation();
 
   const RELATIONSHIP_OPTIONS = [
     { value: 'Family', label: t('trustedContacts.relationshipFamily') },
     { value: 'Attorney', label: t('trustedContacts.relationshipAttorney') },
+    { value: 'Organization', label: t('trustedContacts.relationshipOrganization') },
     { value: 'Community Organizer', label: t('trustedContacts.relationshipCommunityOrganizer') },
     { value: 'Friend', label: t('trustedContacts.relationshipFriend') },
     { value: 'Other', label: t('trustedContacts.relationshipOther') },
   ];
+
+  const planReference = localStorage.getItem('safeneighbor_family_kit')
+    ? '\n' + t('trustedContacts.planReference') + '\n'
+    : '';
 
   const MESSAGE_TEMPLATES = [
     {
       id: 'happening-now',
       label: t('trustedContacts.templateHappeningLabel'),
       color: 'red',
-      message: (name) =>
-        t('trustedContacts.templateHappeningMessage', { name: name || t('trustedContacts.yourContact') }),
+      message: (name, time, location) =>
+        t('trustedContacts.templateHappeningMessage', { name: name || t('trustedContacts.yourContact'), time, location, planReference }),
     },
     {
       id: 'detained',
       label: t('trustedContacts.templateDetainedLabel'),
       color: 'amber',
-      message: (name) =>
-        t('trustedContacts.templateDetainedMessage', { name: name || t('trustedContacts.yourContact') }),
+      message: (name, time, location) =>
+        t('trustedContacts.templateDetainedMessage', { name: name || t('trustedContacts.yourContact'), time, location, planReference }),
     },
     {
       id: 'wellness',
       label: t('trustedContacts.templateWellnessLabel'),
       color: 'blue',
-      message: (name) =>
-        t('trustedContacts.templateWellnessMessage', { name: name || t('trustedContacts.yourContact') }),
+      message: (name, time, location) =>
+        t('trustedContacts.templateWellnessMessage', { name: name || t('trustedContacts.yourContact'), time, location, planReference }),
     },
   ];
   const [showInstallHelp, setShowInstallHelp] = useState(false);
@@ -49,37 +54,79 @@ const TrustedContacts = ({ onBack }) => {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', relationship: '' });
   const [expandedTemplate, setExpandedTemplate] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [saveError, setSaveError] = useState('');
   const [userName, setUserName] = useState(() => localStorage.getItem('safeneighbor_user_name') || '');
-  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [showNamePrompt, setShowNamePrompt] = useState(() => !localStorage.getItem('safeneighbor_user_name'));
+  const [isSending, setIsSending] = useState(false); // GPS acquisition in progress
 
   useEffect(() => {
-    setContacts(getTrustedContacts());
+    (async () => {
+      setContacts(await getTrustedContacts());
+    })();
   }, []);
 
-  const handleAddContact = (e) => {
+  const handleAddContact = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
-    const newContact = addTrustedContact({
-      name: formData.name.trim(),
-      phone: formData.phone.trim(),
-      email: formData.email.trim(),
-      relationship: formData.relationship || 'Other',
-    });
-    setContacts([...contacts, newContact]);
-    setFormData({ name: '', phone: '', email: '', relationship: '' });
-    setShowForm(false);
+    setSaveError('');
+
+    try {
+      await addTrustedContact({
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim(),
+        relationship: formData.relationship || 'Other',
+      });
+      setContacts(await getTrustedContacts());
+      setFormData({ name: '', phone: '', email: '', relationship: '' });
+      setShowForm(false);
+    } catch (error) {
+      console.error('Failed to save trusted contact:', error);
+      setSaveError(t('trustedContacts.saveContactFailed'));
+    }
   };
 
-  const handleRemoveContact = (id) => {
-    const updated = removeTrustedContact(id);
-    setContacts(updated);
-    setDeleteConfirm(null);
+  const handleRemoveContact = async (id) => {
+    try {
+      const updated = await removeTrustedContact(id);
+      setContacts(updated);
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error('Failed to remove trusted contact:', error);
+      alert(t('trustedContacts.deleteContactFailed'));
+    }
   };
 
-  const handleSendSOS = (template) => {
+  const handleSendSOS = useCallback(async (template) => {
     const phoneNumbers = contacts.filter(c => c.phone).map(c => c.phone);
     const emails = contacts.filter(c => c.email).map(c => c.email);
-    const body = template.message(userName);
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setIsSending(true);
+
+    // Grab GPS without localStorage persistence (5s timeout, silent fail)
+    let location = '';
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        if (!('geolocation' in navigator)) { reject(new Error('No geolocation')); return; }
+        const timer = setTimeout(() => reject(new Error('Timeout')), 5000);
+        navigator.geolocation.getCurrentPosition(
+          (p) => { clearTimeout(timer); resolve(p); },
+          (e) => { clearTimeout(timer); reject(e); },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      });
+      const { latitude, longitude } = pos.coords;
+      const geo = await reverseGeocode(latitude, longitude).catch(() => ({}));
+      const mapsLink = `https://maps.google.com/maps?q=${latitude},${longitude}`;
+      location = `${t('trustedContacts.lastKnownLocation')}:\n${geo.address || t('trustedContacts.unknownAddress')}\nGPS: ${latitude}, ${longitude}\n${mapsLink}`;
+    } catch {
+      location = t('trustedContacts.locationUnavailable');
+    }
+
+    setIsSending(false);
+
+    const body = template.message(userName, time, location);
     if (window.umami) window.umami.track('sos_alert', { template: template.id, contacts: contacts.length });
 
     // Try SMS first (mobile), then email fallback
@@ -101,7 +148,7 @@ const TrustedContacts = ({ onBack }) => {
         });
       }
     }
-  };
+  }, [contacts, userName, t]);
 
   const handleSaveUserName = () => {
     localStorage.setItem('safeneighbor_user_name', userName);
@@ -121,7 +168,17 @@ const TrustedContacts = ({ onBack }) => {
         </button>
         <div className="flex items-center gap-3 mb-2">
           <UsersThree size={36} weight="bold" className="text-amber-400" />
-          <h1 className="text-3xl font-black text-white tracking-wide">{t('trustedContacts.title')}</h1>
+          <h1 className="text-3xl font-black text-white tracking-wide flex-1">{t('trustedContacts.title')}</h1>
+          {onOpenLegalResponse && (
+            <button
+              onClick={onOpenLegalResponse}
+              className="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 text-xs font-bold uppercase tracking-wider transition-colors flex-shrink-0"
+            >
+              <MagnifyingGlass size={16} weight="bold" />
+              <span className="hidden sm:inline">{t('trustedContacts.searchContacts')}</span>
+              <span className="sm:hidden">{t('trustedContacts.search')}</span>
+            </button>
+          )}
         </div>
         <p className="text-slate-400 text-sm">
           {t('trustedContacts.subtitle')}
@@ -141,23 +198,28 @@ const TrustedContacts = ({ onBack }) => {
           </div>
           <button
             onClick={() => setShowNamePrompt(!showNamePrompt)}
-            className="text-amber-400 hover:text-amber-300 text-xs font-bold uppercase tracking-wider transition-colors"
+            className="text-amber-400 hover:text-amber-300 text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-400 rounded"
           >
             {showNamePrompt ? t('trustedContacts.cancel') : t('trustedContacts.edit')}
           </button>
         </div>
         {showNamePrompt && (
           <div className="mt-3 flex gap-2">
+            <label htmlFor="trusted-contacts-user-name" className="sr-only">
+              {t('trustedContacts.yourNameLabel')}
+            </label>
             <input
+              id="trusted-contacts-user-name"
               type="text"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
               placeholder={t('trustedContacts.namePlaceholder')}
-              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+              autoComplete="name"
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-400 focus:border-amber-500"
             />
             <button
               onClick={handleSaveUserName}
-              className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors"
+              className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-300"
             >
               {t('trustedContacts.save')}
             </button>
@@ -226,7 +288,8 @@ const TrustedContacts = ({ onBack }) => {
                     ) : (
                       <button
                         onClick={() => setDeleteConfirm(contact.id)}
-                        className="p-2 text-slate-600 hover:text-red-400 rounded-lg hover:bg-slate-800 transition-all"
+                        className="p-2 text-slate-600 hover:text-red-400 rounded-lg hover:bg-slate-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-red-400"
+                        aria-label={`Delete ${contact.name}`}
                       >
                         <Trash size={18} weight="bold" />
                       </button>
@@ -248,42 +311,49 @@ const TrustedContacts = ({ onBack }) => {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">{t('trustedContacts.nameLabel')}</label>
+                <label htmlFor="trusted-contact-name" className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">{t('trustedContacts.nameLabel')}</label>
                 <input
+                  id="trusted-contact-name"
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder={t('trustedContacts.namePlaceholderFull')}
+                  autoComplete="name"
                   required
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-400 focus:border-amber-500"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">{t('trustedContacts.phoneLabel')}</label>
+                <label htmlFor="trusted-contact-phone" className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">{t('trustedContacts.phoneLabel')}</label>
                 <input
+                  id="trusted-contact-phone"
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder={t('trustedContacts.phonePlaceholder')}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  autoComplete="tel"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-400 focus:border-amber-500"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">{t('trustedContacts.emailLabel')}</label>
+                <label htmlFor="trusted-contact-email" className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">{t('trustedContacts.emailLabel')}</label>
                 <input
+                  id="trusted-contact-email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder={t('trustedContacts.emailPlaceholder')}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  autoComplete="email"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-400 focus:border-amber-500"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">{t('trustedContacts.relationshipLabel')}</label>
+                <label htmlFor="trusted-contact-relationship" className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">{t('trustedContacts.relationshipLabel')}</label>
                 <select
+                  id="trusted-contact-relationship"
                   value={formData.relationship}
                   onChange={(e) => setFormData({ ...formData, relationship: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 appearance-none"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-base sm:text-sm appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-400 focus:border-amber-500"
                 >
                   <option value="">{t('trustedContacts.selectRelationship')}</option>
                   {RELATIONSHIP_OPTIONS.map((opt) => (
@@ -293,17 +363,27 @@ const TrustedContacts = ({ onBack }) => {
               </div>
             </div>
 
+            {saveError && (
+              <p className="mt-3 text-sm text-red-300" role="alert">
+                {saveError}
+              </p>
+            )}
+
             <div className="flex gap-3 mt-5">
               <button
                 type="submit"
-                className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 px-4 rounded-xl transition-colors text-sm"
+                className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 px-4 rounded-xl transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-300"
               >
                 {t('trustedContacts.saveContact')}
               </button>
               <button
                 type="button"
-                onClick={() => { setShowForm(false); setFormData({ name: '', phone: '', email: '', relationship: '' }); }}
-                className="px-4 py-2.5 text-slate-400 hover:text-white border border-slate-700 rounded-xl transition-colors text-sm"
+                onClick={() => {
+                  setShowForm(false);
+                  setFormData({ name: '', phone: '', email: '', relationship: '' });
+                  setSaveError('');
+                }}
+                className="px-4 py-2.5 text-slate-400 hover:text-white border border-slate-700 rounded-xl transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
               >
                 {t('trustedContacts.cancel')}
               </button>
@@ -311,8 +391,11 @@ const TrustedContacts = ({ onBack }) => {
           </form>
         ) : (
           <button
-            onClick={() => setShowForm(true)}
-            className="mt-4 w-full bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-amber-600/30 text-slate-300 hover:text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
+            onClick={() => {
+              setSaveError('');
+              setShowForm(true);
+            }}
+            className="mt-4 w-full bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-amber-600/30 text-slate-300 hover:text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-amber-400"
           >
             <Plus size={18} weight="bold" className="text-amber-400" />
             {t('trustedContacts.addContact')}
@@ -359,9 +442,17 @@ const TrustedContacts = ({ onBack }) => {
                 {isExpanded && (
                   <div className="px-4 pb-4">
                     <div className="bg-slate-900/60 border border-slate-700/40 rounded-xl p-3 mb-3">
-                      <p className="text-slate-300 text-xs leading-relaxed">
-                        {template.message(userName || t('trustedContacts.yourContact'))}
+                      <p className="text-slate-300 text-xs leading-relaxed whitespace-pre-line">
+                        {template.message(
+                          userName || t('trustedContacts.yourContact'),
+                          new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                          `[${t('trustedContacts.locationIncluded')}]`
+                        )}
                       </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-500 text-[10px] mb-2">
+                      <MapPin size={12} weight="bold" />
+                      <span>{t('trustedContacts.locationNote')}</span>
                     </div>
                     <button
                       onClick={() => {
@@ -371,10 +462,20 @@ const TrustedContacts = ({ onBack }) => {
                         }
                         handleSendSOS(template);
                       }}
-                      className={`w-full bg-gradient-to-r ${btnColorMap[template.color]} text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95`}
+                      disabled={isSending}
+                      className={`w-full bg-gradient-to-r ${btnColorMap[template.color]} text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60`}
                     >
-                      <PaperPlaneTilt size={18} weight="bold" />
-                      {t('trustedContacts.sendToContacts', { count: contacts.length })}
+                      {isSending ? (
+                        <>
+                          <Spinner size={18} className="animate-spin" />
+                          {t('trustedContacts.acquiringLocation')}
+                        </>
+                      ) : (
+                        <>
+                          <PaperPlaneTilt size={18} weight="bold" />
+                          {t('trustedContacts.sendToContacts', { count: contacts.length })}
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
@@ -398,10 +499,20 @@ const TrustedContacts = ({ onBack }) => {
               const template = MESSAGE_TEMPLATES[0]; // "Something is happening" — most urgent
               handleSendSOS(template);
             }}
-            className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black py-5 px-6 rounded-2xl transition-all shadow-lg shadow-red-900/30 hover:shadow-red-900/50 active:scale-95 flex items-center justify-center gap-3"
+            disabled={isSending}
+            className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black py-5 px-6 rounded-2xl transition-all shadow-lg shadow-red-900/30 hover:shadow-red-900/50 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-60"
           >
-            <WarningCircle size={28} weight="bold" />
-            <span className="text-lg uppercase tracking-wider">{t('trustedContacts.alertAllContacts')}</span>
+            {isSending ? (
+              <>
+                <Spinner size={28} className="animate-spin" />
+                <span className="text-lg uppercase tracking-wider">{t('trustedContacts.acquiringLocation')}</span>
+              </>
+            ) : (
+              <>
+                <WarningCircle size={28} weight="bold" />
+                <span className="text-lg uppercase tracking-wider">{t('trustedContacts.alertAllContacts')}</span>
+              </>
+            )}
           </button>
           <p className="text-slate-500 text-xs text-center mt-2">
             {t('trustedContacts.oneTapDesc')}
@@ -437,7 +548,7 @@ const TrustedContacts = ({ onBack }) => {
                 window.deferredPrompt = null;
               });
             } else {
-              alert(t('home.installAlert'));
+              setShowInstallHelp(true);
             }
           }}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 inline-flex items-center gap-2"
@@ -448,12 +559,6 @@ const TrustedContacts = ({ onBack }) => {
         <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
           {t('emergency.installRecommended')}
         </p>
-        <button
-          onClick={() => setShowInstallHelp(true)}
-          className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
-        >
-          {t('emergency.installHelp')}
-        </button>
       </div>
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>

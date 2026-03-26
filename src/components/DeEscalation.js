@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, SpeakerSimpleLow, HandPalm, Brain, PersonArmsSpread, Handshake, Warning, DownloadSimple } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import InstallHelp from './InstallHelp';
+import FaqCta from './FaqCta';
+import { useRotatingQuote } from '../utils/quoteRotation';
 
 // Breathing Guide Component
 const BreathingGuide = ({ compact = false }) => {
@@ -307,8 +309,11 @@ const StudyCard = ({ icon: Icon, title, description, stoicAction, wiseActionsLab
   </div>
 );
 
-function DeEscalation({ onBack }) {
+function DeEscalation({ onBack, onNavigate }) {
   const { t } = useTranslation();
+  const deescAurelius = useRotatingQuote('deescalation.aureliusQuote', 'deescalation.aureliusAuthor', 'deesc-aurelius');
+  const deescEpictetus = useRotatingQuote('deescalation.epictetusQuote', 'deescalation.epictetusAuthor', 'deesc-epictetus');
+  const deescFrankl = useRotatingQuote('deescalation.franklQuote', 'deescalation.franklAuthor', 'deesc-frankl');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   const studyCards = [
@@ -359,12 +364,12 @@ function DeEscalation({ onBack }) {
       <div className="text-center mb-6">
         <h1 className="text-3xl font-black text-white tracking-wide mb-4">{t('deescalation.title')}</h1>
 
-        {/* Marcus Aurelius Quote */}
+        {/* Rotating Quote */}
         <div className="bg-blue-950/30 border border-blue-900/50 rounded-xl p-5 mb-4">
           <p className="text-blue-300 italic text-sm">
-            {t('deescalation.aureliusQuote')}
+            {deescAurelius.quote}
           </p>
-          <p className="text-blue-400 text-xs mt-2 font-medium">{t('deescalation.aureliusAuthor')}</p>
+          <p className="text-blue-400 text-xs mt-2 font-medium">{deescAurelius.author}</p>
         </div>
 
         {/* Intro Text */}
@@ -394,18 +399,21 @@ function DeEscalation({ onBack }) {
       <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5 mb-6 text-center">
         <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-3">{t('deescalation.finalPrinciple')}</p>
         <p className="text-slate-300 italic text-sm mb-4">
-          {t('deescalation.epictetusQuote')}
+          {deescEpictetus.quote}
         </p>
-        <p className="text-slate-500 text-xs">{t('deescalation.epictetusAuthor')}</p>
+        <p className="text-slate-500 text-xs">{deescEpictetus.author}</p>
       </div>
 
-      {/* Viktor Frankl Quote */}
+      {/* Rotating Quote */}
       <div className="text-center mb-8">
         <p className="text-slate-400 italic text-sm mb-2">
-          {t('deescalation.franklQuote')}
+          {deescFrankl.quote}
         </p>
-        <p className="text-slate-500 text-xs">{t('deescalation.franklAuthor')}</p>
+        <p className="text-slate-500 text-xs">{deescFrankl.author}</p>
       </div>
+
+      {/* FAQ Link */}
+      <FaqCta onNavigate={onNavigate} />
 
       {/* Disclaimer */}
       <div className="text-center mb-6">
@@ -440,7 +448,7 @@ function DeEscalation({ onBack }) {
                 window.deferredPrompt = null;
               });
             } else {
-              alert(t('home.installAlert'));
+              setShowInstallHelp(true);
             }
           }}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto"
@@ -451,12 +459,6 @@ function DeEscalation({ onBack }) {
         <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
           {t('emergency.installRecommended')}
         </p>
-        <button
-          onClick={() => setShowInstallHelp(true)}
-          className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
-        >
-          {t('emergency.installHelp')}
-        </button>
       </div>
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>

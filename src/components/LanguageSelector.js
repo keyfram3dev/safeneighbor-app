@@ -49,13 +49,16 @@ const LanguageSelector = ({ onSelect, isOpen = true }) => {
                 <Globe size={28} weight="bold" className="text-violet-400" />
               </div>
               <div className="space-y-0.5">
-                <p className="text-white text-lg font-bold">Choose Your Language</p>
-                <p className="text-slate-400 text-xs">Elige tu idioma · 选择你的语言 · Chwazi lang ou</p>
+                <p className="text-white text-lg font-bold">{t('language.chooseLanguage')}</p>
+                <p className="text-slate-400 text-xs">{t('language.chooseLanguagePrompt')}</p>
               </div>
             </div>
 
             {/* Search */}
             <div className="px-5 pb-3 shrink-0">
+              <label htmlFor="language-search" className="sr-only">
+                {t('language.searchLabel')}
+              </label>
               <div className="relative">
                 <MagnifyingGlass
                   size={16}
@@ -63,13 +66,18 @@ const LanguageSelector = ({ onSelect, isOpen = true }) => {
                   className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-500"
                 />
                 <input
+                  id="language-search"
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search languages..."
-                  className="w-full bg-slate-900/80 border border-slate-700 rounded-xl ps-9 pe-3 py-2.5 text-white text-sm placeholder-slate-600 focus:border-violet-500 outline-none transition-colors"
+                  placeholder={t('language.searchPlaceholder')}
+                  aria-describedby="language-search-help"
+                  className="w-full bg-slate-900/80 border border-slate-700 rounded-xl ps-9 pe-3 py-2.5 text-white text-sm placeholder-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-violet-400 focus:border-violet-500"
                 />
               </div>
+              <p id="language-search-help" className="sr-only">
+                {t('language.searchHelp')}
+              </p>
             </div>
 
             {/* Language List — scrollable */}
@@ -78,7 +86,7 @@ const LanguageSelector = ({ onSelect, isOpen = true }) => {
                 <div className="mb-2">
                   {!search.trim() && (
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2 py-1.5">
-                      Common Languages
+                      {t('language.commonLanguages')}
                     </p>
                   )}
                   {common.map((lang) => (
@@ -91,7 +99,7 @@ const LanguageSelector = ({ onSelect, isOpen = true }) => {
                 <div>
                   {!search.trim() && (
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2 py-1.5 mt-1">
-                      More Languages
+                      {t('language.moreLanguages')}
                     </p>
                   )}
                   {more.map((lang) => (
@@ -101,7 +109,9 @@ const LanguageSelector = ({ onSelect, isOpen = true }) => {
               )}
 
               {filtered.length === 0 && (
-                <p className="text-slate-500 text-sm text-center py-6">No languages match "{search}"</p>
+                <p className="text-slate-500 text-sm text-center py-6">
+                  {t('language.noMatches', { search })}
+                </p>
               )}
             </div>
 
@@ -123,7 +133,12 @@ const LanguageRow = ({ lang, onSelect }) => (
     onClick={() => onSelect(lang.code)}
     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-white/[0.08] active:scale-[0.98]"
   >
-    <span className="text-2xl leading-none">{lang.flag}</span>
+    <div
+      style={{ backgroundColor: lang.color }}
+      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+    >
+      <span className="text-white font-bold text-sm leading-none">{lang.symbol}</span>
+    </div>
     <div className="flex-1 text-start min-w-0">
       <p className="text-white font-bold text-sm">{lang.nativeName}</p>
       <p className="text-slate-500 text-xs">{lang.name}</p>

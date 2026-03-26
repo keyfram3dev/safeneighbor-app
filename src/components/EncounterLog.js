@@ -27,6 +27,7 @@ import { acquireLocation, reverseGeocode, buildLocationSmsUri } from '../utils/l
 import { getTrustedContacts } from '../utils/backup/accessGrants';
 import { generateEncounterReport } from '../utils/encounterLogDocument';
 import { useEncounterSync } from '../hooks/useEncounterSync';
+import { readEncrypted, writeEncrypted } from '../utils/encryptedStorage';
 import Disclaimer from './Disclaimer';
 
 const STORAGE_KEY = 'safeneighbor_encounter_logs';
@@ -63,6 +64,13 @@ const CATEGORY_COLORS = {
     btn: 'bg-slate-700/60 border-slate-600/50 text-slate-300 hover:bg-slate-600/70 active:scale-95',
     badge: 'bg-slate-700/50 text-slate-400',
   },
+  teal: {
+    bg: 'bg-teal-950/40',
+    border: 'border-teal-700/40',
+    text: 'text-teal-400',
+    btn: 'bg-teal-900/60 border-teal-700/50 text-teal-300 hover:bg-teal-800/70 active:scale-95',
+    badge: 'bg-teal-900/50 text-teal-400',
+  },
 };
 
 // Umami analytics helper
@@ -71,26 +79,24 @@ const track = (event, data) => {
 };
 
 // ── Persistence helpers ─────────────────────────────────
-const loadLogs = () => {
+const loadLogs = async () => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    return await readEncrypted(STORAGE_KEY, []);
   } catch {
     return [];
   }
 };
 
-const saveLogs = (logs) => {
+const saveLogs = async (logs) => {
   try {
-    // Prune to max
     const pruned = logs.slice(0, MAX_LOGS);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
+    await writeEncrypted(STORAGE_KEY, pruned);
   } catch {}
 };
 
 // ── Component ───────────────────────────────────────────
 
-const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettings }) => {
+const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = false, onOpenBackupSettings }) => {
   const { t } = useTranslation();
 
   // Quick-tap event categories (inside component for t() access)
@@ -145,13 +151,74 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
     },
   ], [t]);
 
-  const [logs, setLogs] = useState(loadLogs);
+  // Witness-specific event categories (bystander documentation)
+  const WITNESS_EVENT_CATEGORIES = useMemo(() => [
+    {
+      id: 'observation',
+      label: t('encounterLog.categoryObservation'),
+      color: 'teal',
+      events: [
+        t('encounterLog.witnessAgencyIdentified'),
+        t('encounterLog.witnessBadgeNumbers'),
+        t('encounterLog.witnessVehiclePlates'),
+        t('encounterLog.witnessWarrantShown'),
+        t('encounterLog.witnessWarrantType'),
+      ],
+    },
+    {
+      id: 'detained',
+      label: t('encounterLog.categoryDetained'),
+      color: 'red',
+      events: [
+        t('encounterLog.witnessPersonDetained'),
+        t('encounterLog.witnessPersonSearched'),
+        t('encounterLog.witnessPlacedInVehicle'),
+        t('encounterLog.witnessPersonName'),
+        t('encounterLog.witnessCountryOfOrigin'),
+      ],
+    },
+    {
+      id: 'scene',
+      label: t('encounterLog.categoryScene'),
+      color: 'amber',
+      events: [
+        t('encounterLog.witnessNumberOfAgents'),
+        t('encounterLog.witnessNumberOfVehicles'),
+        t('encounterLog.witnessAskedToMove'),
+        t('encounterLog.witnessCompliedWithRequest'),
+        t('encounterLog.witnessForceObserved'),
+      ],
+    },
+    {
+      id: 'documentation',
+      label: t('encounterLog.categoryDocumentation'),
+      color: 'slate',
+      events: [
+        t('encounterLog.witnessStartedRecording'),
+        t('encounterLog.witnessPhotosTaken'),
+        t('encounterLog.witnessLocationNoted'),
+        t('encounterLog.witnessCustomNote'),
+      ],
+    },
+  ], [t]);
+
+  const activeCategories = witnessMode ? WITNESS_EVENT_CATEGORIES : EVENT_CATEGORIES;
+
+  const [logs, setLogs] = useState([]);
   const [activeLog, setActiveLog] = useState(null);
-  const [resumeCandidate, setResumeCandidate] = useState(() => {
-    // Check for an unfinished log matching the current mode
-    const stored = loadLogs();
-    return stored.find((l) => !l.endedAt && (afterMode ? l.afterTheFact : !l.afterTheFact)) || null;
-  });
+  const [resumeCandidate, setResumeCandidate] = useState(null);
+
+  // Async load from encrypted storage on mount
+  useEffect(() => {
+    let cancelled = false;
+    loadLogs().then((stored) => {
+      if (cancelled) return;
+      setLogs(stored);
+      const candidate = stored.find((l) => !l.endedAt && (witnessMode ? l.witnessLog : (afterMode ? l.afterTheFact : !l.afterTheFact && !l.witnessLog))) || null;
+      setResumeCandidate(candidate);
+    });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLog, setShareLog] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -300,11 +367,12 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
       notes: '',
       updatedAt: now,
       ...(useAfterMode && { afterTheFact: true }),
+      ...(witnessMode && { witnessLog: true }),
     };
 
     setActiveLog(newLog);
     setIsStarting(false);
-    track('encounter_log', { action: 'start', mode: useAfterMode ? 'after' : 'now' });
+    track('encounter_log', { action: 'start', mode: witnessMode ? 'witness' : useAfterMode ? 'after' : 'now' });
   };
 
   const handleEndEncounter = () => {
@@ -317,12 +385,25 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
     track('encounter_log', { action: 'end', events: activeLog.events.length });
   };
 
+  // Witness events that need free-text input
+  const witnessNoteEvents = useMemo(() => new Set([
+    t('encounterLog.witnessBadgeNumbers'),
+    t('encounterLog.witnessVehiclePlates'),
+    t('encounterLog.witnessWarrantType'),
+    t('encounterLog.witnessPersonName'),
+    t('encounterLog.witnessCountryOfOrigin'),
+    t('encounterLog.witnessNumberOfAgents'),
+    t('encounterLog.witnessNumberOfVehicles'),
+    t('encounterLog.witnessCustomNote'),
+  ]), [t]);
+
   const handleAddEvent = (category, label) => {
     if (!activeLog) return;
-    const isDetailCategory = category === 'details';
+    const isDetailCategory = category === 'details' || category === 'documentation';
+    const needsNote = witnessNoteEvents.has(label);
 
-    // For detail events, open a note input instead of immediately logging
-    if (isDetailCategory) {
+    // For detail events or witness events needing text, open a note input
+    if (isDetailCategory || needsNote) {
       setDetailNoteFor({ category, label });
       setDetailNoteText('');
       return;
@@ -482,9 +563,9 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
     }
   };
 
-  const handleSendToContacts = () => {
+  const handleSendToContacts = async () => {
     if (!shareLog) return;
-    const contacts = getTrustedContacts();
+    const contacts = await getTrustedContacts();
     if (!contacts.length) {
       alert(t('encounterLog.noTrustedContacts'));
       return;
@@ -510,7 +591,7 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
   };
 
   const categoryLabel = (cat) => {
-    const found = EVENT_CATEGORIES.find((c) => c.id === cat);
+    const found = activeCategories.find((c) => c.id === cat);
     return found ? found.label.toUpperCase() : cat.toUpperCase();
   };
 
@@ -530,13 +611,15 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
           <span className="text-sm font-medium">{t('encounterLog.back')}</span>
         </button>
         <div className="flex items-center gap-3 mb-2">
-          <NotePencil size={36} weight="bold" className="text-amber-400" />
+          <NotePencil size={36} weight="bold" className={witnessMode ? 'text-teal-400' : 'text-amber-400'} />
           <h1 className="text-3xl font-black text-white tracking-wide">{t('encounterLog.title')}</h1>
         </div>
         <p className="text-slate-400 text-sm">
-          {afterMode
-            ? t('encounterLog.subtitleAfter')
-            : t('encounterLog.subtitleNow')}
+          {witnessMode
+            ? t('encounterLog.subtitleWitness')
+            : afterMode
+              ? t('encounterLog.subtitleAfter')
+              : t('encounterLog.subtitleNow')}
         </p>
 
         {/* Cloud backup toggle / setup link */}
@@ -682,7 +765,7 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
               <button
                 onClick={() => handleStartEncounter(false)}
                 disabled={isStarting}
-                className="w-full bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white font-black py-5 px-6 rounded-2xl transition-all shadow-lg shadow-red-900/40 active:scale-95 flex items-center justify-center gap-3 text-lg uppercase tracking-wider disabled:opacity-60"
+                className={`w-full bg-gradient-to-r ${witnessMode ? 'from-teal-700 to-teal-600 hover:from-teal-600 hover:to-teal-500 shadow-teal-900/40' : 'from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 shadow-red-900/40'} text-white font-black py-5 px-6 rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-3 text-lg uppercase tracking-wider disabled:opacity-60`}
               >
                 {isStarting ? (
                   <>
@@ -708,16 +791,16 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
       {activeLog && (
         <>
           {/* Active indicator + timer */}
-          <div className={`mb-4 bg-gradient-to-r ${activeLog.afterTheFact ? 'from-amber-950/50' : 'from-red-950/50'} to-slate-900/50 border ${activeLog.afterTheFact ? 'border-amber-700/40' : 'border-red-700/40'} rounded-xl p-4`}>
+          <div className={`mb-4 bg-gradient-to-r ${activeLog.witnessLog ? 'from-teal-950/50' : activeLog.afterTheFact ? 'from-amber-950/50' : 'from-red-950/50'} to-slate-900/50 border ${activeLog.witnessLog ? 'border-teal-700/40' : activeLog.afterTheFact ? 'border-amber-700/40' : 'border-red-700/40'} rounded-xl p-4`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-3 w-3">
                   {!activeLog.endedAt && !activeLog.afterTheFact && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${activeLog.witnessLog ? 'bg-teal-400' : 'bg-red-400'} opacity-75`} />
                   )}
-                  <span className={`relative inline-flex rounded-full h-3 w-3 ${activeLog.endedAt ? 'bg-slate-500' : activeLog.afterTheFact ? 'bg-amber-500' : 'bg-red-500'}`} />
+                  <span className={`relative inline-flex rounded-full h-3 w-3 ${activeLog.endedAt ? 'bg-slate-500' : activeLog.witnessLog ? 'bg-teal-500' : activeLog.afterTheFact ? 'bg-amber-500' : 'bg-red-500'}`} />
                 </span>
-                <span className={`font-bold text-sm uppercase tracking-wider ${activeLog.endedAt ? 'text-slate-400' : activeLog.afterTheFact ? 'text-amber-400' : 'text-red-400'}`}>
+                <span className={`font-bold text-sm uppercase tracking-wider ${activeLog.endedAt ? 'text-slate-400' : activeLog.witnessLog ? 'text-teal-400' : activeLog.afterTheFact ? 'text-amber-400' : 'text-red-400'}`}>
                   {activeLog.endedAt
                     ? (activeLog.afterTheFact ? t('encounterLog.logComplete') : t('encounterLog.encounterEnded'))
                     : activeLog.afterTheFact ? t('encounterLog.loggingAfterTheFact') : t('encounterLog.recording')}
@@ -744,7 +827,7 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
           {/* Quick-tap event grid */}
           {!activeLog.endedAt && (
             <div className="space-y-3 mb-6">
-              {EVENT_CATEGORIES.map((cat) => {
+              {activeCategories.map((cat) => {
                 const colors = CATEGORY_COLORS[cat.color];
                 const isExpanded = expandedCategory === cat.id;
                 return (
@@ -824,7 +907,7 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, onOpenBackupSettin
               </h3>
               <div className="space-y-2">
                 {[...activeLog.events].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((event) => {
-                  const cat = EVENT_CATEGORIES.find((c) => c.id === event.category);
+                  const cat = activeCategories.find((c) => c.id === event.category);
                   const colors = cat ? CATEGORY_COLORS[cat.color] : CATEGORY_COLORS.slate;
                   const evtDate = new Date(event.timestamp);
                   return (

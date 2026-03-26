@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SpeakerHigh, Megaphone, House, Thermometer, DeviceMobile, Lightbulb, Warning, DownloadSimple, Eye, Hand, HandWaving, HandPointing, HandGrabbing } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { tapHaptic } from '../utils/haptics';
+import { useRotatingQuote } from '../utils/quoteRotation';
 import InstallHelp from './InstallHelp';
 
 // Sound files for community signals (not translatable)
@@ -55,6 +56,7 @@ const SignalCard = ({ pattern, title, description, neighborResponse, neighborRes
 
 function Whistle() {
   const { t } = useTranslation();
+  const whistleQuote = useRotatingQuote('signals.nietzscheQuote', 'signals.nietzscheAuthor', 'whistle');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   const communitySignals = [
@@ -255,12 +257,12 @@ function Whistle() {
         </ul>
       </div>
 
-      {/* Nietzsche Quote */}
+      {/* Rotating Quote */}
       <div className="text-center mb-8">
         <p className="text-slate-400 italic text-sm mb-2">
-          {t('signals.nietzscheQuote')}
+          {whistleQuote.quote}
         </p>
-        <p className="text-slate-500 text-xs">{t('signals.nietzscheAuthor')}</p>
+        <p className="text-slate-500 text-xs">{whistleQuote.author}</p>
       </div>
 
       {/* Disclaimer */}
@@ -296,7 +298,7 @@ function Whistle() {
                 window.deferredPrompt = null;
               });
             } else {
-              alert(t('home.installAlert'));
+              setShowInstallHelp(true);
             }
           }}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto"
@@ -307,12 +309,6 @@ function Whistle() {
         <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
           {t('emergency.installRecommended')}
         </p>
-        <button
-          onClick={() => setShowInstallHelp(true)}
-          className="text-blue-400 hover:text-blue-300 text-xs font-semibold mt-2 transition-colors"
-        >
-          {t('emergency.installHelp')}
-        </button>
       </div>
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>

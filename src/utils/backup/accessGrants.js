@@ -2,10 +2,36 @@
 // Manages trusted contacts and access sharing for encrypted backups
 // Allows sharing encryption keys and access instructions with lawyers/family
 
-import { exportKey, generateRandomId } from '../crypto';
+import { exportKey, generateRandomId, ensureEncryptionReady } from '../crypto';
+import { readEncrypted, writeEncrypted } from '../encryptedStorage';
 
 // LocalStorage keys for trusted contacts
 const CONTACTS_STORAGE_KEY = 'safeneighbor_trusted_contacts';
+
+const writeContactsLocally = (contacts) => {
+  localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
+};
+
+const persistTrustedContacts = async (contacts) => {
+  try {
+    await ensureEncryptionReady();
+  } catch {
+    // Trusted contacts are critical safety data. If the encrypted path
+    // cannot initialize here, we still persist locally on-device.
+  }
+
+  try {
+    const didWrite = await writeEncrypted(CONTACTS_STORAGE_KEY, contacts);
+    if (didWrite) {
+      return true;
+    }
+  } catch {
+    // Fall through to device-local plaintext storage below.
+  }
+
+  writeContactsLocally(contacts);
+  return true;
+};
 
 /**
  * Access Grant Manager
@@ -33,6 +59,7 @@ export class AccessGrantManager {
       id: generateRandomId(),
       version: 1,
       createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days
       contact: {
         name: contactInfo.name,
         email: contactInfo.email,
@@ -167,6 +194,11 @@ If you need technical assistance, the open-source SafeNeighbor
 project documentation may help: [project URL]
 
 This access package was generated on: ${new Date().toISOString()}
+This access package expires on: ${new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()}
+
+⚠ IMPORTANT: This package contains cloud storage credentials.
+Keep it secure. Do not share it beyond the intended recipient.
+Request a new package from the original owner after expiry.
 
 ═══════════════════════════════════════════════════════════════
     `.trim();
@@ -179,6 +211,7 @@ This access package was generated on: ${new Date().toISOString()}
     // Create a minimal shareable version
     const minimalPackage = {
       v: 1, // version
+      x: accessPackage.expiresAt, // expiry — checked on decode
       r: {
         e: accessPackage.r2.endpoint,
         i: accessPackage.r2.accountId,
@@ -200,6 +233,10 @@ This access package was generated on: ${new Date().toISOString()}
   static decodePackage(encoded) {
     try {
       const minimalPackage = JSON.parse(atob(encoded));
+      // Enforce expiry — packages are valid for 90 days from creation
+      if (minimalPackage.x && new Date(minimalPackage.x) < new Date()) {
+        throw new Error('Access package has expired. Please request a new one from the original owner.');
+      }
       return {
         r2: {
           endpoint: minimalPackage.r.e,
@@ -211,9 +248,10 @@ This access package was generated on: ${new Date().toISOString()}
         encryption: {
           key: minimalPackage.e.k,
         },
+        expiresAt: minimalPackage.x || null,
       };
     } catch (error) {
-      throw new Error('Invalid access package format');
+      throw new Error(error.message || 'Invalid access package format');
     }
   }
 
@@ -233,12 +271,11 @@ This access package was generated on: ${new Date().toISOString()}
 
 /**
  * Get all trusted contacts
- * @returns {Array} List of contacts
+ * @returns {Promise<Array>} List of contacts
  */
-export const getTrustedContacts = () => {
+export const getTrustedContacts = async () => {
   try {
-    const stored = localStorage.getItem(CONTACTS_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    return await readEncrypted(CONTACTS_STORAGE_KEY, []);
   } catch {
     return [];
   }
@@ -247,10 +284,10 @@ export const getTrustedContacts = () => {
 /**
  * Add a trusted contact
  * @param {Object} contact - { name, email, phone, relationship }
- * @returns {Object} The added contact with ID
+ * @returns {Promise<Object>} The added contact with ID
  */
-export const addTrustedContact = (contact) => {
-  const contacts = getTrustedContacts();
+export const addTrustedContact = async (contact) => {
+  const contacts = await getTrustedContacts();
   const newContact = {
     id: generateRandomId(),
     createdAt: new Date().toISOString(),
@@ -259,7 +296,7 @@ export const addTrustedContact = (contact) => {
     lastSharedAt: null,
   };
   contacts.push(newContact);
-  localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
+  await persistTrustedContacts(contacts);
   return newContact;
 };
 
@@ -268,12 +305,12 @@ export const addTrustedContact = (contact) => {
  * @param {string} id - Contact ID
  * @param {Object} updates - Fields to update
  */
-export const updateTrustedContact = (id, updates) => {
-  const contacts = getTrustedContacts();
+export const updateTrustedContact = async (id, updates) => {
+  const contacts = await getTrustedContacts();
   const index = contacts.findIndex(c => c.id === id);
   if (index !== -1) {
     contacts[index] = { ...contacts[index], ...updates };
-    localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
+    await persistTrustedContacts(contacts);
     return contacts[index];
   }
   return null;
@@ -283,17 +320,17 @@ export const updateTrustedContact = (id, updates) => {
  * Remove a trusted contact
  * @param {string} id - Contact ID
  */
-export const removeTrustedContact = (id) => {
-  const contacts = getTrustedContacts();
+export const removeTrustedContact = async (id) => {
+  const contacts = await getTrustedContacts();
   const filtered = contacts.filter(c => c.id !== id);
-  localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(filtered));
+  await persistTrustedContacts(filtered);
   return filtered;
 };
 
 /**
  * Mark a contact as having received access
  */
-export const markAccessShared = (contactId) => {
+export const markAccessShared = async (contactId) => {
   return updateTrustedContact(contactId, {
     accessShared: true,
     lastSharedAt: new Date().toISOString(),

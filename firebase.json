@@ -16,9 +16,26 @@
     ],
     "headers": [
       {
+        "source": "**",
+        "headers": [
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "X-Frame-Options", "value": "DENY" },
+          { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+          { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=(self), interest-cohort=()" },
+          { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://unpkg.com https://cloud.umami.is https://accounts.google.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org; media-src 'self' blob: data:; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://nominatim.openstreetmap.org https://safeneighbor-gemini-proxy.mitchgrutter.workers.dev https://safeneighbor-ors-proxy.mitchgrutter.workers.dev https://*.cloudfunctions.net https://cloud.umami.is https://api-gateway.umami.dev https://accounts.google.com https://overpass-api.de https://*.r2.cloudflarestorage.com https://www.federalregister.gov https://www.courtlistener.com https://ipwho.is https://ipapi.co; font-src 'self'; frame-src 'self' https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self';" }
+        ]
+      },
+      {
         "source": "/service-worker.js",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        ]
+      },
+      {
+        "source": "**/*.map",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-store" }
         ]
       }
     ],

@@ -5,6 +5,26 @@
 
 export const LAST_VERIFIED = 'February 2025';
 
+// ─── Instant Help Services (on-demand attorney connections) ─────
+export const INSTANT_HELP_SERVICES = [
+  {
+    id: 'instant-turnsignl',
+    name: 'TurnSignl',
+    type: 'video',
+    phone: null,
+    url: 'https://turnsignl.com',
+    available24_7: true,
+  },
+  {
+    id: 'instant-goodcall',
+    name: 'GoodCall',
+    type: 'phone',
+    phone: '1-855-274-0205',
+    url: 'https://goodcall.nyc',
+    available24_7: true,
+  },
+];
+
 export const RESOURCE_CATEGORIES = [
   { id: 'all', label: 'All' },
   { id: 'hotline', label: 'Hotlines' },
@@ -23,7 +43,8 @@ export const NATIONAL_RESOURCES = {
       phone: '1-209-757-3733',
       url: 'https://www.freedomforimmigrants.org/hotline',
       category: 'hotline',
-      hours: 'Mon-Fri 8am-8pm PT',
+      hours: 'Mon–Fri 8am–8pm PT',
+      available24_7: false,
       languages: ['English', 'Spanish'],
     },
     {
@@ -33,7 +54,8 @@ export const NATIONAL_RESOURCES = {
       phone: '1-844-363-1423',
       url: 'https://unitedwedream.org',
       category: 'hotline',
-      hours: null,
+      hours: 'Mon–Fri 9am–5pm ET',
+      available24_7: false,
       languages: ['English', 'Spanish'],
     },
     {
@@ -43,7 +65,8 @@ export const NATIONAL_RESOURCES = {
       phone: '1-212-725-6422',
       url: 'https://www.immigrantdefenseproject.org',
       category: 'hotline',
-      hours: 'Tues & Thurs 2-4:30pm ET',
+      hours: 'Tue & Thu 2–4:30pm ET',
+      available24_7: false,
       languages: ['English', 'Spanish'],
     },
     {
@@ -53,7 +76,8 @@ export const NATIONAL_RESOURCES = {
       phone: '1-833-372-4237',
       url: 'https://raicestexas.org',
       category: 'hotline',
-      hours: null,
+      hours: 'Mon–Fri 9am–5pm CT',
+      available24_7: false,
       languages: ['English', 'Spanish'],
     },
     {
@@ -63,17 +87,19 @@ export const NATIONAL_RESOURCES = {
       phone: '1-800-328-2322',
       url: 'https://www.latinojustice.org',
       category: 'hotline',
-      hours: null,
+      hours: 'Mon–Fri 9am–5pm ET',
+      available24_7: false,
       languages: ['English', 'Spanish'],
     },
     {
       id: 'nat-h-6',
-      name: 'Immigration Equality (LGBTQ)',
+      name: 'Immigration Equality (LGBTQ+)',
       description: 'Legal services for LGBTQ and HIV-positive immigrants.',
       phone: '1-212-714-2904',
       url: 'https://immigrationequality.org',
       category: 'hotline',
-      hours: 'Weekdays',
+      hours: 'Mon–Fri 9am–5pm ET',
+      available24_7: false,
       languages: ['English', 'Spanish'],
     },
     {
@@ -83,7 +109,8 @@ export const NATIONAL_RESOURCES = {
       phone: '1-800-375-5283',
       url: 'https://www.uscis.gov/contactcenter',
       category: 'hotline',
-      hours: 'Mon-Fri 8am-8pm ET',
+      hours: 'Mon–Fri 8am–8pm ET',
+      available24_7: false,
       languages: ['English', 'Spanish'],
     },
     {
@@ -94,6 +121,7 @@ export const NATIONAL_RESOURCES = {
       url: null,
       category: 'hotline',
       hours: '24/7',
+      available24_7: true,
       languages: ['English', 'Spanish', '200+ via interpreters'],
     },
     {
@@ -104,7 +132,52 @@ export const NATIONAL_RESOURCES = {
       url: 'https://www.thehotline.org',
       category: 'hotline',
       hours: '24/7',
+      available24_7: true,
       languages: ['English', 'Spanish', '200+ via interpreters'],
+    },
+    {
+      id: 'nat-h-10',
+      name: 'GoodCall — Arrest Hotline',
+      description: 'Free 24/7 emergency legal hotline for people being arrested. Connects to an attorney within minutes.',
+      phone: '1-855-274-0205',
+      url: 'https://goodcall.nyc',
+      category: 'hotline',
+      hours: '24/7',
+      available24_7: true,
+      languages: ['English', 'Spanish'],
+    },
+    {
+      id: 'nat-h-11',
+      name: 'National Lawyers Guild — Legal Support',
+      description: 'Volunteer attorneys for protest arrests and mass defense. Regional chapters provide local support.',
+      phone: '1-212-679-5100',
+      url: 'https://www.nlg.org',
+      category: 'hotline',
+      hours: 'Mon–Fri 9am–5pm ET',
+      available24_7: false,
+      languages: ['English', 'Spanish'],
+    },
+    {
+      id: 'nat-h-12',
+      name: 'NNIRR Immigration Hotline Directory',
+      description: 'Master list of state and local immigration hotlines maintained by the National Network for Immigrant and Refugee Rights.',
+      phone: null,
+      url: 'https://nnirr.org/education-resources/community-resources-legal-assistance-recursos-comunitarios-asistencia-legal/immigration-hotlines-lineas-directas-de-inmigracion/',
+      category: 'hotline',
+      hours: 'Varies by hotline',
+      available24_7: false,
+      languages: ['English', 'Spanish'],
+    },
+    {
+      id: 'nat-h-13',
+      name: 'National Association for Public Defense — Rapid Response Hotlines',
+      description: 'Directory of rapid response network hotlines for communities facing immigration enforcement actions.',
+      phone: null,
+      url: 'https://publicdefenders.us',
+      category: 'hotline',
+      hours: 'Varies by region',
+      available24_7: false,
+      languages: ['English', 'Spanish'],
     },
   ],
   organizations: [
@@ -172,6 +245,30 @@ export const NATIONAL_RESOURCES = {
       url: 'https://supportkind.org',
       category: 'legal-aid',
     },
+    {
+      id: 'nat-o-9',
+      name: 'RedadAlertas — Community ICE Raid Reporting',
+      description: 'Open-source community tool for real-time ICE raid reporting and alerts. Report sightings and receive location-based notifications.',
+      phone: null,
+      url: 'https://redadalertas.com',
+      category: 'community',
+    },
+    {
+      id: 'nat-o-10',
+      name: 'ReadyNow! — Emergency Preparedness App',
+      description: 'Free app from Human Rights First. Build a personalized emergency plan with one-tap alerts to your contacts during an ICE encounter. Available in English, Spanish, Korean, Chinese, Haitian Creole, and French.',
+      phone: null,
+      url: 'https://www.humanrightsfirst.org/readynow',
+      category: 'community',
+    },
+    {
+      id: 'nat-o-11',
+      name: 'ICEBlock — Community ICE Sighting Reports',
+      description: 'Waze-like community platform for reporting and viewing ICE sightings in your area. No personal data stored.',
+      phone: null,
+      url: 'https://www.iceblock.app',
+      category: 'community',
+    },
   ],
   directories: [
     {
@@ -209,6 +306,37 @@ export const NATIONAL_RESOURCES = {
       url: 'https://www.justice.gov/eoir/list-pro-bono-legal-service-providers',
       category: 'directory',
     },
+    {
+      id: 'nat-d-6',
+      name: 'ICE Online Detainee Locator (ODLS)',
+      description: 'Search for a detained person by name, country of birth, or A-Number. Government website — may not update for 12-24 hours after detention.',
+      url: 'https://locator.ice.gov/odls/',
+      category: 'directory',
+      governmentSite: true,
+    },
+    {
+      id: 'nat-d-7',
+      name: 'ABA Free Legal Answers — Immigration Portal',
+      description: 'Submit immigration law questions for free and get answers from licensed pro bono attorneys through the American Bar Association.',
+      url: 'https://abafreelegalanswers.org/',
+      category: 'directory',
+    },
+    {
+      id: 'nat-d-8',
+      name: 'EOIR Immigration Court Case Status (ACIS)',
+      description: 'Check your immigration court hearing dates and case status online using your Alien Registration Number (A-Number). Government website.',
+      url: 'https://acis.eoir.justice.gov/',
+      category: 'directory',
+      governmentSite: true,
+    },
+    {
+      id: 'nat-d-9',
+      name: 'DOJ Recognized Organizations & Accredited Representatives',
+      description: 'Official government roster of nonprofit organizations authorized by the Department of Justice to provide immigration legal services. Searchable by state and city.',
+      url: 'https://www.justice.gov/eoir/recognized-organizations-and-accredited-representatives-roster-state-and-city',
+      category: 'directory',
+      governmentSite: true,
+    },
   ],
   knowYourRights: [
     {
@@ -244,6 +372,27 @@ export const NATIONAL_RESOURCES = {
       name: 'Informed Immigrant',
       description: '200+ trusted resources covering know-your-rights, family preparation, DACA, and ICE enforcement preparation.',
       url: 'https://www.informedimmigrant.com/help/',
+      category: 'know-your-rights',
+    },
+    {
+      id: 'nat-k-6',
+      name: 'ACLU Mobile Justice',
+      description: 'Record encounters with law enforcement with automatic upload to the ACLU. State-specific recording guidance.',
+      url: 'https://www.aclu.org/issues/criminal-law-reform/reforming-police/aclu-apps-record-police-conduct',
+      category: 'know-your-rights',
+    },
+    {
+      id: 'nat-k-7',
+      name: 'ACLU — Know Your Rights Lockscreen Graphics',
+      description: 'Downloadable phone lockscreen images with your rights during police and ICE encounters. Available in English and Spanish — set as your wallpaper for instant reference.',
+      url: 'https://www.aclu.org/know-your-rights/what-do-if-youre-stopped-police-infographic',
+      category: 'know-your-rights',
+    },
+    {
+      id: 'nat-k-8',
+      name: 'CLINIC Rapid Response Toolkit',
+      description: 'Comprehensive toolkit from the Catholic Legal Immigration Network for community response to immigration enforcement. Includes know-your-rights materials, family preparedness plans, and organizing guides.',
+      url: 'https://www.cliniclegal.org/toolkits/rapid-response-toolkit',
       category: 'know-your-rights',
     },
   ],
@@ -306,6 +455,7 @@ export const ALL_STATES = [
 export const STATE_RESOURCES = {
   alabama: {
     name: 'Alabama',
+    barAssociation: { name: 'Alabama State Bar', phone: '1-800-354-6154', url: 'https://www.alabar.org/public/lawyer-referral-service/' },
     organizations: [
       {
         id: 'al-1',
@@ -342,6 +492,7 @@ export const STATE_RESOURCES = {
   },
   alaska: {
     name: 'Alaska',
+    barAssociation: { name: 'Alaska Bar Association', phone: '1-907-272-7469', url: 'https://alaskabar.org/lawyer-referral-service/' },
     organizations: [
       {
         id: 'ak-1',
@@ -377,6 +528,7 @@ export const STATE_RESOURCES = {
   },
   arizona: {
     name: 'Arizona',
+    barAssociation: { name: 'State Bar of Arizona', phone: '1-602-340-7239', url: 'https://www.azbar.org/for-the-public/lawyer-referral-service/' },
     organizations: [
       {
         id: 'az-1',
@@ -432,6 +584,7 @@ export const STATE_RESOURCES = {
   },
   arkansas: {
     name: 'Arkansas',
+    barAssociation: { name: 'Arkansas Bar Association', phone: '1-501-375-4606', url: 'https://www.arkbar.com/' },
     organizations: [
       {
         id: 'ar-1',
@@ -467,6 +620,7 @@ export const STATE_RESOURCES = {
   },
   california: {
     name: 'California',
+    barAssociation: { name: 'State Bar of California', phone: '1-866-442-2529', url: 'https://www.calbar.ca.gov/Public/Need-Legal-Help' },
     organizations: [
       {
         id: 'ca-1',
@@ -542,6 +696,7 @@ export const STATE_RESOURCES = {
   },
   colorado: {
     name: 'Colorado',
+    barAssociation: { name: 'Colorado Bar Association', phone: '1-303-831-5723', url: 'https://www.cobar.org/For-the-Public/Find-a-Lawyer' },
     organizations: [
       {
         id: 'co-1',
@@ -587,6 +742,7 @@ export const STATE_RESOURCES = {
   },
   connecticut: {
     name: 'Connecticut',
+    barAssociation: { name: 'CT Bar Association', phone: '1-860-525-6052', url: 'https://www.ctbar.org/public/lawyer-referral-service' },
     organizations: [
       {
         id: 'ct-1',
@@ -622,6 +778,7 @@ export const STATE_RESOURCES = {
   },
   delaware: {
     name: 'Delaware',
+    barAssociation: { name: 'Delaware State Bar', phone: '1-302-658-5279', url: 'https://www.dsba.org/public/lawyer-referral/' },
     organizations: [
       {
         id: 'de-1',
@@ -647,6 +804,7 @@ export const STATE_RESOURCES = {
   },
   dc: {
     name: 'District of Columbia',
+    barAssociation: { name: 'DC Bar', phone: '1-202-737-4700', url: 'https://www.dcbar.org/for-the-public/lawyer-referral-service' },
     organizations: [
       {
         id: 'dc-1',
@@ -702,6 +860,7 @@ export const STATE_RESOURCES = {
   },
   florida: {
     name: 'Florida',
+    barAssociation: { name: 'Florida Bar', phone: '1-800-342-8011', url: 'https://www.floridabar.org/public/lrs/' },
     organizations: [
       {
         id: 'fl-1',
@@ -747,6 +906,7 @@ export const STATE_RESOURCES = {
   },
   georgia: {
     name: 'Georgia',
+    barAssociation: { name: 'State Bar of Georgia', phone: '1-404-527-8700', url: 'https://www.gabar.org/forthepublic/lawyerreferralservice.cfm' },
     organizations: [
       {
         id: 'ga-1',
@@ -792,6 +952,7 @@ export const STATE_RESOURCES = {
   },
   hawaii: {
     name: 'Hawaii',
+    barAssociation: { name: 'Hawaii State Bar', phone: '1-808-537-1868', url: 'https://hsba.org/HSBA/FOR_THE_PUBLIC/Lawyer_Referral_Service.aspx' },
     organizations: [
       {
         id: 'hi-1',
@@ -828,6 +989,7 @@ export const STATE_RESOURCES = {
   },
   idaho: {
     name: 'Idaho',
+    barAssociation: { name: 'Idaho State Bar', phone: '1-208-334-4500', url: 'https://isb.idaho.gov/ilrs/' },
     organizations: [
       {
         id: 'id-1',
@@ -864,6 +1026,7 @@ export const STATE_RESOURCES = {
   },
   illinois: {
     name: 'Illinois',
+    barAssociation: { name: 'Illinois State Bar', phone: '1-800-922-8757', url: 'https://www.isba.org/public/lawyerfinder' },
     organizations: [
       {
         id: 'il-1',
@@ -911,6 +1074,7 @@ export const STATE_RESOURCES = {
   },
   indiana: {
     name: 'Indiana',
+    barAssociation: { name: 'Indiana State Bar', phone: '1-317-269-2222', url: 'https://www.inbar.org/page/lawyer-referral-service' },
     organizations: [
       {
         id: 'in-1',
@@ -937,6 +1101,7 @@ export const STATE_RESOURCES = {
   },
   iowa: {
     name: 'Iowa',
+    barAssociation: { name: 'Iowa State Bar', phone: '1-515-243-3179', url: 'https://www.iowabar.org/page/findlawyer' },
     organizations: [
       {
         id: 'ia-1',
@@ -973,6 +1138,7 @@ export const STATE_RESOURCES = {
   },
   kansas: {
     name: 'Kansas',
+    barAssociation: { name: 'Kansas Bar Association', phone: '1-785-234-5696', url: 'https://www.ksbar.org/page/lrs' },
     organizations: [
       {
         id: 'ks-1',
@@ -1000,6 +1166,7 @@ export const STATE_RESOURCES = {
   },
   kentucky: {
     name: 'Kentucky',
+    barAssociation: { name: 'Kentucky Bar Association', phone: '1-502-564-3795', url: 'https://www.kybar.org/page/LRS' },
     organizations: [
       {
         id: 'ky-1',
@@ -1035,6 +1202,7 @@ export const STATE_RESOURCES = {
   },
   louisiana: {
     name: 'Louisiana',
+    barAssociation: { name: 'Louisiana State Bar', phone: '1-800-421-5722', url: 'https://www.lsba.org/Public/LawyerReferral.aspx' },
     organizations: [
       {
         id: 'la-1',
@@ -1080,6 +1248,7 @@ export const STATE_RESOURCES = {
   },
   maine: {
     name: 'Maine',
+    barAssociation: { name: 'Maine State Bar', phone: '1-207-622-7523', url: 'https://www.mainebar.org/page/LawyerReferral' },
     organizations: [
       {
         id: 'me-1',
@@ -1106,6 +1275,7 @@ export const STATE_RESOURCES = {
   },
   maryland: {
     name: 'Maryland',
+    barAssociation: { name: 'Maryland State Bar', phone: '1-800-492-1964', url: 'https://www.msba.org/for-the-public/lawyer-referral-service/' },
     organizations: [
       {
         id: 'md-1',
@@ -1151,6 +1321,7 @@ export const STATE_RESOURCES = {
   },
   massachusetts: {
     name: 'Massachusetts',
+    barAssociation: { name: 'Massachusetts Bar', phone: '1-617-654-0400', url: 'https://www.massbar.org/public/lawyer-referral-service' },
     organizations: [
       {
         id: 'ma-1',
@@ -1206,6 +1377,7 @@ export const STATE_RESOURCES = {
   },
   michigan: {
     name: 'Michigan',
+    barAssociation: { name: 'State Bar of Michigan', phone: '1-800-968-0738', url: 'https://www.michbar.org/public/lawyerreferral' },
     organizations: [
       {
         id: 'mi-1',
@@ -1251,6 +1423,7 @@ export const STATE_RESOURCES = {
   },
   minnesota: {
     name: 'Minnesota',
+    barAssociation: { name: 'Minnesota State Bar', phone: '1-612-752-6699', url: 'https://www.mnbar.org/public/find-a-lawyer' },
     organizations: [
       {
         id: 'mn-1',
@@ -1287,6 +1460,7 @@ export const STATE_RESOURCES = {
   },
   mississippi: {
     name: 'Mississippi',
+    barAssociation: { name: 'Mississippi Bar', phone: '1-601-948-4471', url: 'https://www.msbar.org/for-the-public/lawyer-referral-service/' },
     organizations: [
       {
         id: 'ms-1',
@@ -1313,6 +1487,7 @@ export const STATE_RESOURCES = {
   },
   missouri: {
     name: 'Missouri',
+    barAssociation: { name: 'Missouri Bar', phone: '1-573-636-3635', url: 'https://www.mobar.org/lawyersearch.htm' },
     organizations: [
       {
         id: 'mo-1',
@@ -1348,6 +1523,7 @@ export const STATE_RESOURCES = {
   },
   montana: {
     name: 'Montana',
+    barAssociation: { name: 'State Bar of Montana', phone: '1-406-442-7660', url: 'https://www.montanabar.org/page/LawyerReferral' },
     organizations: [
       {
         id: 'mt-1',
@@ -1374,6 +1550,7 @@ export const STATE_RESOURCES = {
   },
   nebraska: {
     name: 'Nebraska',
+    barAssociation: { name: 'Nebraska State Bar', phone: '1-402-475-7091', url: 'https://www.nebar.com/page/LRS' },
     organizations: [
       {
         id: 'ne-1',
@@ -1410,6 +1587,7 @@ export const STATE_RESOURCES = {
   },
   nevada: {
     name: 'Nevada',
+    barAssociation: { name: 'State Bar of Nevada', phone: '1-702-382-2200', url: 'https://www.nvbar.org/find-a-lawyer/' },
     organizations: [
       {
         id: 'nv-1',
@@ -1445,6 +1623,7 @@ export const STATE_RESOURCES = {
   },
   newhampshire: {
     name: 'New Hampshire',
+    barAssociation: { name: 'NH Bar Association', phone: '1-603-229-0002', url: 'https://www.nhbar.org/lawyer-referral-service' },
     organizations: [
       {
         id: 'nh-1',
@@ -1480,6 +1659,7 @@ export const STATE_RESOURCES = {
   },
   newjersey: {
     name: 'New Jersey',
+    barAssociation: { name: 'NJ State Bar', phone: '1-732-249-5000', url: 'https://tcms.njsba.com/PersonifyEbusiness/LegalResources/LawyerReferral.aspx' },
     organizations: [
       {
         id: 'nj-1',
@@ -1516,6 +1696,7 @@ export const STATE_RESOURCES = {
   },
   newmexico: {
     name: 'New Mexico',
+    barAssociation: { name: 'State Bar of New Mexico', phone: '1-505-797-6066', url: 'https://www.sbnm.org/Public/Find-a-Lawyer' },
     organizations: [
       {
         id: 'nm-1',
@@ -1551,6 +1732,7 @@ export const STATE_RESOURCES = {
   },
   newyork: {
     name: 'New York',
+    barAssociation: { name: 'NY State Bar', phone: '1-800-342-3661', url: 'https://www.nysba.org/lawyerreferral/' },
     organizations: [
       {
         id: 'ny-1',
@@ -1607,6 +1789,7 @@ export const STATE_RESOURCES = {
   },
   northcarolina: {
     name: 'North Carolina',
+    barAssociation: { name: 'NC Bar Association', phone: '1-919-677-8574', url: 'https://www.ncbar.org/public-resources/find-an-attorney/' },
     organizations: [
       {
         id: 'nc-1',
@@ -1642,6 +1825,7 @@ export const STATE_RESOURCES = {
   },
   northdakota: {
     name: 'North Dakota',
+    barAssociation: { name: 'State Bar of ND', phone: '1-701-255-1404', url: 'https://www.sband.org/page/LawyerReferral' },
     organizations: [
       {
         id: 'nd-1',
@@ -1677,6 +1861,7 @@ export const STATE_RESOURCES = {
   },
   ohio: {
     name: 'Ohio',
+    barAssociation: { name: 'Ohio State Bar', phone: '1-800-282-6556', url: 'https://www.ohiobar.org/public-resources/lawyer-referral/' },
     organizations: [
       {
         id: 'oh-1',
@@ -1712,6 +1897,7 @@ export const STATE_RESOURCES = {
   },
   oklahoma: {
     name: 'Oklahoma',
+    barAssociation: { name: 'Oklahoma Bar', phone: '1-405-416-7000', url: 'https://www.okbar.org/public/lawyerreferral/' },
     organizations: [
       {
         id: 'ok-1',
@@ -1748,6 +1934,7 @@ export const STATE_RESOURCES = {
   },
   oregon: {
     name: 'Oregon',
+    barAssociation: { name: 'Oregon State Bar', phone: '1-503-684-3763', url: 'https://www.osbar.org/public/ris/' },
     organizations: [
       {
         id: 'or-1',
@@ -1793,6 +1980,7 @@ export const STATE_RESOURCES = {
   },
   pennsylvania: {
     name: 'Pennsylvania',
+    barAssociation: { name: 'PA Bar Association', phone: '1-800-692-7375', url: 'https://www.pabar.org/public/lfn/default.asp' },
     organizations: [
       {
         id: 'pa-1',
@@ -1838,6 +2026,7 @@ export const STATE_RESOURCES = {
   },
   rhodeisland: {
     name: 'Rhode Island',
+    barAssociation: { name: 'RI Bar Association', phone: '1-401-421-5740', url: 'https://www.ribar.com/for-the-public/lawyer-referral-service' },
     organizations: [
       {
         id: 'ri-1',
@@ -1874,6 +2063,7 @@ export const STATE_RESOURCES = {
   },
   southcarolina: {
     name: 'South Carolina',
+    barAssociation: { name: 'SC Bar', phone: '1-803-799-6653', url: 'https://www.scbar.org/public/get-legal-help/' },
     organizations: [
       {
         id: 'sc-1',
@@ -1899,6 +2089,7 @@ export const STATE_RESOURCES = {
   },
   southdakota: {
     name: 'South Dakota',
+    barAssociation: { name: 'State Bar of SD', phone: '1-605-224-7554', url: 'https://www.statebarofsouthdakota.com/page/lawyerreferral' },
     organizations: [
       {
         id: 'sd-1',
@@ -1925,6 +2116,7 @@ export const STATE_RESOURCES = {
   },
   tennessee: {
     name: 'Tennessee',
+    barAssociation: { name: 'Tennessee Bar', phone: '1-800-899-6993', url: 'https://www.tba.org/index.cfm?pg=lawyer-referral-service' },
     organizations: [
       {
         id: 'tn-1',
@@ -1960,6 +2152,7 @@ export const STATE_RESOURCES = {
   },
   texas: {
     name: 'Texas',
+    barAssociation: { name: 'State Bar of Texas', phone: '1-800-252-9690', url: 'https://www.texasbar.com/AM/Template.cfm?Section=Lawyer_Referral_Service_702' },
     organizations: [
       {
         id: 'tx-1',
@@ -2006,6 +2199,7 @@ export const STATE_RESOURCES = {
   },
   utah: {
     name: 'Utah',
+    barAssociation: { name: 'Utah State Bar', phone: '1-801-531-9077', url: 'https://www.utahbar.org/public-services/lawyer-referral-service/' },
     organizations: [
       {
         id: 'ut-1',
@@ -2055,6 +2249,7 @@ export const STATE_RESOURCES = {
   },
   vermont: {
     name: 'Vermont',
+    barAssociation: { name: 'Vermont Bar', phone: '1-802-223-2020', url: 'https://www.vtbar.org/FOR%20THE%20PUBLIC/Find%20a%20Lawyer/' },
     organizations: [
       {
         id: 'vt-1',
@@ -2090,6 +2285,7 @@ export const STATE_RESOURCES = {
   },
   virginia: {
     name: 'Virginia',
+    barAssociation: { name: 'Virginia State Bar', phone: '1-804-775-0808', url: 'https://www.vsb.org/site/public/lawyer-referral-service' },
     organizations: [
       {
         id: 'va-1',
@@ -2135,6 +2331,7 @@ export const STATE_RESOURCES = {
   },
   washington: {
     name: 'Washington',
+    barAssociation: { name: 'Washington State Bar', phone: '1-206-443-9722', url: 'https://www.wsba.org/for-the-public/find-legal-help' },
     organizations: [
       {
         id: 'wa-1',
@@ -2180,6 +2377,7 @@ export const STATE_RESOURCES = {
   },
   westvirginia: {
     name: 'West Virginia',
+    barAssociation: { name: 'WV State Bar', phone: '1-304-558-2456', url: 'https://wvbar.org/public-information/lawyer-referral-service/' },
     organizations: [
       {
         id: 'wv-1',
@@ -2215,6 +2413,7 @@ export const STATE_RESOURCES = {
   },
   wisconsin: {
     name: 'Wisconsin',
+    barAssociation: { name: 'State Bar of Wisconsin', phone: '1-800-362-9082', url: 'https://www.wisbar.org/forPublic/INeedaLawyer/Pages/Lawyer-Referral-Service.aspx' },
     organizations: [
       {
         id: 'wi-1',
@@ -2253,6 +2452,7 @@ export const STATE_RESOURCES = {
   },
   wyoming: {
     name: 'Wyoming',
+    barAssociation: { name: 'Wyoming State Bar', phone: '1-307-632-9061', url: 'https://www.wyomingbar.org/for-the-public/lawyer-referral-service/' },
     organizations: [
       {
         id: 'wy-1',
@@ -2286,4 +2486,99 @@ export const STATE_RESOURCES = {
       },
     ],
   },
+};
+
+// ─── Specialty Filters ─────────────────────────────────────────
+// Keyword-based filtering on the existing `services` arrays
+export const SPECIALTY_FILTERS = [
+  { id: 'all', labelKey: 'legalResponse.filterAll' },
+  { id: 'immigration', labelKey: 'legalResponse.filterImmigration' },
+  { id: 'criminal', labelKey: 'legalResponse.filterCriminal' },
+  { id: 'protest', labelKey: 'legalResponse.filterProtest' },
+];
+
+const IMMIGRATION_KEYWORDS = [
+  'immigration', 'citizenship', 'naturalization', 'daca', 'tps', 'asylum',
+  'visa', 'u-visa', 't-visa', 'vawa', 'refugee', 'asylee', 'green card',
+  'family petition', 'consular', 'adjustment of status', 'sij', 'sijs',
+  'deportation', 'removal defense', 'detention', 'parole',
+];
+
+const CRIMINAL_KEYWORDS = [
+  'deportation defense', 'detention defense', 'removal defense',
+  'criminal defense', 'arrest', 'detention representation',
+  'immigration court', 'pro bono deportation',
+];
+
+const PROTEST_KEYWORDS = [
+  'know your rights', 'advocacy', 'community organizing', 'policy reform',
+  'mass defense', 'protest', 'civil rights',
+];
+
+export function filterOrgsBySpecialty(orgs, specialty) {
+  if (!specialty || specialty === 'all') return orgs;
+
+  const keywords = specialty === 'immigration' ? IMMIGRATION_KEYWORDS
+    : specialty === 'criminal' ? CRIMINAL_KEYWORDS
+    : specialty === 'protest' ? PROTEST_KEYWORDS
+    : [];
+
+  return orgs.filter((org) => {
+    const services = (org.services || []).join(' ').toLowerCase();
+    const desc = (org.description || '').toLowerCase();
+    const text = services + ' ' + desc;
+    return keywords.some((kw) => text.includes(kw));
+  });
+}
+
+// ─── NLG Protest / Mass Defense Resources (by state) ──────────
+// National Lawyers Guild chapters for protest legal support
+export const PROTEST_RESOURCES = {
+  california: [
+    { id: 'nlg-ca-1', name: 'NLG — Los Angeles', phone: '(323) 653-4510', city: 'Los Angeles' },
+    { id: 'nlg-ca-2', name: 'NLG — San Francisco Bay Area', phone: '(415) 285-5067', city: 'San Francisco' },
+  ],
+  colorado: [
+    { id: 'nlg-co-1', name: 'NLG — Colorado', phone: '(720) 771-4367', city: 'Denver' },
+  ],
+  'district of columbia': [
+    { id: 'nlg-dc-1', name: 'NLG — DC Chapter', phone: '(202) 670-6584', city: 'Washington DC' },
+  ],
+  florida: [
+    { id: 'nlg-fl-1', name: 'NLG — South Florida', phone: '(786) 363-2843', city: 'Miami' },
+  ],
+  georgia: [
+    { id: 'nlg-ga-1', name: 'NLG — Atlanta', phone: '(678) 332-3943', city: 'Atlanta' },
+  ],
+  illinois: [
+    { id: 'nlg-il-1', name: 'NLG — Chicago', phone: '(773) 309-1198', city: 'Chicago' },
+  ],
+  massachusetts: [
+    { id: 'nlg-ma-1', name: 'NLG — Massachusetts', phone: '(617) 227-7335', city: 'Boston' },
+  ],
+  michigan: [
+    { id: 'nlg-mi-1', name: 'NLG — Detroit/Michigan', phone: '(313) 963-0843', city: 'Detroit' },
+  ],
+  minnesota: [
+    { id: 'nlg-mn-1', name: 'NLG — Minnesota', phone: '(612) 444-2654', city: 'Minneapolis' },
+  ],
+  'new york': [
+    { id: 'nlg-ny-1', name: 'NLG — NYC', phone: '(212) 679-5100', city: 'New York' },
+  ],
+  ohio: [
+    { id: 'nlg-oh-1', name: 'NLG — Northeast Ohio', phone: '(216) 736-8711', city: 'Cleveland' },
+  ],
+  oregon: [
+    { id: 'nlg-or-1', name: 'NLG — Portland', phone: '(503) 902-5340', city: 'Portland' },
+  ],
+  pennsylvania: [
+    { id: 'nlg-pa-1', name: 'NLG — Philadelphia', phone: '(267) 702-4654', city: 'Philadelphia' },
+  ],
+  texas: [
+    { id: 'nlg-tx-1', name: 'NLG — Austin', phone: '(512) 480-8515', city: 'Austin' },
+    { id: 'nlg-tx-2', name: 'NLG — Houston', phone: '(713) 543-2462', city: 'Houston' },
+  ],
+  washington: [
+    { id: 'nlg-wa-1', name: 'NLG — Seattle', phone: '(206) 568-2977', city: 'Seattle' },
+  ],
 };

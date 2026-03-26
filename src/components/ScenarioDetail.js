@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Copy, Check, CaretRight, CaretLeft, Shield, BookOpen, Warning, House, User, Megaphone, VideoCamera, Car, Buildings, Scales, FileText, Prohibit, Wrench, DoorOpen, X, FlowerLotus, PersonSimpleTaiChiIcon as PersonSimpleTaiChi, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit } from '@phosphor-icons/react';
+import { ArrowLeft, Copy, Check, CaretRight, CaretLeft, Shield, BookOpen, Warning, House, User, Megaphone, VideoCamera, Car, Buildings, Scales, FileText, Prohibit, Wrench, DoorOpen, X, FlowerLotus, MapPin, PersonSimpleTaiChiIcon as PersonSimpleTaiChi, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit } from '@phosphor-icons/react';
 import { scenarios } from '../data/scenarioData';
 
 // Map icon string identifiers to Phosphor components
@@ -22,6 +22,7 @@ const iconMap = {
   construction: Wrench,
   doorOpen: DoorOpen,
   alertTriangle: Warning,
+  mapPin: MapPin,
 };
 
 // Helper to render scenario icon with Phosphor weight
@@ -255,12 +256,14 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
   );
 };
 
-function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateToScenario }) {
+function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateToScenario, handoffContext = null, onReturnToEmergency }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState(initialMode);
   const [currentStep, setCurrentStep] = useState(0);
   const [copiedStep, setCopiedStep] = useState(null);
   const [showBreathingGuide, setShowBreathingGuide] = useState(true);
+  const [selectedBranchIdx, setSelectedBranchIdx] = useState(null);
+  const [copiedBranch, setCopiedBranch] = useState(false);
 
   const scenario = scenarios[scenarioId];
 
@@ -298,12 +301,16 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
   const nextStep = () => {
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
+      setSelectedBranchIdx(null);
+      setCopiedBranch(false);
     }
   };
 
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+      setSelectedBranchIdx(null);
+      setCopiedBranch(false);
     }
   };
 
@@ -311,6 +318,8 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
     setMode('emergency');
     setShowBreathingGuide(true);
     setCurrentStep(0);
+    setSelectedBranchIdx(null);
+    setCopiedBranch(false);
   };
 
   const handleBreathingComplete = () => {
@@ -322,7 +331,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 pb-24">
+    <div className="max-w-4xl mx-auto px-4 pt-3 pb-24 sm:pt-4">
       {/* Back Button & Active Encounter Badge */}
       <div className="flex items-center justify-between mb-6">
         <button 
@@ -341,6 +350,57 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
 
       {/* Header - Only show when not in breathing guide */}
       {!(mode === 'emergency' && showBreathingGuide) && (
+        <>
+        {mode === 'emergency' && handoffContext && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, ease: 'easeOut' }}
+            className="mb-5 overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/[0.08] via-slate-950/95 to-slate-900/90 p-4"
+          >
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                {t('scenarioDetail.handoffEyebrow')}
+              </span>
+              {handoffContext.locationState === 'live' && (
+                <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">
+                  {t('scenarioDetail.handoffLive')}
+                </span>
+              )}
+              {handoffContext.locationState === 'shared' && (
+                <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-amber-100">
+                  {t('scenarioDetail.handoffShared')}
+                </span>
+              )}
+            </div>
+            <p className="text-sm leading-relaxed text-slate-200">
+              {t('scenarioDetail.handoffDesc')}
+            </p>
+            {handoffContext.recommendationTitle && (
+              <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-400">
+                {t('scenarioDetail.handoffRecommendation', { title: handoffContext.recommendationTitle })}
+              </p>
+            )}
+            <div className="mt-4 flex flex-wrap gap-3">
+              {onReturnToEmergency && (
+                <button
+                  onClick={onReturnToEmergency}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition-colors hover:bg-white/10"
+                >
+                  <Warning size={16} weight="bold" />
+                  {t('scenarioDetail.handoffReturn')}
+                </button>
+              )}
+              <button
+                onClick={() => setCurrentStep(0)}
+                className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-500/15"
+              >
+                <CaretRight size={16} weight="bold" />
+                {t('scenarioDetail.handoffStart')}
+              </button>
+            </div>
+          </motion.div>
+        )}
         <motion.div
           layoutId={`scenario-card-${scenarioId}`}
           className="text-center mb-6 bg-transparent"
@@ -369,6 +429,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
             {t(scenario.description)}
           </motion.p>
         </motion.div>
+        </>
       )}
 
       {/* Mode Toggle */}
@@ -470,6 +531,17 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
                         <p className="text-blue-400 italic text-sm mb-1">"{t(step.script)}"</p>
                       )}
                       <p className="text-slate-400 text-xs">{t(step.explanation)}</p>
+                      {step.decision && (
+                        <div className="mt-3 pl-3 border-l-2 border-amber-600/40 space-y-2">
+                          <p className="text-amber-400 text-xs font-bold">{t(step.decision.questionKey)}</p>
+                          {step.decision.options.map((opt, oi) => (
+                            <div key={oi} className="text-xs">
+                              <span className="text-amber-300/80 font-medium">{t(opt.labelKey)}:</span>{' '}
+                              <span className="text-slate-400 italic">"{t(opt.responseScript)}"</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -567,6 +639,71 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
                       <span className="font-bold">{t('scenarioDetail.why')}:</span> {t(currentStepData.explanation)}
                     </p>
                   </div>
+
+                  {/* Decision Branch */}
+                  {currentStepData.decision && (
+                    <div className="mt-4">
+                      <p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-3">
+                        {t(currentStepData.decision.questionKey)}
+                      </p>
+                      <div className="space-y-2">
+                        {currentStepData.decision.options.map((opt, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => { setSelectedBranchIdx(idx); setCopiedBranch(false); }}
+                            className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                              selectedBranchIdx === idx
+                                ? 'bg-amber-600/20 border-amber-500/50 text-amber-200'
+                                : 'bg-slate-800/60 border-slate-700/50 text-slate-300 hover:border-amber-500/30 hover:text-white'
+                            }`}
+                          >
+                            {t(opt.labelKey)}
+                          </button>
+                        ))}
+                      </div>
+
+                      {selectedBranchIdx !== null && (() => {
+                        const opt = currentStepData.decision.options[selectedBranchIdx];
+                        return (
+                          <div className="mt-4 bg-gradient-to-br from-amber-950/40 to-slate-900/60 border border-amber-700/40 rounded-xl overflow-hidden">
+                            <div className="bg-amber-950/30 px-4 py-2 border-b border-amber-800/30">
+                              <p className="text-amber-400 text-xs font-bold uppercase tracking-widest">Response</p>
+                            </div>
+                            <div className="p-4">
+                              <div className="bg-slate-950/60 rounded-xl p-4 mb-3">
+                                <p className="text-lg text-white font-medium leading-relaxed">
+                                  {opt.responseCopyable ? `"${t(opt.responseScript)}"` : t(opt.responseScript)}
+                                </p>
+                              </div>
+                              {opt.responseCopyable && (
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(t(opt.responseScript));
+                                    setCopiedBranch(true);
+                                    setTimeout(() => setCopiedBranch(false), 2000);
+                                  }}
+                                  className={`w-full py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all mb-3 ${
+                                    copiedBranch
+                                      ? 'bg-green-600 text-white'
+                                      : 'bg-amber-600 hover:bg-amber-700 text-white'
+                                  }`}
+                                >
+                                  {copiedBranch ? (
+                                    <><Check size={16} weight="bold" /> {t('scenarioDetail.copied')}</>
+                                  ) : (
+                                    <><Copy size={16} weight="bold" /> {t('scenarioDetail.copyScript')}</>
+                                  )}
+                                </button>
+                              )}
+                              <p className="text-amber-200/70 text-xs leading-relaxed">
+                                <span className="font-bold text-amber-300">{t('scenarioDetail.why')}:</span> {t(opt.responseExplanation)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
 
                 {/* Navigation */}
@@ -603,7 +740,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
                 {scenario.emergencyScript.map((_, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setCurrentStep(idx)}
+                    onClick={() => { setCurrentStep(idx); setSelectedBranchIdx(null); setCopiedBranch(false); }}
                     className={`w-8 h-8 rounded-full font-bold text-xs transition-all ${
                       idx === currentStep
                         ? 'bg-red-600 text-white'

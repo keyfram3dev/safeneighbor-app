@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { VideoCamera, Microphone, UploadSimple, Stop, Trash, FolderOpen, Camera, DownloadSimple, Warning, Cloud, CloudSlash, Shield, Lock, LockOpen, EyeSlash, CameraRotate, Question, X, CheckCircle, CloudArrowUp, Key, ClipboardText } from '@phosphor-icons/react';
+import { VideoCamera, Microphone, UploadSimple, Stop, Trash, FolderOpen, Camera, DownloadSimple, Warning, Cloud, CloudSlash, Shield, Lock, LockOpen, EyeSlash, CameraRotate, Question, X, CheckCircle, CloudArrowUp, Key, ClipboardText, Eye } from '@phosphor-icons/react';
 import { saveRecording, getAllRecordings, deleteRecording, clearAllRecordings, markForBackup, getDecryptedRecording } from '../utils/localStorageDB';
 import BackupSettings from './BackupSettings';
 import PinSetup from './PinSetup';
 import PinEntry from './PinEntry';
 import Disclaimer from './Disclaimer';
+import FaqCta from './FaqCta';
 import { isPinEnabled } from '../utils/pinAuth';
+import { useRotatingQuote } from '../utils/quoteRotation';
 import {
   processRecordingForPrivacy,
   stripImageMetadata,
@@ -63,10 +65,13 @@ const isMobileDevice = () => {
          (navigator.maxTouchPoints > 0 && /Mobile|Tablet/i.test(navigator.userAgent));
 };
 
-const Record = ({ isDuressMode = false }) => {
+const Record = ({ isDuressMode = false, onNavigate }) => {
   const { t } = useTranslation();
+  const recordQuote = useRotatingQuote('record.aureliusQuote', 'record.aureliusAuthor', 'record');
   const [activeTab, setActiveTab] = useState('video');
-  
+  const [witnessMode, setWitnessMode] = useState(false);
+  const [showWitnessReminder, setShowWitnessReminder] = useState(false);
+
   // Video state
   const [cameraActive, setCameraActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -110,6 +115,13 @@ const Record = ({ isDuressMode = false }) => {
   // PIN gate state — Record section requires PIN when key wrapping is active
   const [recordUnlocked, setRecordUnlocked] = useState(false);
   const [needsPin, setNeedsPin] = useState(false);
+
+  // Lock body scroll when any modal is open
+  const anyModalOpen = showPurgeConfirm || showBackupSettings || showBackupInfo || showWorkflowGuide || showPinSetup;
+  useEffect(() => {
+    document.body.style.overflow = anyModalOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [anyModalOpen]);
 
   // Refs
   const videoRef = useRef(null);    // Live camera preview
@@ -513,7 +525,7 @@ const Record = ({ isDuressMode = false }) => {
       // Defer thumbnail so the playback video can establish its media session first
       setTimeout(async () => {
         const thumbnail = await generateThumbnail(blob);
-        await saveToVault(blob, duration, 'video', thumbnail);
+        await saveToVault(blob, duration, 'video', thumbnail, 'recorded', witnessMode ? 'witness-report' : 'default');
       }, 500);
     };
     recorder.start(1000); // 1-second timeslice (WebKit recommended pattern)
@@ -614,7 +626,7 @@ const Record = ({ isDuressMode = false }) => {
           audioContextRef.current = null;
         }
 
-        await saveToVault(blob, audioDuration, 'audio', null);
+        await saveToVault(blob, audioDuration, 'audio', null, 'recorded', witnessMode ? 'witness-report' : 'default');
       };
 
       recorder.start(1000); // 1-second timeslice (WebKit recommended pattern)
@@ -661,7 +673,7 @@ const Record = ({ isDuressMode = false }) => {
   };
 
   // VAULT FUNCTIONS
-  const saveToVault = async (blob, dur, type, thumbnail, source = 'recorded') => {
+  const saveToVault = async (blob, dur, type, thumbnail, source = 'recorded', template = 'default') => {
     try {
       // Only capture location if enabled in privacy settings
       let location = null;
@@ -686,6 +698,7 @@ const Record = ({ isDuressMode = false }) => {
         thumbnail: cleanThumbnail,
         size: blob.size,
         source,
+        template,
       });
 
       const saved = await saveRecording(processedData);
@@ -782,7 +795,8 @@ const Record = ({ isDuressMode = false }) => {
 
         const mime = rec._mimeType || rec.blob?.type || (rec.type === 'video' ? 'video/webm' : 'audio/webm');
         const fileExt = mime.includes('mp4') ? 'mp4' : 'webm';
-        const filename = `SafeNeighbor_${rec.type}_${timestamp}.${fileExt}.enc`;
+        const prefix = rec.template === 'witness-report' ? 'WitnessReport' : 'SafeNeighbor';
+        const filename = `${prefix}_${rec.type}_${timestamp}.${fileExt}.enc`;
         const encBlob = new Blob([encryptedData], { type: 'application/octet-stream' });
 
         if (isMobileDevice() && navigator.share) {
@@ -821,7 +835,8 @@ const Record = ({ isDuressMode = false }) => {
 
       const blobMime = rec.blob?.type || rec._mimeType || (rec.type === 'video' ? 'video/webm' : 'audio/webm');
       const ext = blobMime.includes('mp4') ? 'mp4' : 'webm';
-      const filename = `SafeNeighbor_${rec.type}_${timestamp}.${ext}`;
+      const prefix = rec.template === 'witness-report' ? 'WitnessReport' : 'SafeNeighbor';
+      const filename = `${prefix}_${rec.type}_${timestamp}.${ext}`;
 
       if (isMobileDevice() && navigator.share) {
         try {
@@ -1147,7 +1162,8 @@ const Record = ({ isDuressMode = false }) => {
 
                     const blobType = recordedBlob.type || 'video/webm';
                     const fileExt = blobType.includes('mp4') ? 'mp4' : 'webm';
-                    const filename = `SafeNeighbor_${Date.now()}.${fileExt}`;
+                    const fnPrefix = witnessMode ? 'WitnessReport' : 'SafeNeighbor';
+                    const filename = `${fnPrefix}_${Date.now()}.${fileExt}`;
                     const mimeType = blobType;
 
                     // Only use Web Share API on mobile (desktop Safari opens unhelpful share sheet)
@@ -1258,6 +1274,50 @@ const Record = ({ isDuressMode = false }) => {
             </div>
 
             <div className="p-4">
+              {/* Witness Mode toggle */}
+              {!isRecording && !recordedUrl && (
+                <div className="mb-3">
+                  <button
+                    onClick={() => {
+                      const next = !witnessMode;
+                      setWitnessMode(next);
+                      if (next) setShowWitnessReminder(true);
+                    }}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all active:scale-95 ${
+                      witnessMode
+                        ? 'bg-teal-900/40 border-teal-600/50 text-teal-300'
+                        : 'bg-slate-800/60 border-slate-700/50 text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    <Eye size={14} weight="bold" />
+                    {t('record.witnessMode')}
+                  </button>
+                </div>
+              )}
+
+              {/* Witness reminder checklist */}
+              {showWitnessReminder && witnessMode && !isRecording && (
+                <div className="bg-teal-950/40 border border-teal-700/40 rounded-xl p-4 mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-teal-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                      <Eye size={14} weight="bold" />
+                      {t('record.witnessReminderTitle')}
+                    </span>
+                    <button onClick={() => setShowWitnessReminder(false)} className="text-slate-500 hover:text-white">
+                      <X size={14} weight="bold" />
+                    </button>
+                  </div>
+                  <ul className="text-slate-300 text-xs space-y-1">
+                    {[1,2,3,4,5,6,7,8].map(i => (
+                      <li key={i} className="flex items-start gap-2">
+                        <div className="w-1 h-1 rounded-full bg-teal-500 flex-shrink-0 mt-1.5" />
+                        {t(`communityWitnessing.doc${i}`)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {cameraActive && !recordedUrl && (
                 <button
                   onClick={isRecording ? stopVideoRecording : startVideoRecording}
@@ -1696,6 +1756,12 @@ const Record = ({ isDuressMode = false }) => {
                     {rec.backedUp ? t('record.backedUp') : rec.markedForBackup ? t('record.pending') : t('record.backupLabel')}
                   </button>
                   <span className={`text-xs uppercase px-2 py-1 rounded ${rec.type === 'video' ? 'bg-red-600/20 text-red-400 border border-red-500/30' : 'bg-blue-600/20 text-blue-400 border border-blue-500/30'}`}>{rec.type}</span>
+                  {rec.template === 'witness-report' && (
+                    <span className="text-[10px] uppercase px-2 py-1 rounded bg-teal-600/20 text-teal-400 border border-teal-500/30 font-bold tracking-wider flex items-center gap-1">
+                      <Eye size={10} weight="bold" />
+                      {t('record.witnessReport')}
+                    </span>
+                  )}
                 </div>
 
                 {/* Inline expanded panel - appears directly below the selected recording */}
@@ -1775,9 +1841,12 @@ const Record = ({ isDuressMode = false }) => {
       </div>
 
       <div className="mt-6 text-center py-6 border-t border-slate-700">
-        <p className="text-slate-400 italic text-sm">{t('record.aureliusQuote')}</p>
-        <p className="text-slate-500 text-xs mt-2">{t('record.aureliusAuthor')}</p>
+        <p className="text-slate-400 italic text-sm">{recordQuote.quote}</p>
+        <p className="text-slate-500 text-xs mt-2">{recordQuote.author}</p>
       </div>
+
+      {/* FAQ Link */}
+      <FaqCta onNavigate={onNavigate} className="mt-3 mb-6" />
 
       {/* Disclaimer */}
       <div className="mt-2 mb-6">
@@ -1832,7 +1901,7 @@ const Record = ({ isDuressMode = false }) => {
               <div className="bg-red-950/30 border border-red-800/50 rounded-xl p-4">
                 <h3 className="text-red-400 font-bold text-sm mb-2 flex items-center gap-2">
                   <Shield size={18} weight="bold" />
-                  {t('record.protectEvidenceTitle')}
+                  {t('record.protectEvidence')}
                 </h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
                   {t('record.protectEvidenceDesc')}
@@ -1873,11 +1942,11 @@ const Record = ({ isDuressMode = false }) => {
                 <ul className="space-y-2 text-sm text-slate-400">
                   <li className="flex items-start gap-2">
                     <span className="text-slate-500 font-bold">1.</span>
-                    <span>{t('record.recordingMobileStep1')}</span>
+                    <span>{t('record.recordingMobile1')}</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-slate-500 font-bold">2.</span>
-                    <span>{t('record.recordingMobileStep2')}</span>
+                    <span>{t('record.recordingMobile2')}</span>
                   </li>
                 </ul>
               </div>

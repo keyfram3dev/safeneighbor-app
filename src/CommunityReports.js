@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { UsersThree, MapPinSimple, MapPinSimpleArea, MapTrifold, ShieldCheck, Scales, X, Check, Shield, LockKey, Eye, EyeSlash, Timer, UserCircle, Fire, Buildings, Path } from '@phosphor-icons/react';
+import { UsersThree, MapPinSimple, MapPinSimpleArea, MapTrifold, ShieldCheckIcon, Scales, X, Check, Shield, LockKey, Eye, EyeSlash, Timer, UserCircle, Fire, Buildings, Path, FlagBannerIcon } from '@phosphor-icons/react';
+import { Download } from 'lucide-react';
 import Disclaimer from './components/Disclaimer';
+import FaqCta from './components/FaqCta';
+import InstallHelp from './components/InstallHelp';
 import DOMPurify from 'dompurify';
 import { detectPII } from './utils/piiDetector';
 import { encryptReport, decryptReport, decryptDescription } from './utils/reportEncryption';
@@ -12,6 +15,7 @@ import {
   query,
   orderBy,
   onSnapshot,
+  getDocs,
   updateDoc,
   addDoc,
   doc
@@ -874,7 +878,7 @@ const PrivacySecurityModal = ({ onClose }) => {
           {/* Abuse Prevention */}
           <div className="flex gap-4">
             <div className="p-2.5 bg-red-950/40 rounded-xl h-fit">
-              <ShieldCheck size={24} weight="bold" className="text-red-400" />
+              <ShieldCheckIcon size={24} weight="bold" className="text-red-400" />
             </div>
             <div>
               <h4 className="text-red-400 font-bold text-xs uppercase tracking-wider mb-1.5">
@@ -1021,7 +1025,7 @@ const NearbyReportModal = ({ report, onVerify, onCreateNew, onClose, userDistanc
               </div>
               {report.verifiers?.length > 0 && (
                 <span className="text-xs text-green-400 flex items-center gap-1">
-                  <ShieldCheck size={12} weight="bold" />
+                  <ShieldCheckIcon size={12} weight="bold" />
                   {t('reports.verifiedCount', { count: report.verifiers.length })}
                 </span>
               )}
@@ -1050,7 +1054,7 @@ const NearbyReportModal = ({ report, onVerify, onCreateNew, onClose, userDistanc
             onClick={onVerify}
             className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
           >
-            <ShieldCheck size={18} weight="bold" />
+            <ShieldCheckIcon size={18} weight="bold" />
             {t('reports.verifyThisReport')}
           </button>
           <button
@@ -1159,7 +1163,7 @@ const ResourcesDisclaimerModal = ({ onClose }) => {
   );
 };
 
-const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
+const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateToScenario, onNavigate }) => {
   const { t } = useTranslation();
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1207,6 +1211,9 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
 
   // Privacy & Security modal state
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  // Install help modal state
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   // PII warning modal state
   const [showPiiWarning, setShowPiiWarning] = useState(false);
@@ -1370,6 +1377,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
             }
             recordSubmission();
             if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown' });
+
           }
         } else {
           // Offline: encrypt and queue to IndexedDB for background sync
@@ -1620,7 +1628,13 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
     const reportsRef = collection(db, 'iceReports');
     const q = query(reportsRef, orderBy('timestamp', 'desc'));
 
+    // Sequence counter: ensures only the latest snapshot's result modifies state.
+    // Concurrent processSnapshot calls (e.g. cache then server during reconnect)
+    // would otherwise race and let an older stale snapshot prune fresh reports.
+    let snapshotSeq = 0;
+
     const processSnapshot = async (snapshot) => {
+      const thisSeq = ++snapshotSeq;
       console.log('Firebase snapshot received:', snapshot.size, 'documents');
 
       // Collect all reports within 7-day heat window for decryption
@@ -1632,6 +1646,10 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
           allDocs.push({ id: docSnap.id, data });
         }
       });
+
+      // Empty from-cache snapshots are stale/incomplete — they cannot tell us what
+      // was deleted. Skip immediately so they never wipe sessionReportsRef.
+      if (allDocs.length === 0 && snapshot.metadata.fromCache) return;
 
       // Decrypt all reports in parallel (handles both new encrypted payload and legacy formats)
       const decrypted = await Promise.all(allDocs.map(async ({ id, data }) => {
@@ -1665,9 +1683,13 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
           id, ...fields,
           timestamp: data.timestamp,
           verified: data.verified || false,
-          verifiers: data.verifiers || []
+          verifiers: data.verifiers || [],
+          flaggers: data.flaggers || []
         };
       }));
+
+      // Discard if a newer snapshot arrived while we were awaiting decryption
+      if (thisSeq !== snapshotSeq) return;
 
       // Split decrypted reports: 12h → markers/feed, 7d → heat map
       // Merge-and-prune: update existing map rather than wiping it so reports
@@ -1685,10 +1707,14 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
           heatEligible.push(report);
         }
       });
-      // Remove any report that was deleted from Firestore server-side
-      const snapshotIds = new Set(decrypted.map(r => r.id));
-      for (const id of sessionReportsRef.current.keys()) {
-        if (!snapshotIds.has(id)) sessionReportsRef.current.delete(id);
+      // Remove any report that was deleted from Firestore server-side.
+      // Only trust server snapshots for deletions — from-cache snapshots are often
+      // incomplete and would incorrectly prune reports that are still live on the server.
+      if (!snapshot.metadata.fromCache) {
+        const snapshotIds = new Set(decrypted.map(r => r.id));
+        for (const id of sessionReportsRef.current.keys()) {
+          if (!snapshotIds.has(id)) sessionReportsRef.current.delete(id);
+        }
       }
 
       const sessionReports = [...sessionReportsRef.current.values()];
@@ -1728,14 +1754,72 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
       console.error("Error fetching reports from Firebase:", error);
     });
 
-    // Re-subscribe when tab becomes visible again (Firebase WebSocket can drop when backgrounded)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('Tab visible again, re-subscribing to Firebase...');
-        unsubscribe();
-        unsubscribe = onSnapshot(q, processSnapshot, (error) => {
-          console.error("Error fetching reports from Firebase:", error);
+    // Non-destructive refresh when tab becomes visible again.
+    // The old approach (unsubscribe + re-subscribe) could lose reports during the
+    // cache→server snapshot transition. Instead, do a one-time getDocs and MERGE
+    // results into sessionReportsRef — add/update only, never delete. The existing
+    // onSnapshot listener auto-reconnects natively after backgrounding.
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const freshSnap = await getDocs(q);
+        const freshDocs = [];
+        freshSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          const reportAge = Date.now() - new Date(data.timestamp || 0).getTime();
+          if (reportAge <= EXPIRATION_MS) {
+            freshDocs.push({ id: docSnap.id, data });
+          }
         });
+        if (freshDocs.length === 0) return;
+
+        const freshDecrypted = await Promise.all(freshDocs.map(async ({ id, data }) => {
+          let fields;
+          if (data.encryptedPayload) {
+            try {
+              fields = await decryptReport(data.encryptedPayload);
+            } catch {
+              fields = { description: '[Unable to decrypt]' };
+            }
+          } else {
+            fields = {
+              lat: data.lat, lng: data.lng,
+              city: data.city || '', state: data.state || '',
+              location: data.location,
+              description: data.description,
+              agents: data.agents, vehicles: data.vehicles,
+              activity: data.activity
+            };
+            if (data.encryptedDescription) {
+              try {
+                fields.description = await decryptDescription(data.encryptedDescription);
+              } catch {
+                fields.description = fields.description === '[encrypted]' ? '[Unable to decrypt]' : fields.description;
+              }
+            }
+          }
+          return {
+            id, ...fields,
+            timestamp: data.timestamp,
+            verified: data.verified || false,
+            verifiers: data.verifiers || [],
+            flaggers: data.flaggers || []
+          };
+        }));
+
+        // Merge only — add new reports and update existing ones, never delete
+        let changed = false;
+        freshDecrypted.forEach(report => {
+          if (!sessionReportsRef.current.has(report.id)) {
+            changed = true;
+          }
+          sessionReportsRef.current.set(report.id, report);
+        });
+        if (changed) {
+          setReports([...sessionReportsRef.current.values()]);
+        }
+      } catch {
+        // Network error is fine — the onSnapshot listener will reconnect on its own
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -2007,6 +2091,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
 
       allReports.forEach(report => {
         if (!report.lat || !report.lng) return;
+        if ((report.flaggers?.length || 0) >= 4) return; // hidden — under community review
         const m = makeMarker(report);
         clusterGroup.addLayer(m);
         reportMarkersRef.current.push(m);
@@ -2243,6 +2328,10 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
            validatePos(e.latlng);
         });
 
+        // Initialize formData immediately with the marker's starting position
+        // so that locationSource is 'manual' even if the user never drags the pin
+        validatePos({ lat: centerLat, lng: centerLng });
+
         inlinePickerMapRef.current = mInstance;
         inlinePickerMarkerRef.current = marker;
         inlinePickerCircleRef.current = circle;
@@ -2461,6 +2550,26 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
     } catch (error) {
       console.error("Error updating verification:", error);
       alert(t('reports.failedToVerify'));
+    }
+  };
+
+  const handleFlagReport = async (reportId) => {
+    const report = [...reports, ...pendingReports].find(r => r.id === reportId);
+    if (!report || report.pending) return;
+
+    const verifierId = getOrCreateVerifierId();
+
+    if (report.flaggers?.some(f => f.id === verifierId)) return;
+
+    try {
+      const reportRef = doc(db, 'iceReports', reportId);
+      const updatedFlaggers = [
+        ...(report.flaggers || []),
+        { id: verifierId, timestamp: new Date().toISOString() },
+      ];
+      await updateDoc(reportRef, { flaggers: updatedFlaggers });
+    } catch (err) {
+      console.error('Failed to flag report:', err);
     }
   };
 
@@ -2701,7 +2810,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white p-4 md:p-8">
+    <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
         {/* In-app browser warning banner */}
@@ -2896,7 +3005,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
                      isActive ? `${activeStyle} scale-105` : baseStyle
                    }`}
                  >
-                   {hub.type === 'verified' && <ShieldCheck size={12} weight="bold" className="inline me-1" />}
+                   {hub.type === 'verified' && <ShieldCheckIcon size={12} weight="bold" className="inline me-1" />}
                    {hub.name}
                    {hub.type === 'verified' && hub.verifierCount > 0 && (
                      <span className="ms-1 opacity-80">({hub.verifierCount})</span>
@@ -2930,7 +3039,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
           {submitted ? (
             <div className="bg-green-900/20 border-2 border-green-800/60 p-10 rounded-[2.5rem] text-center shadow-2xl animate-in zoom-in-95">
               <div className="flex justify-center mb-6">
-                <ShieldCheck size={72} weight="bold" className="text-green-400" />
+                <ShieldCheckIcon size={72} weight="bold" className="text-green-400" />
               </div>
               <h3 className="text-3xl font-black text-green-400 mb-3">{t('reports.reportTransmitted')}</h3>
               <p className="text-slate-300 mb-8 font-medium">{t('reports.reportTransmittedDesc')}</p>
@@ -3116,35 +3225,38 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
                       </div>
                     </div>
 
-                    <div className="flex justify-center">
-                      {(() => {
-                        const verifierCount = report.verifiers?.length || 0;
-                        const reportIsVerified = isReportVerified(report);
-                        const verifierId = getOrCreateVerifierId();
-                        const userHasVerified = hasUserVerified(report, verifierId);
+                    {/* Verify + Flag row — combined, center-aligned */}
+                    {(() => {
+                      const verifierCount = report.verifiers?.length || 0;
+                      const reportIsVerified = isReportVerified(report);
+                      const verifierId = getOrCreateVerifierId();
+                      const userHasVerified = hasUserVerified(report, verifierId);
+                      const flagCount = report.flaggers?.length || 0;
+                      const userHasFlagged = report.flaggers?.some(f => f.id === verifierId);
+                      const isUnderReview = flagCount >= 4;
 
-                        if (reportIsVerified) {
-                          return (
-                            <div className="flex items-center gap-2 bg-red-950/40 text-red-500 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider border border-red-900/40 shadow-xl shadow-red-950/20">
-                              <ShieldCheck size={16} weight="bold" className="shrink-0" />
-                              <span>{t('reports.verifiedBadge')}</span>
-                              <span className="bg-red-900/60 px-2 py-0.5 rounded-full text-[9px]">
-                                {verifierCount}
-                              </span>
-                            </div>
-                          );
-                        } else if (!isPending) {
-                          return (
-                            <div className="flex flex-col items-center gap-2">
-                              {verifierCount > 0 && (
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                  {t('reports.verificationsProgress', { count: verifierCount, threshold: VERIFICATION_THRESHOLD })}
-                                </span>
-                              )}
+                      if (isPending) return null;
+
+                      return (
+                        <div className="flex flex-col items-center gap-2">
+                          {verifierCount > 0 && !reportIsVerified && (
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                              {t('reports.verificationsProgress', { count: verifierCount, threshold: VERIFICATION_THRESHOLD })}
+                            </span>
+                          )}
+                          <div className="flex items-center justify-center gap-3">
+                            {/* Verify side */}
+                            {reportIsVerified ? (
+                              <div className="flex items-center gap-2 bg-red-950/40 text-red-500 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider border border-red-900/40 shadow-xl shadow-red-950/20">
+                                <ShieldCheckIcon size={14} weight="bold" className="shrink-0" />
+                                <span>{t('reports.verifiedBadge')}</span>
+                                <span className="bg-red-900/60 px-2 py-0.5 rounded-full text-[9px]">{verifierCount}</span>
+                              </div>
+                            ) : (
                               <button
                                 onClick={(e) => handleToggleVerify(e, report.id || '')}
                                 disabled={userHasVerified}
-                                className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all shadow-xl active:scale-95 ${
+                                className={`px-7 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all shadow-xl active:scale-95 ${
                                   userHasVerified
                                     ? 'bg-slate-800/40 text-slate-600 border-slate-800 cursor-not-allowed'
                                     : 'bg-slate-800/60 hover:bg-red-950/40 text-slate-400 hover:text-red-400 border-slate-700 hover:border-red-900'
@@ -3152,12 +3264,47 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
                               >
                                 {userHasVerified ? t('reports.youVerified') : t('reports.vouchForReport')}
                               </button>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </div>
+                            )}
+
+                            {/* Divider */}
+                            <div className="w-px h-6 bg-slate-700/50 shrink-0" />
+
+                            {/* Flag side */}
+                            {isUnderReview ? (
+                              <div className="flex items-center gap-1.5 text-amber-500 bg-amber-950/30 border border-amber-900/40 px-3 py-3 rounded-2xl">
+                                <FlagBannerIcon size={11} weight="bold" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">{t('reports.underReview')}</span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleFlagReport(report.id); }}
+                                disabled={userHasFlagged}
+                                className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all px-4 py-3 rounded-2xl border active:scale-95 ${
+                                  userHasFlagged
+                                    ? 'text-slate-600 border-slate-800 bg-slate-800/30 cursor-default'
+                                    : 'text-slate-500 border-slate-700 bg-slate-800/60 hover:text-amber-400 hover:border-amber-900/60'
+                                }`}
+                              >
+                                <FlagBannerIcon size={11} weight={userHasFlagged ? 'fill' : 'bold'} />
+                                {userHasFlagged ? t('reports.alreadyFlagged') : t('reports.flagReport')}
+                                {flagCount > 0 && !userHasFlagged && (
+                                  <span className="text-slate-600 font-normal normal-case tracking-normal ml-0.5">({flagCount}/4)</span>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                          {onNavigateToScenario && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onNavigateToScenario({ id: 'community-witnessing' }); }}
+                              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-teal-400 border border-teal-800/50 bg-teal-950/30 hover:bg-teal-900/40 px-4 py-2.5 rounded-2xl transition-all active:scale-95"
+                            >
+                              <Eye size={12} weight="bold" />
+                              {t('reports.witnessedThis')}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </button>
               );
@@ -3172,8 +3319,11 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
         </div>
       </div>
 
+      {/* FAQ Link */}
+      <FaqCta onNavigate={onNavigate} className="max-w-7xl mx-auto mt-10 mb-4 px-4" />
+
       {/* Disclaimer */}
-      <div className="max-w-7xl mx-auto mt-10 mb-6 px-4">
+      <div className="max-w-7xl mx-auto mt-4 mb-6 px-4">
         <Disclaimer>
           {t('reports.disclaimerLine1')}
           <br />{t('reports.disclaimerLine2')}
@@ -3181,6 +3331,27 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute }) => {
           <br />{t('reports.disclaimerLine4')}
         </Disclaimer>
       </div>
+
+      {/* Install App Button */}
+      <div className="max-w-7xl mx-auto mt-8 mb-6 px-4 text-center">
+        <button
+          onClick={() => {
+            if (window.deferredPrompt) {
+              window.deferredPrompt.prompt();
+            } else {
+              setShowInstallHelp(true);
+            }
+          }}
+          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 inline-flex items-center gap-2"
+        >
+          <Download size={18} />
+          {t('home.installApp')}
+        </button>
+        <p className="text-slate-500 text-[10px] mt-2 tracking-widest uppercase">
+          {t('home.offlineSecure')}
+        </p>
+      </div>
+      <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
 
       {/* Location Permission Modal */}
       {showLocationModal && (
