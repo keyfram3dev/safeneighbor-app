@@ -1,17 +1,40 @@
 // src/components/Welcome.js
 // Welcome modal shown on first visit, with app purpose and Stoic quotes
 
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Shield, Lock } from '@phosphor-icons/react';
 import { Scale } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+const WELCOME_CLOSE_DURATION_MS = 240;
 
 const Welcome = ({ onClose, onOpenSettings, onInstall, isOpen = true }) => {
   const { t } = useTranslation();
   const hasPinConfigured = !!localStorage.getItem('safeneighbor_pin_hash');
   const isPWA = window.navigator.standalone === true ||
     window.matchMedia('(display-mode: standalone)').matches;
+  const [isClosing, setIsClosing] = useState(false);
+  const closeTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleClose = (event) => {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    if (isClosing) return;
+    setIsClosing(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      onClose();
+    }, WELCOME_CLOSE_DURATION_MS);
+  };
 
   const quotes = [
     {
@@ -36,33 +59,27 @@ const Welcome = ({ onClose, onOpenSettings, onInstall, isOpen = true }) => {
     }
   ];
 
+  if (!isOpen) return null;
+
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          onClick={onClose}
-        >
-          {/* Modal content */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative overscroll-contain"
-            onClick={(e) => e.stopPropagation()}
-          >
+    <div
+      className={`fixed inset-0 z-[100] flex items-center justify-center p-4 safe-modal-frame transition-opacity duration-[180ms] ${isClosing ? 'bg-black/0 opacity-0' : 'welcome-backdrop-in bg-black/80 backdrop-blur-sm opacity-100'}`}
+      onClick={handleClose}
+    >
+      {/* Modal content */}
+      <div
+        className={`safe-modal-panel bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-md overflow-hidden border border-slate-700/50 flex flex-col relative overscroll-contain transition-[opacity,transform] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${isClosing ? 'opacity-0 translate-y-2.5 scale-[0.982]' : 'welcome-panel-in opacity-100 translate-y-0 scale-100'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
+            <div className="safe-modal-header flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
               <div className="flex items-center gap-2">
                 <Shield size={20} weight="bold" className="text-blue-400" />
                 <h2 className="text-lg font-bold text-white">{t('welcome.title')}</h2>
               </div>
               <button
-                onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
+                onClick={handleClose}
+                className="safe-modal-close p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80 transition-[transform,background-color,color,box-shadow] duration-150 active:scale-[0.9] active:bg-slate-700/90 active:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
                 aria-label="Close welcome dialog"
               >
                 <X size={20} weight="bold" />
@@ -100,7 +117,10 @@ const Welcome = ({ onClose, onOpenSettings, onInstall, isOpen = true }) => {
                         })}
                       </p>
                       <button
-                        onClick={onOpenSettings}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpenSettings();
+                        }}
                         className="text-amber-400 hover:text-amber-300 text-xs font-bold uppercase tracking-wider transition-colors"
                       >
                         {t('welcome.openSettings')}
@@ -119,7 +139,10 @@ const Welcome = ({ onClose, onOpenSettings, onInstall, isOpen = true }) => {
                       <p className="text-slate-400 text-xs mt-0.5">{t('installBanner.description')}</p>
                     </div>
                     <button
-                      onClick={onInstall}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onInstall();
+                      }}
                       className="shrink-0 bg-red-600 hover:bg-red-500 text-white font-black text-[10px] uppercase tracking-widest px-3 py-2 rounded-xl transition-all active:scale-95"
                     >
                       {t('installBanner.action')}
@@ -167,17 +190,16 @@ const Welcome = ({ onClose, onOpenSettings, onInstall, isOpen = true }) => {
                   {t('app.security')}
                 </p>
                 <button
-                  onClick={onClose}
-                  className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-red-900/30 hover:shadow-red-900/50 active:scale-95"
+                  onPointerDown={handleClose}
+                  onClick={handleClose}
+                  className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold py-3.5 px-6 rounded-xl transition-[transform,box-shadow,background] duration-150 shadow-lg shadow-red-900/30 hover:shadow-red-900/50 active:scale-[0.97] active:shadow-red-950/70"
                 >
                   {t('welcome.getStarted')}
                 </button>
               </div>
             </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+      </div>
+    </div>
   );
 };
 

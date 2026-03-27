@@ -1,5 +1,5 @@
-const CACHE_NAME = 'safeneighbor-v21';
-const TILES_CACHE = 'safeneighbor-tiles-v1';
+const CACHE_NAME = 'safeneighbor-v23';
+const TILES_CACHE = 'safeneighbor-tiles-v2';
 const MAX_TILES = 1000;
 
 // Essential app shell files
@@ -24,8 +24,6 @@ const SHELL_URLS = [
 
 // CDN dependencies required for offline (versioned = immutable)
 const CDN_URLS = [
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js',
   'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css',
   'https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js'
@@ -112,12 +110,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Map tiles - stale-while-revalidate with separate cache and size limit
+  // Map tiles - network first with cache fallback.
+  // Mobile PWAs can be finicky when opaque tile responses are fully proxied through the SW,
+  // so prefer the live network path whenever available.
   if (url.hostname.endsWith('.tile.openstreetmap.org')) {
     event.respondWith(
       caches.open(TILES_CACHE).then((cache) => {
-        return cache.match(event.request).then((cached) => {
-          const fetchPromise = fetch(event.request).then((response) => {
+        return fetch(event.request).then((response) => {
             // Cache both CORS (status 200) and no-cors opaque responses (status 0)
             if (response && (response.status === 200 || response.type === 'opaque')) {
               cache.put(event.request, response.clone());
@@ -129,8 +128,12 @@ self.addEventListener('fetch', (event) => {
               });
             }
             return response;
-          }).catch(() => cached);
-          return cached || fetchPromise;
+          }).catch(() => {
+            return cache.match(event.request).then((cached) => {
+              if (cached) return cached;
+              return new Response('', { status: 504, statusText: 'Tile unavailable' });
+            });
+          });
         });
       })
     );

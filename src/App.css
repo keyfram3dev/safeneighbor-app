@@ -4,6 +4,20 @@
   box-sizing: border-box;
 }
 
+:root {
+  --font-sans: "SF Pro Text", "SF Pro Display", "Inter Variable", "Segoe UI Variable",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --tracking-body: -0.012em;
+  --tracking-heading-tight: -0.034em;
+  --tracking-heading: -0.026em;
+  --tracking-label: 0.14em;
+  --leading-body: 1.58;
+  --leading-heading: 1.06;
+  --leading-subheading: 1.14;
+  --leading-control: 1.24;
+}
+
 html {
   overflow-x: hidden;
   color-scheme: dark;
@@ -15,9 +29,12 @@ body {
   margin: 0;
   background-color: #020617;
   color: #e2e8f0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
+  font-kerning: normal;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -39,6 +56,48 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
+}
+
+.App :where(h1, h2) {
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-heading-tight);
+  text-wrap: balance;
+}
+
+.App :where(h3, h4, h5, h6) {
+  line-height: var(--leading-subheading);
+  letter-spacing: var(--tracking-heading);
+  text-wrap: balance;
+}
+
+.App :where(p, li, dd, dt) {
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
+  text-wrap: pretty;
+}
+
+.App :where(button, a, label, input, textarea, select) {
+  letter-spacing: -0.01em;
+}
+
+.App :where(button, input, textarea, select) {
+  line-height: var(--leading-control);
+}
+
+.App :where([class*="uppercase"]) {
+  text-transform: uppercase;
+}
+
+.App :where([class*="text-[11px]"][class*="uppercase"], [class*="text-xs"][class*="uppercase"]) {
+  letter-spacing: var(--tracking-label);
+}
+
+.App :where(.safe-modal-panel p, .safe-modal-panel li) {
+  line-height: 1.62;
+}
+
+.App :where(.scenario-card-shell p) {
+  line-height: 1.54;
 }
 
 /* Tailwind-like utilities we're using in the component */
@@ -172,6 +231,285 @@ input[type="time"] {
 
 .safe-footer-bottom {
   padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+.safe-modal-frame {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+
+.safe-modal-panel {
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+  background: rgba(2, 6, 23, 0.98);
+}
+
+.safe-modal-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(2, 6, 23, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.safe-modal-close {
+  min-width: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.safe-modal-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.page-transition-in {
+  animation: pageTransitionIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.welcome-backdrop-in {
+  animation: welcomeBackdropIn 0.14s ease-out both;
+}
+
+.welcome-panel-in {
+  animation: welcomePanelIn 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.feature-modal-backdrop-in {
+  animation: welcomeBackdropIn 0.28s ease-out both;
+}
+
+.feature-modal-panel-in {
+  animation: welcomePanelIn 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pin-entry-shell-in {
+  animation: pinEntryShellIn 0.22s ease-out both;
+}
+
+.pin-entry-panel-in {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  animation: pinEntryPanelIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.scenario-fade-in {
+  opacity: 1;
+  animation: scenarioFadeIn 0.52s ease-out backwards;
+}
+
+.scenario-rise-in {
+  opacity: 1;
+  transform: translateY(0);
+  animation: scenarioRiseIn 0.74s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.scenario-return-marker {
+  animation: scenarioReturnMarker 1.9s ease-out both;
+}
+
+.scenario-section-rise > .scenario-section-item {
+  opacity: 1;
+  transform: translateY(0);
+  animation: scenarioRiseIn 0.78s cubic-bezier(0.22, 1, 0.36, 1) var(--scenario-item-delay, 0s) backwards;
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(1) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.04s);
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(2) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.14s);
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(3) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.24s);
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(4) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.34s);
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(5) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.44s);
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(6) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.54s);
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(7) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.64s);
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(8) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.74s);
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(9) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.84s);
+}
+
+.scenario-section-rise > .scenario-section-item:nth-child(10) {
+  --scenario-item-delay: calc(var(--scenario-delay, 0s) + 0.94s);
+}
+
+.page-section-stagger > .page-section-item {
+  opacity: 1;
+  transform: translateY(0);
+  animation: scenarioRiseIn 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--page-item-delay, 0s) backwards;
+}
+
+.page-section-stagger > .page-section-item:nth-child(1) {
+  --page-item-delay: 0.04s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(2) {
+  --page-item-delay: 0.12s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(3) {
+  --page-item-delay: 0.2s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(4) {
+  --page-item-delay: 0.28s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(5) {
+  --page-item-delay: 0.36s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(6) {
+  --page-item-delay: 0.44s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(7) {
+  --page-item-delay: 0.52s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(8) {
+  --page-item-delay: 0.6s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(9) {
+  --page-item-delay: 0.68s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(10) {
+  --page-item-delay: 0.76s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(11) {
+  --page-item-delay: 0.84s;
+}
+
+.page-section-stagger > .page-section-item:nth-child(12) {
+  --page-item-delay: 0.92s;
+}
+
+@keyframes scenarioFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scenarioRiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scenarioReturnMarker {
+  0% {
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.26);
+  }
+  30% {
+    box-shadow: 0 0 0 10px rgba(96, 165, 250, 0);
+  }
+  65% {
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
+  }
+}
+
+@keyframes welcomeBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes welcomePanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pinEntryShellIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pinEntryPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.986);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pageTransitionIn {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition-in,
+  .welcome-backdrop-in,
+  .welcome-panel-in,
+  .feature-modal-backdrop-in,
+  .feature-modal-panel-in,
+  .pin-entry-shell-in,
+  .pin-entry-panel-in,
+  .scenario-return-marker,
+  .scenario-fade-in,
+  .page-section-stagger > .page-section-item,
+  .scenario-rise-in,
+  .scenario-section-rise > .scenario-section-item {
+    animation: none !important;
+  }
 }
 
 /* Community resource marker popups (dark theme) */

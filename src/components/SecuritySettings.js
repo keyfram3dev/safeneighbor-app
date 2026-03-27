@@ -186,7 +186,7 @@ function SecuritySettings({ onClose, onOpenBackup, onInstall, onOpenOfflineLibra
 
   return (
     <>
-      <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 safe-modal-frame">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -199,16 +199,16 @@ function SecuritySettings({ onClose, onOpenBackup, onInstall, onOpenOfflineLibra
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="bg-slate-900 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-slate-700 relative overscroll-contain">
+          className="safe-modal-panel bg-slate-900 rounded-2xl w-full max-w-md flex flex-col overflow-hidden border border-slate-700 relative overscroll-contain">
           {/* Header */}
-          <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-slate-700">
+          <div className="safe-modal-header flex-shrink-0 flex items-center justify-between p-4 border-b border-slate-700">
             <div className="flex items-center gap-2">
               <Shield size={20} weight="bold" className="text-red-400" />
               <h2 className="text-lg font-bold text-white">{t('settings.title')}</h2>
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
+              className="safe-modal-close p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
               aria-label="Close security settings"
             >
               <X size={20} weight="bold" />

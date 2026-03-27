@@ -193,7 +193,7 @@ const OfflineLibrary = ({ isOpen = true, onClose, onInstall }) => {
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm safe-modal-frame"
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
           onClick={onClose}
@@ -203,18 +203,18 @@ const OfflineLibrary = ({ isOpen = true, onClose, onInstall }) => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+            className="safe-modal-panel bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-md overflow-hidden border border-slate-700/50 flex flex-col relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
+            <div className="safe-modal-header flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
               <div className="flex items-center gap-2">
                 <WifiSlash size={20} weight="bold" className="text-emerald-400" />
                 <h2 className="text-lg font-bold text-white">{t('offlineLibrary.title')}</h2>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                className="safe-modal-close p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
               >
                 <X size={20} weight="bold" />
               </button>

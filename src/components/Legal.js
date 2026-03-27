@@ -1085,8 +1085,8 @@ User question: ${input}`
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="text-center mb-8">
+    <div className="max-w-4xl mx-auto px-4 py-8 page-section-stagger">
+      <div className="text-center mb-8 page-section-item">
         <div className="mb-4 flex justify-center">
           <Scale size={64} className="text-blue-400" />
         </div>
@@ -1097,13 +1097,13 @@ User question: ${input}`
       {/* Get Legal Help — one-tap legal response */}
       <button
         onClick={onOpenLegalResponse}
-        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-700 to-emerald-800 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg active:scale-95 mb-6"
+        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-700 to-emerald-800 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg active:scale-95 mb-6 page-section-item"
       >
         <Scales size={20} weight="bold" />
         {t('legalResponse.buttonLabel')}
       </button>
 
-      <div className="flex gap-1.5 mb-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-700/50">
+      <div className="flex gap-1.5 mb-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-700/50 page-section-item">
         <button
           onClick={() => setView('chat')}
           className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
@@ -1147,7 +1147,7 @@ User question: ${input}`
       </div>
 
       {view === 'chat' && (
-        <div className="space-y-6">
+        <div className="space-y-6 page-section-item">
           <div className="bg-gradient-to-br from-amber-950/30 to-amber-900/20 backdrop-blur-sm border border-amber-900/50 rounded-2xl p-6">
             <div className="flex items-start gap-4">
               <Warning size={28} weight="bold" className="text-amber-500 flex-shrink-0 mt-1" />
@@ -1238,7 +1238,7 @@ User question: ${input}`
       )}
 
       {view === 'constitution' && (
-        <div className="space-y-4">
+        <div className="space-y-4 page-section-item">
           <h2 className="text-2xl font-black text-white mb-2">{t('legal.constitutionalRightsTitle')}</h2>
           <p className="text-slate-400 text-sm mb-6">{t('legal.constitutionalRightsSubtitle')}</p>
 
@@ -3027,7 +3027,7 @@ User question: ${input}`
         </div>
       )}
       {view === 'status' && (
-        <div className="space-y-6">
+        <div className="space-y-6 page-section-item">
           {/* Disclaimer */}
           <Disclaimer section="legal" />
 
@@ -3264,7 +3264,7 @@ User question: ${input}`
         </div>
       )}
       {view === 'directory' && (
-        <LegalDirectory />
+        <div className="page-section-item"><LegalDirectory /></div>
       )}
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>

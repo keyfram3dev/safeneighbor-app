@@ -121,10 +121,10 @@ const PinEntry = ({ onUnlock, inline = false, title: customTitle, subtitle: cust
 
   return (
     <div className={inline
-      ? "flex flex-col items-center justify-center p-4"
-      : "fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-4"
+      ? "pin-entry-shell-in flex flex-col items-center justify-center p-4"
+      : "pin-entry-shell-in fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-4"
     }>
-      <div className={`bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl w-full max-w-sm text-center ${inline ? 'p-5' : 'p-8'}`}>
+      <div className={`pin-entry-panel-in bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl w-full max-w-sm text-center shadow-[0_28px_80px_-42px_rgba(15,23,42,0.92)] ${inline ? 'p-5' : 'p-8'}`}>
         {/* Lock Icon */}
         <div className={`${inline ? 'mb-2' : 'mb-4'} flex justify-center`}>
           {isLockedOut ? (

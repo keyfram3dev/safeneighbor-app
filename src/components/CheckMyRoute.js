@@ -368,7 +368,7 @@ function CheckMyRoute({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm safe-modal-frame">
       {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -384,10 +384,10 @@ function CheckMyRoute({ isOpen, onClose }) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className="bg-slate-900 rounded-2xl w-full max-w-md h-[90vh] flex flex-col overflow-hidden overflow-x-hidden border border-slate-700 relative z-10 overscroll-contain"
+        className="safe-modal-panel bg-slate-900 rounded-2xl w-full max-w-md flex flex-col overflow-hidden overflow-x-hidden border border-slate-700 relative z-10 overscroll-contain"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+        <div className="safe-modal-header flex items-center justify-between px-5 py-4 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-blue-600/20">
               <Path size={18} weight="bold" className="text-blue-400" />
@@ -396,7 +396,7 @@ function CheckMyRoute({ isOpen, onClose }) {
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
+            className="safe-modal-close p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
             aria-label="Close route checker"
           >
             <X size={18} weight="bold" />

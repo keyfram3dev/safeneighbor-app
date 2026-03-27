@@ -50,7 +50,6 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
   const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-
   // Lockout state for failed attempts protection
   const [attemptsRemaining, setAttemptsRemaining] = useState(MAX_ATTEMPTS);
   const [isLockedOut, setIsLockedOut] = useState(false);
@@ -260,7 +259,7 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 safe-modal-frame">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -274,10 +273,10 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-sm overflow-hidden border border-slate-700/50 relative"
+        className="safe-modal-panel bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-sm overflow-hidden border border-slate-700/50 relative"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-700">
+        <div className="safe-modal-header flex items-center justify-between p-4 border-b border-slate-700">
           <div className="flex items-center gap-2">
             {isDuressMode ? (
               <EyeSlash size={20} weight="bold" className="text-amber-400" />
@@ -290,7 +289,7 @@ const PinSetup = ({ onClose, onSuccess, mode = 'setup' }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+            className="safe-modal-close p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
           >
             <X size={20} weight="bold" />
           </button>

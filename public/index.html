@@ -44,22 +44,32 @@
       media-src 'self' blob: data:;
       connect-src 'self'
         https://*.firebaseio.com
+        wss://*.firebaseio.com
         https://*.googleapis.com
         https://firestore.googleapis.com
         https://nominatim.openstreetmap.org
+        https://*.tile.openstreetmap.org
         https://safeneighbor-gemini-proxy.mitchgrutter.workers.dev
         https://safeneighbor-ors-proxy.mitchgrutter.workers.dev
         https://*.cloudfunctions.net
         https://cloud.umami.is
         https://api-gateway.umami.dev
         https://accounts.google.com
-        https://overpass-api.de;
+        https://overpass-api.de
+        https://overpass.kumi.systems
+        https://*.r2.cloudflarestorage.com
+        https://www.federalregister.gov
+        https://www.courtlistener.com
+        https://ipwho.is
+        https://ipapi.co;
       font-src 'self';
       frame-src 'self' https://accounts.google.com;
       object-src 'none';
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none';
+      worker-src 'self' blob:;
+      manifest-src 'self';
       upgrade-insecure-requests;
     "/>
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -83,14 +93,10 @@
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
     <!-- Preconnect hints for external resources -->
-    <link rel="preconnect" href="https://unpkg.com" crossorigin />
     <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
-    <link rel="dns-prefetch" href="https://unpkg.com" />
     <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
     <link rel="dns-prefetch" href="https://cloud.umami.is" />
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV" crossorigin="anonymous" />
     <!-- Umami Analytics (privacy-focused, no cookies, GDPR compliant) -->
     <script defer src="https://cloud.umami.is/script.js" data-website-id="a3ffe10e-a303-4bca-b41f-02f24f3433bc"></script>
 
@@ -165,8 +171,5 @@
         tryNext(0);
       })();
     </script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" integrity="sha384-mFKkGiGvT5vo1fEyGCD3hshDdKmW3wzXW/x+fWriYJArD0R3gawT6lMvLboM22c0" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr" crossorigin="anonymous"></script>
   </body>
 </html>

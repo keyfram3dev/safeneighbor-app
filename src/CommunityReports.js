@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
+import L from 'leaflet';
 import { UsersThree, MapPinSimple, MapPinSimpleArea, MapTrifold, ShieldCheckIcon, Scales, X, Check, Shield, LockKey, Eye, EyeSlash, Timer, UserCircle, Fire, Buildings, Path, FlagBannerIcon } from '@phosphor-icons/react';
 import { Download } from 'lucide-react';
 import Disclaimer from './components/Disclaimer';
@@ -145,6 +146,40 @@ const RESOURCES_RADIUS = 5000; // 5km ~ 3.1 miles
 const SUBMIT_REPORT_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/submitReport';
 const VERIFY_REPORT_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/verifyReport';
 const FLAG_REPORT_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/flagReport';
+
+const getLeaflet = () => {
+  if (typeof window !== 'undefined' && !window.L) {
+    window.L = L;
+  }
+  return (typeof window !== 'undefined' && window.L) || L;
+};
+
+const TILE_LAYER_OPTIONS = {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 19
+};
+
+const resetLeafletContainer = (container) => {
+  if (!container) return;
+
+  container.innerHTML = '';
+  container.classList.remove(
+    'leaflet-container',
+    'leaflet-touch',
+    'leaflet-fade-anim',
+    'leaflet-grab',
+    'leaflet-touch-drag',
+    'leaflet-touch-zoom'
+  );
+
+  if (container._leaflet_id) {
+    try {
+      delete container._leaflet_id;
+    } catch {
+      container._leaflet_id = undefined;
+    }
+  }
+};
 
 /**
  * Submit report via Cloud Function (server-side rate limiting)
@@ -695,39 +730,55 @@ const LocationPermissionModal = ({ onClose, onRetry, errorType }) => {
 // Legal Notice Modal Component
 const LegalNoticeModal = ({ onClose }) => {
   const { t } = useTranslation();
+  const [isClosing, setIsClosing] = useState(false);
+  const closeTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleClose = (event) => {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    if (isClosing) return;
+    setIsClosing(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      onClose();
+    }, 150);
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
-        className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+    <div
+      className={`fixed inset-0 z-[100] flex items-center justify-center p-4 safe-modal-frame transition-opacity duration-100 ${isClosing ? 'bg-black/0 opacity-0' : 'feature-modal-backdrop-in bg-black/80 backdrop-blur-sm opacity-100'}`}
+      onClick={handleClose}
+    >
+      <div
+        className={`safe-modal-panel bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm rounded-2xl w-full max-w-lg overflow-hidden border border-slate-700/50 flex flex-col relative transition-[opacity,transform] duration-150 ease-out ${isClosing ? 'opacity-0 translate-y-1.5 scale-[0.986]' : 'feature-modal-panel-in opacity-100 translate-y-0 scale-100'}`}
+        onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
+        <div className="safe-modal-header flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
           <div className="flex items-center gap-2">
             <Scales size={20} weight="bold" className="text-amber-400" />
             <h2 className="text-lg font-bold text-white">{t('reports.communitySafetyGuidelines')}</h2>
           </div>
           <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+            onPointerDown={handleClose}
+            onClick={handleClose}
+            className="safe-modal-close p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-[transform,background-color,color,box-shadow] duration-150 active:scale-[0.9] active:bg-slate-700/90 active:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
           >
             <X size={20} weight="bold" />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="safe-modal-scroll p-6 overflow-y-auto flex-1 space-y-6">
           {/* Informational Purposes Section */}
           <div className="bg-blue-950/30 border border-blue-800/50 rounded-xl p-4">
             <h3 className="text-blue-400 font-bold text-sm uppercase tracking-wider mb-3">
@@ -821,13 +872,14 @@ const LegalNoticeModal = ({ onClose }) => {
             {t('reports.guidelinesAcknowledge')}
           </p>
           <button
-            onClick={onClose}
+            onPointerDown={handleClose}
+            onClick={handleClose}
             className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg"
           >
             {t('reports.iUnderstand')}
           </button>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
@@ -1251,6 +1303,8 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
   const reportClusterRef = useRef(null);
   const resourceClusterRef = useRef(null);
   const resourcesCacheRef = useRef({});
+  const [leafletPluginVersion, setLeafletPluginVersion] = useState(0);
+  const [heavyWorkReady, setHeavyWorkReady] = useState(false);
   const [showResourcesDisclaimer, setShowResourcesDisclaimer] = useState(false);
 
   const [showInlinePicker, setShowInlinePicker] = useState(false);
@@ -1280,6 +1334,31 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
   const [showNearbyReportModal, setShowNearbyReportModal] = useState(false);
   const [nearbyReport, setNearbyReport] = useState(null);
   const [pendingSubmission, setPendingSubmission] = useState(null);
+
+  useEffect(() => {
+    let rafOne = 0;
+    let rafTwo = 0;
+    rafOne = requestAnimationFrame(() => {
+      rafTwo = requestAnimationFrame(() => {
+        setHeavyWorkReady(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(rafOne);
+      cancelAnimationFrame(rafTwo);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handlePluginsReady = () => {
+      setLeafletPluginVersion((current) => current + 1);
+    };
+
+    window.addEventListener('leafletPluginsReady', handlePluginsReady);
+    return () => {
+      window.removeEventListener('leafletPluginsReady', handlePluginsReady);
+    };
+  }, []);
 
   // Lock body scroll when any modal is open
   const anyModalOpen = showLocationModal || showLegalNotice || showPrivacyModal || showPiiWarning || showNearbyReportModal || showResourcesDisclaimer;
@@ -1622,6 +1701,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
   }, []);
 
   useEffect(() => {
+    if (!heavyWorkReady) return;
     console.log('Setting up Firebase listener...');
 
     // Migrate any legacy localStorage pending reports to IndexedDB, then load from IndexedDB
@@ -1891,7 +1971,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [heavyWorkReady]);
 
   useEffect(() => {
     const syncPendingReports = async () => {
@@ -1933,21 +2013,25 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
   }, [isOnline, pendingReports.length]);
 
   useEffect(() => {
+    if (!heavyWorkReady) return;
     if (mapRef.current) return;
+    let resizeRaf = 0;
+    const resizeTimeouts = [];
+    let handleViewportRefresh = null;
+
     const initMap = () => {
       try {
+        const leaflet = getLeaflet();
         const mapContainer = document.getElementById('report-map');
-        if (!mapContainer || !window.L) return false;
-        const mapInstance = window.L.map('report-map', { zoomControl: false, maxZoom: 19 }).setView([formData.lat, formData.lng], 7);
-        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors',
-          crossOrigin: true,
-          maxZoom: 19
-        }).addTo(mapInstance);
+        if (!mapContainer || !leaflet) return false;
+        resetLeafletContainer(mapContainer);
 
-        const selectionMarker = window.L.marker([formData.lat, formData.lng], {
+        const mapInstance = leaflet.map(mapContainer, { zoomControl: false, maxZoom: 19 }).setView([formData.lat, formData.lng], 7);
+        leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', TILE_LAYER_OPTIONS).addTo(mapInstance);
+
+        const selectionMarker = leaflet.marker([formData.lat, formData.lng], {
           draggable: true,
-          icon: window.L.divIcon({
+          icon: leaflet.divIcon({
             className: 'custom-selection-cursor',
             html: "<div style='background-color:#ef4444; width:24px; height:24px; border-radius:50%; border:4px solid white; box-shadow:0 0 20px rgba(239,68,68,0.7); display:flex; align-items:center; justify-content:center; color:white; font-size:13px; font-weight:bold;'>+</div>",
             iconSize: [24, 24],
@@ -1980,6 +2064,26 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
         mapRef.current = mapInstance;
         markerRef.current = selectionMarker;
         setMapLoaded(true);
+
+        const invalidateMapSize = () => {
+          if (!mapRef.current) return;
+          mapRef.current.invalidateSize(false);
+        };
+
+        resizeRaf = requestAnimationFrame(() => {
+          invalidateMapSize();
+        });
+        resizeTimeouts.push(window.setTimeout(invalidateMapSize, 180));
+        resizeTimeouts.push(window.setTimeout(invalidateMapSize, 700));
+
+        handleViewportRefresh = () => {
+          if (document.visibilityState && document.visibilityState !== 'visible') return;
+          invalidateMapSize();
+        };
+
+        window.addEventListener('resize', handleViewportRefresh);
+        window.addEventListener('orientationchange', handleViewportRefresh);
+        document.addEventListener('visibilitychange', handleViewportRefresh);
         return true;
       } catch (err) {
         console.error('Map initialization failed:', err);
@@ -1995,15 +2099,24 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     return () => {
       clearTimeout(tid);
       clearTimeout(failsafe);
+      cancelAnimationFrame(resizeRaf);
+      resizeTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      if (handleViewportRefresh) {
+        window.removeEventListener('resize', handleViewportRefresh);
+        window.removeEventListener('orientationchange', handleViewportRefresh);
+        document.removeEventListener('visibilitychange', handleViewportRefresh);
+      }
       if (heatLayerRef.current && mapRef.current) { mapRef.current.removeLayer(heatLayerRef.current); heatLayerRef.current = null; }
       if (reportClusterRef.current && mapRef.current) { mapRef.current.removeLayer(reportClusterRef.current); reportClusterRef.current = null; }
       if (resourceClusterRef.current && mapRef.current) { mapRef.current.removeLayer(resourceClusterRef.current); resourceClusterRef.current = null; }
       resourceMarkersRef.current = [];
       reportMarkersRef.current = [];
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+      const mapContainer = document.getElementById('report-map');
+      if (mapContainer) resetLeafletContainer(mapContainer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [heavyWorkReady]);
 
   // Request geolocation AFTER map is ready and modals are dismissed
   // iOS PWAs drop geolocation responses when permission prompts compete with other modals
@@ -2033,7 +2146,8 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
   }, [showLocationPin, mapLoaded]);
 
   useEffect(() => {
-    if (mapLoaded && mapRef.current && window.L) {
+    const leaflet = getLeaflet();
+    if (mapLoaded && mapRef.current && leaflet) {
       // Remove previous layers
       if (reportClusterRef.current) {
         mapRef.current.removeLayer(reportClusterRef.current);
@@ -2045,8 +2159,8 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       if (allReports.length === 0) return;
 
       // All reports go through MarkerClusterGroup; clustering disabled at zoom 14+
-      const clusterGroup = window.L.markerClusterGroup
-        ? window.L.markerClusterGroup({
+      const clusterGroup = leaflet.markerClusterGroup
+        ? leaflet.markerClusterGroup({
             maxClusterRadius: 50,
             disableClusteringAtZoom: 11,
             spiderfyOnMaxZoom: true,
@@ -2059,14 +2173,14 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
               const baseSize = count < 10 ? 36 : count < 50 ? 44 : 52;
               const size = Math.round(baseSize * zoomScale);
               const fontSize = Math.round((count < 10 ? 13 : 12) * zoomScale);
-              return window.L.divIcon({
+              return leaflet.divIcon({
                 html: `<div style="background:rgba(153,27,27,0.9); width:${size}px; height:${size}px; border-radius:50%; border:2px solid #ef4444; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:${fontSize}px; box-shadow:0 3px 10px rgba(0,0,0,0.6);">${count}</div>`,
                 className: 'report-cluster-icon',
                 iconSize: [size, size]
               });
             }
           })
-        : window.L.layerGroup();
+        : leaflet.layerGroup();
 
       // Zoom-responsive pin size: smaller when zoomed out, full at zoom 15+
       const pinSize = (zoom) => {
@@ -2109,7 +2223,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
           ? (isPending ? '<div class="absolute -inset-1.5 bg-amber-500 rounded-full animate-ping opacity-25"></div>' : `<div class="absolute -inset-2 ${pulseColor} rounded-full animate-pulse opacity-20"></div>`)
           : '';
 
-        return window.L.divIcon({
+        return leaflet.divIcon({
           className: 'custom-report-marker',
           html: `<div class="relative flex items-center justify-center">${pulseHtml}<div style='background-color:${bgColor}; width:${sz}px; height:${sz}px; border-radius:50%; border:${zoom >= 13 ? 2 : 1}px solid ${borderColor}; box-shadow:0 2px 6px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; font-size:${Math.round(svSz * 0.8)}px;'>${iconContent}</div></div>`,
           iconSize: [sz, sz],
@@ -2120,7 +2234,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       // Helper: create a marker for a report
       const makeMarker = (report) => {
         const zoom = mapRef.current ? mapRef.current.getZoom() : 10;
-        const m = window.L.marker([report.lat, report.lng], {
+        const m = leaflet.marker([report.lat, report.lng], {
           icon: buildIcon(report, zoom)
         });
         m._reportData = report; // stash for zoom-based icon updates
@@ -2161,7 +2275,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       }
       reportClusterRef.current = clusterGroup;
     }
-  }, [reports, pendingReports, mapLoaded, showPins]);
+  }, [reports, pendingReports, mapLoaded, showPins, leafletPluginVersion]);
 
   // Heat map layer lifecycle — radius scales with zoom to keep geographic size constant
   const HEAT_REFERENCE_ZOOM = 13;
@@ -2173,7 +2287,8 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
   };
 
   const rebuildHeatLayer = () => {
-    if (!mapRef.current || !window.L?.heatLayer) return;
+    const leaflet = getLeaflet();
+    if (!mapRef.current || !leaflet?.heatLayer) return;
     if (heatLayerRef.current) {
       mapRef.current.removeLayer(heatLayerRef.current);
       heatLayerRef.current = null;
@@ -2183,7 +2298,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     if (heatData.length === 0) return;
     const zoom = mapRef.current.getZoom();
     const scaledRadius = getScaledHeatRadius(zoom);
-    heatLayerRef.current = window.L.heatLayer(heatData, {
+    heatLayerRef.current = leaflet.heatLayer(heatData, {
       ...HEATMAP_CONFIG,
       radius: scaledRadius,
       blur: Math.max(3, Math.round(scaledRadius * 0.65))
@@ -2191,17 +2306,19 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
   };
 
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || !window.L?.heatLayer) return;
+    const leaflet = getLeaflet();
+    if (!mapLoaded || !mapRef.current || !leaflet?.heatLayer) return;
     rebuildHeatLayer();
     const onZoom = () => rebuildHeatLayer();
     mapRef.current.on('zoomend', onZoom);
     return () => { if (mapRef.current) mapRef.current.off('zoomend', onZoom); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heatReports, pendingReports, mapLoaded, heatmapEnabled]);
+  }, [heatReports, pendingReports, mapLoaded, heatmapEnabled, leafletPluginVersion]);
 
   // Resource markers lifecycle
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || !window.L) return;
+    const leaflet = getLeaflet();
+    if (!mapLoaded || !mapRef.current || !leaflet) return;
 
     // Remove previous resource cluster group
     if (resourceClusterRef.current) {
@@ -2213,8 +2330,8 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     if (!resourcesEnabled || resourcesData.length === 0) return;
 
     // Create cluster group (falls back to plain layer group if plugin not loaded)
-    const clusterGroup = window.L.markerClusterGroup
-      ? window.L.markerClusterGroup({
+    const clusterGroup = leaflet.markerClusterGroup
+      ? leaflet.markerClusterGroup({
           maxClusterRadius: 40,
           spiderfyOnMaxZoom: true,
           showCoverageOnHover: false,
@@ -2226,14 +2343,14 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
             const baseSize = count < 10 ? 32 : count < 50 ? 40 : 48;
             const size = Math.round(baseSize * zoomScale);
             const fontSize = Math.round((count < 10 ? 12 : 11) * zoomScale);
-            return window.L.divIcon({
+            return leaflet.divIcon({
               html: `<div style="background:rgba(6,78,59,0.9); width:${size}px; height:${size}px; border-radius:50%; border:2px solid #34d399; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:${fontSize}px; box-shadow:0 2px 8px rgba(0,0,0,0.5);">${count}</div>`,
               className: 'resource-cluster-icon',
               iconSize: [size, size]
             });
           }
         })
-      : window.L.layerGroup();
+      : leaflet.layerGroup();
 
     resourcesData.forEach(resource => {
       const style = RESOURCE_STYLES[resource.category] || RESOURCE_STYLES.church;
@@ -2252,9 +2369,9 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
 
       const sanitizedName = DOMPurify.sanitize(resource.name, { ALLOWED_TAGS: [] });
 
-      const m = window.L.marker([resource.lat, resource.lng], {
+      const m = leaflet.marker([resource.lat, resource.lng], {
         zIndexOffset: -100,
-        icon: window.L.divIcon({
+        icon: leaflet.divIcon({
           className: 'custom-resource-marker',
           html: `<div style='background-color:${style.bg}; width:22px; height:22px; border-radius:50%; border:2px solid ${style.border}; box-shadow:0 2px 8px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; color:${style.border};'>${iconSvgs[resource.category] || iconSvgs.church}</div>`,
           iconSize: [22, 22],
@@ -2290,20 +2407,22 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     }
     resourceClusterRef.current = clusterGroup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resourcesData, resourcesEnabled, mapLoaded, userCoords, showPins]);
+  }, [resourcesData, resourcesEnabled, mapLoaded, userCoords, showPins, leafletPluginVersion]);
 
   // Auto-fetch resources if toggle was persisted as enabled
   useEffect(() => {
+    if (!heavyWorkReady) return;
     if (resourcesEnabled && resourcesData.length === 0 && !resourcesLoading) {
       if (userCoords || mapLoaded) {
         fetchResources();
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resourcesEnabled, userCoords, mapLoaded]);
+  }, [resourcesEnabled, userCoords, mapLoaded, heavyWorkReady]);
 
   useEffect(() => {
-    if (showInlinePicker && !inlinePickerMapRef.current && window.L) {
+    const leaflet = getLeaflet();
+    if (showInlinePicker && !inlinePickerMapRef.current && leaflet) {
       const initPicker = () => {
         const container = document.getElementById('inline-precision-map');
         if (!container) return;
@@ -2329,14 +2448,15 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       };
 
       const setupPickerMap = (centerLat, centerLng) => {
-        const mInstance = window.L.map('inline-precision-map', { zoomControl: false, maxZoom: 19 }).setView([centerLat, centerLng], 14);
-        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OSM',
-          crossOrigin: true,
-          maxZoom: 19
-        }).addTo(mInstance);
+        const container = document.getElementById('inline-precision-map');
+        if (!container) return;
 
-        const circle = window.L.circle([centerLat, centerLng], {
+        resetLeafletContainer(container);
+
+        const mInstance = leaflet.map(container, { zoomControl: false, maxZoom: 19 }).setView([centerLat, centerLng], 14);
+        leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', TILE_LAYER_OPTIONS).addTo(mInstance);
+
+        const circle = leaflet.circle([centerLat, centerLng], {
           color: '#ef4444',
           fillColor: '#ef4444',
           fillOpacity: 0.15,
@@ -2344,9 +2464,9 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
           dashArray: '5, 10'
         }).addTo(mInstance);
 
-        const marker = window.L.marker([centerLat, centerLng], {
+        const marker = leaflet.marker([centerLat, centerLng], {
           draggable: true,
-          icon: window.L.divIcon({
+          icon: leaflet.divIcon({
             className: 'precision-marker',
             html: "<div style='background-color:#ef4444; width:34px; height:34px; border-radius:50%; border:4px solid white; box-shadow:0 10px 20px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; color:white;'><svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='currentColor' viewBox='0 0 256 256'><path d='M128,16a88.1,88.1,0,0,0-88,88c0,75.3,80,132.17,83.41,134.55a8,8,0,0,0,9.18,0C136,236.17,216,179.3,216,104A88.1,88.1,0,0,0,128,16Zm0,56a32,32,0,1,1-32,32A32,32,0,0,1,128,72Z'/></svg></div>",
             iconSize: [34, 34],
@@ -2385,6 +2505,12 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
         inlinePickerMapRef.current = mInstance;
         inlinePickerMarkerRef.current = marker;
         inlinePickerCircleRef.current = circle;
+        requestAnimationFrame(() => {
+          inlinePickerMapRef.current?.invalidateSize(false);
+        });
+        window.setTimeout(() => {
+          inlinePickerMapRef.current?.invalidateSize(false);
+        }, 180);
       };
 
       setTimeout(initPicker, 200);
@@ -2394,7 +2520,11 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       if (!showInlinePicker && inlinePickerMapRef.current) {
         inlinePickerMapRef.current.remove();
         inlinePickerMapRef.current = null;
+        inlinePickerMarkerRef.current = null;
+        inlinePickerCircleRef.current = null;
       }
+      const container = document.getElementById('inline-precision-map');
+      if (container) resetLeafletContainer(container);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showInlinePicker, userCoords]);
@@ -2813,11 +2943,11 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
 
   return (
     <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="max-w-7xl mx-auto space-y-8 page-section-stagger">
 
         {/* In-app browser warning banner */}
         {isInAppWebView() && (
-          <div className="bg-amber-950/60 border border-amber-700/60 rounded-xl p-4 flex items-start gap-3">
+          <div className="bg-amber-950/60 border border-amber-700/60 rounded-xl p-4 flex items-start gap-3 page-section-item">
             <Fire size={20} weight="bold" className="text-amber-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-amber-300 text-sm font-bold">{t('reports.openInBrowser')}</p>
@@ -2828,7 +2958,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
           </div>
         )}
 
-        <section className="text-center relative pt-4">
+        <section className="text-center relative pt-4 page-section-item">
           <div className="flex justify-center mb-4">
             <UsersThree size={48} weight="bold" className="text-blue-400" />
           </div>
@@ -2873,7 +3003,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
           </div>
         </section>
 
-        <div className="bg-slate-900 p-1 rounded-[2rem] border border-slate-800 shadow-2xl overflow-hidden relative">
+        <div className="bg-slate-900 p-1 rounded-[2rem] border border-slate-800 shadow-2xl overflow-hidden relative page-section-item">
           <div className="p-3 bg-slate-950/60 border-b border-slate-800/50 backdrop-blur-md space-y-2">
             {/* Row 1: Title + Toggle buttons */}
             <div className="flex justify-between items-center">
@@ -3037,7 +3167,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative page-section-item">
           {submitted ? (
             <div className="bg-green-900/20 border-2 border-green-800/60 p-10 rounded-[2.5rem] text-center shadow-2xl animate-in zoom-in-95">
               <div className="flex justify-center mb-6">
@@ -3134,7 +3264,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
           )}
         </div>
 
-        <div className="space-y-8 pt-6">
+        <div className="space-y-8 pt-6 page-section-item">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 overflow-visible relative">
             <h3 className="text-2xl font-black text-slate-100 flex items-center gap-3 uppercase tracking-tight shrink-0">
               <span className="text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">🕒</span> {t('reports.localActivityFeed')}
@@ -3322,10 +3452,10 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       </div>
 
       {/* FAQ Link */}
-      <FaqCta onNavigate={onNavigate} className="max-w-7xl mx-auto mt-10 mb-4 px-4" />
+      <FaqCta onNavigate={onNavigate} className="max-w-7xl mx-auto mt-10 mb-4 px-4 page-section-item" />
 
       {/* Disclaimer */}
-      <div className="max-w-7xl mx-auto mt-4 mb-6 px-4">
+      <div className="max-w-7xl mx-auto mt-4 mb-6 px-4 page-section-item">
         <Disclaimer>
           {t('reports.disclaimerLine1')}
           <br />{t('reports.disclaimerLine2')}
@@ -3335,7 +3465,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       </div>
 
       {/* Install App Button */}
-      <div className="max-w-7xl mx-auto mt-8 mb-6 px-4 text-center">
+      <div className="max-w-7xl mx-auto mt-8 mb-6 px-4 text-center page-section-item">
         <button
           onClick={() => {
             if (window.deferredPrompt) {

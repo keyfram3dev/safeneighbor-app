@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
+import { flushSync } from 'react-dom';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Home as HomeIcon, List, MapPin, Video, Scale, Megaphone } from 'lucide-react';
 import { GearSix, WarningCircle, Door, User, Car, Shield, Trash, LockLaminated, NavigationArrowIcon as NavigationArrow, CheckIcon as Check, NotePencilIcon as NotePencil, ClockIcon as Clock2, FirstAidKitIcon as FirstAidKit, XIcon as CloseX, DeviceMobileIcon as DeviceMobile, ScalesIcon as Scales, TimerIcon as TimerEm } from '@phosphor-icons/react';
 import './App.css';
@@ -58,7 +59,6 @@ import { useTranslation } from 'react-i18next';
 import LanguageSelector from './components/LanguageSelector';
 import { getLanguageStorageKey } from './i18n';
 import i18n from './i18n';
-import useDirection from './hooks/useDirection';
 import { ReportsProvider } from './contexts/ReportsContext';
 import useProximityAlerts from './hooks/useProximityAlerts';
 import ProximityAlert from './components/ProximityAlert';
@@ -67,8 +67,8 @@ import ProximityAlert from './components/ProximityAlert';
 const AUTO_LOCK_TIMEOUT_MS = 7 * 60 * 1000;
 const BUILD_VERSION = process.env.REACT_APP_BUILD_VERSION || 'dev';
 const BUILD_TIME = process.env.REACT_APP_BUILD_TIME || 'local build';
+const RECENT_SCENARIOS_KEY = 'safeneighbor_recent_scenarios';
 
-// Page order for determining slide direction
 const pageOrder = ['home', 'scenarios', 'reports', 'record', 'legal', 'whistle'];
 const validPages = new Set([...pageOrder, 'faq', 'tech-security']);
 const modalKeys = [
@@ -204,35 +204,20 @@ const parseAppLocation = (location) => {
   };
 };
 
-// Animation variants for page transitions (RTL-aware)
-const pageVariants = {
-  initial: ({ direction, isRTL }) => {
-    const rtlFlip = isRTL ? -1 : 1;
-    return {
-      x: direction === 0 ? 0 : (direction > 0 ? 100 : -100) * rtlFlip,
-      scale: direction === 0 ? 0.97 : 1,
-      opacity: 0,
-    };
-  },
-  animate: {
-    x: 0,
-    scale: 1,
-    opacity: 1,
-    transition: { duration: 0.25, ease: 'easeOut' }
-  },
-  exit: ({ direction, isRTL }) => {
-    const rtlFlip = isRTL ? -1 : 1;
-    return {
-      x: (direction > 0 ? -100 : 100) * rtlFlip,
-      opacity: 0,
-      transition: { duration: 0.2, ease: 'easeIn' }
-    };
-  },
-};
-
 // Umami analytics helper — no-op if script hasn't loaded
 const track = (event, data) => {
   if (window.umami) window.umami.track(event, data);
+};
+
+const persistRecentScenarioId = (scenarioId) => {
+  if (!scenarioId) return;
+  try {
+    const existing = JSON.parse(localStorage.getItem(RECENT_SCENARIOS_KEY) || '[]');
+    const next = [scenarioId, ...existing.filter((id) => id !== scenarioId)].slice(0, 5);
+    localStorage.setItem(RECENT_SCENARIOS_KEY, JSON.stringify(next));
+  } catch (error) {
+    console.warn('Failed to store recent scenario', error);
+  }
 };
 
 // ErrorBoundary — catches render crashes and shows a recovery screen
@@ -264,7 +249,6 @@ class ErrorBoundary extends React.Component {
 
 function App() {
   const { t } = useTranslation();
-  const { isRTL } = useDirection();
   const initialUrlStateRef = useRef(null);
   if (!initialUrlStateRef.current) {
     initialUrlStateRef.current = parseAppLocation(window.location);
@@ -272,7 +256,6 @@ function App() {
   const initialUrlState = initialUrlStateRef.current;
 
   const [currentPage, setCurrentPage] = useState(initialUrlState.page);
-  const [direction, setDirection] = useState(0);
   const [emergencyMode, setEmergencyMode] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState(initialUrlState.selectedScenario);
   const [isEmergencyNavigation, setIsEmergencyNavigation] = useState(false);
@@ -302,6 +285,7 @@ function App() {
     }, [])
   });
   const [showUpdateToast, setShowUpdateToast] = useState(false);
+  const [showInteractionShield, setShowInteractionShield] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [showLanguageSelector, setShowLanguageSelector] = useState(() => !localStorage.getItem(getLanguageStorageKey()));
   const [showWelcome, setShowWelcome] = useState(() => {
@@ -512,6 +496,27 @@ function App() {
     localStorage.setItem('safeneighbor_install_dismissed', 'true');
     setShowInstallBanner(false);
   };
+
+  const dismissWelcome = useCallback(() => {
+    flushSync(() => {
+      setShowInteractionShield(true);
+      setShowWelcome(false);
+    });
+    setTimeout(() => setShowInteractionShield(false), 320);
+    requestAnimationFrame(() => {
+      localStorage.setItem('safeneighbor_welcome_shown', 'true');
+    });
+  }, []);
+
+  const handleWelcomeOpenSettings = useCallback(() => {
+    flushSync(() => {
+      setShowWelcome(false);
+      setShowSettings(true);
+    });
+    requestAnimationFrame(() => {
+      localStorage.setItem('safeneighbor_welcome_shown', 'true');
+    });
+  }, []);
 
   const handleAppUpdate = () => {
     const reg = swRegistrationRef.current;
@@ -743,20 +748,14 @@ function App() {
       return;
     }
 
-    const currentIndex = pageOrder.indexOf(currentPage);
-    const nextIndex = pageOrder.indexOf(page);
-
     startTransition(() => {
-      if (currentIndex !== -1 && nextIndex !== -1) {
-        setDirection(nextIndex > currentIndex ? 1 : -1);
-      } else {
-        setDirection(0);
-      }
       setCurrentPage(page);
       setSelectedScenario(null);
     });
 
-    window.scrollTo(0, 0);
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+    });
     track('page_view', { page });
 
     // Clear app badge when user views reports
@@ -765,20 +764,33 @@ function App() {
     }
   };
 
+  const openScenarioDetail = useCallback((scenario, { source = 'scenarios', ensureScenariosPage = false } = {}) => {
+    if (!scenario?.id) return;
+
+    startTransition(() => {
+      setSelectedScenario(scenario);
+      if (ensureScenariosPage) {
+        setCurrentPage('scenarios');
+      }
+    });
+
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+    });
+
+    persistRecentScenarioId(scenario.id);
+    track('scenario_open', { id: scenario.id, title: scenario.title || scenario.id, source });
+  }, []);
+
   // Handle scenario selection (from Scenarios list page)
   const handleSelectScenario = (scenario) => {
-    setSelectedScenario(scenario);
-    window.scrollTo(0, 0);
-    track('scenario_open', { id: scenario.id, title: scenario.title || scenario.id });
+    openScenarioDetail(scenario, { source: 'scenarios' });
   };
 
   // NEW: Navigate directly to a specific scenario (from Home page or Emergency menu)
   // This sets BOTH at once so they don't overwrite each other
   const handleNavigateToScenario = (scenario) => {
-    setSelectedScenario(scenario);
-    setCurrentPage('scenarios');
-    window.scrollTo(0, 0);
-    track('scenario_open', { id: scenario.id, source: 'home' });
+    openScenarioDetail(scenario, { source: 'home', ensureScenariosPage: true });
   };
 
   // Handle back from scenario detail
@@ -812,9 +824,8 @@ function App() {
         );
       case 'scenarios':
         // Show detail if scenario selected, otherwise show list
-        // LayoutGroup enables shared element transitions between list and detail
         return (
-          <LayoutGroup>
+          <>
             {selectedScenario ? (
               // Custom components for special scenarios
               selectedScenario.id === 'de-escalation' ? (
@@ -831,7 +842,7 @@ function App() {
               ) : selectedScenario.id === 'family-kit' ? (
                 <FamilyKit
                   onBack={handleBackFromScenario}
-                  onNavigateToContacts={() => setSelectedScenario({ id: 'trusted-contacts' })}
+                  onNavigateToContacts={() => openScenarioDetail({ id: 'trusted-contacts' }, { source: 'family_kit' })}
                   onOpenLegalResponse={() => { setShowLegalResponse(true); track('modal_open', { modal: 'legal_response', source: 'family_kit' }); }}
                 />
               ) : selectedScenario.id === 'rights-card' ? (
@@ -872,8 +883,7 @@ function App() {
                 <PostEncounterGuide
                   onBack={handleBackFromScenario}
                   onNavigateToScenario={(scenario) => {
-                    setSelectedScenario(scenario);
-                    window.scrollTo(0, 0);
+                    openScenarioDetail(scenario, { source: 'post_encounter' });
                   }}
                 />
               ) : selectedScenario.id === 'community-witnessing' ? (
@@ -895,10 +905,9 @@ function App() {
                     recordEmergencyUsage('return-to-panel', { type: 'panel' });
                   }}
                   onNavigateToScenario={(scenario) => {
-                    setSelectedScenario(scenario);
                     setIsEmergencyNavigation(false);
                     setEmergencyHandoff(null);
-                    window.scrollTo(0, 0);
+                    openScenarioDetail(scenario, { source: 'scenario_detail' });
                   }}
                 />
               )
@@ -908,7 +917,7 @@ function App() {
                 onSelectScenario={handleSelectScenario}
               />
             )}
-          </LayoutGroup>
+          </>
         );
       case 'reports':
         return <CommunityReports isDuressMode={isDuressMode} onOpenCheckRoute={() => { setShowCheckRoute(true); track('modal_open', { modal: 'check_route', source: 'reports' }); }} onNavigateToScenario={handleNavigateToScenario} onNavigate={handleNavigate} />;
@@ -1513,14 +1522,11 @@ function App() {
 
       {/* Welcome Modal - shown on first visit (after language selection) */}
       {showWelcome && (
-        <Welcome onClose={() => {
-          localStorage.setItem('safeneighbor_welcome_shown', 'true');
-          setShowWelcome(false);
-        }} onOpenSettings={() => {
-          localStorage.setItem('safeneighbor_welcome_shown', 'true');
-          setShowWelcome(false);
-          setShowSettings(true);
-        }} onInstall={handleInstallBannerClick} />
+        <Welcome
+          onClose={dismissWelcome}
+          onOpenSettings={handleWelcomeOpenSettings}
+          onInstall={handleInstallBannerClick}
+        />
       )}
 
       {/* Features Modal */}
@@ -1562,7 +1568,7 @@ function App() {
       )}
 
       {/* Top Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-red-900 to-red-800 border-b-4 border-red-600 shadow-2xl safe-top-nav">
+      <nav data-shell-top-nav="true" className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-red-900 to-red-800 border-b-4 border-red-600 shadow-2xl safe-top-nav">
         <div className="flex items-center justify-between px-4 h-[72px]">
           <button
             onClick={() => handleNavigate('home')}
@@ -1671,7 +1677,7 @@ function App() {
               <div className="border-b border-red-500/15 px-4 py-4 sm:px-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.24em] text-red-200/75">
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-red-200/75">
                       {t('emergency.headerEyebrow')}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
@@ -1715,7 +1721,7 @@ function App() {
               <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/70">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/70">
                     {emergencyRecommendation.eyebrow}
                   </p>
                   <h3 className="mt-2 text-xl font-black tracking-tight text-white">
@@ -1740,7 +1746,7 @@ function App() {
             <div className="xl:grid xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] xl:items-start xl:gap-6">
               <div className="xl:min-w-0">
             <div className="mb-5 sm:mb-6">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-red-300/80">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-300/80">
                 {t('emergency.topActionsHeading')}
               </p>
               <p className="mt-2 text-sm leading-relaxed text-slate-400">
@@ -1757,7 +1763,7 @@ function App() {
                     <NavigationArrow size={22} weight="bold" className="text-cyan-300" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">
                       {t('emergency.locationCardEyebrow')}
                     </p>
                     <h3 className="mt-1 text-lg font-black text-white">
@@ -2009,7 +2015,7 @@ function App() {
                     <Scales size={22} weight="bold" className="text-amber-300" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-300">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">
                       {t('emergency.legalCardEyebrow')}
                     </p>
                     <h3 className="mt-1 text-lg font-black text-white">
@@ -2052,7 +2058,7 @@ function App() {
             <div ref={scenarioSectionRef} className="relative mb-5 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 px-4 py-4 sm:mb-6">
               <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-gradient-to-b from-red-500 via-red-400 to-amber-400" />
               <div className="pl-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-red-300/80">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-300/80">
                 {t('emergency.scenarioHeading')}
               </p>
               <p className="mt-2 text-sm leading-relaxed text-slate-400">
@@ -2077,7 +2083,7 @@ function App() {
                     {item.icon}
                   </div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-red-100/75">{item.eyebrow}</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-100/75">{item.eyebrow}</p>
                     {item.id === recentScenarioId && (
                       <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/85">
                         {t('emergency.recentTag')}
@@ -2105,7 +2111,7 @@ function App() {
               className="hidden overflow-hidden rounded-[24px] border border-slate-800/80 bg-gradient-to-br from-slate-900/95 via-slate-950 to-slate-950 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.24)] xl:block"
             >
               <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent" />
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
                 {t('emergency.desktopRailEyebrow')}
               </p>
               <h3 className="mt-2 text-lg font-black text-white">
@@ -2148,7 +2154,7 @@ function App() {
             <div className="relative mb-5 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 px-4 py-4 sm:mb-6">
               <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-gradient-to-b from-cyan-400 via-blue-400 to-emerald-400" />
               <div className="pl-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
                 {t('emergency.supportHeading')}
               </p>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
@@ -2170,7 +2176,7 @@ function App() {
                   <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/35">
                     <NotePencil size={20} weight="bold" />
                   </div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
                   <p className="mt-2 text-base font-bold tracking-[0.02em]">{t('emergency.logNowTitle')}</p>
                   <p className="mt-2 text-sm leading-relaxed text-slate-300">{t('emergency.logNowDesc')}</p>
                 </button>
@@ -2185,7 +2191,7 @@ function App() {
                   <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/35">
                     <Clock2 size={20} weight="bold" />
                   </div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
                   <p className="mt-2 text-base font-bold tracking-[0.02em]">{t('emergency.logAfterTitle')}</p>
                   <p className="mt-2 text-sm leading-relaxed text-slate-300">{t('emergency.logAfterDesc')}</p>
                 </button>
@@ -2202,7 +2208,7 @@ function App() {
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10">
                   <FirstAidKit size={20} weight="bold" className="text-emerald-300" />
                 </div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
                 <p className="mt-2 text-base font-bold tracking-[0.02em]">{t('emergency.postEncounterTitle')}</p>
                 <p className="mt-2 text-sm leading-relaxed text-slate-300">{t('emergency.postEncounterDesc')}</p>
               </button>
@@ -2220,7 +2226,7 @@ function App() {
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10">
                   <TimerEm size={20} weight="bold" className="text-blue-300" />
                 </div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
                 <p className="mt-2 text-base font-bold tracking-[0.02em]">{t('emergency.checkInTitle')}</p>
                 <p className="mt-2 text-sm leading-relaxed text-slate-300">{t('emergency.checkInSupport')}</p>
               </button>
@@ -2229,7 +2235,7 @@ function App() {
             <div className="relative mb-5 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 px-4 py-4 sm:mb-6">
               <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-gradient-to-b from-violet-400 via-slate-300 to-cyan-400" />
               <div className="pl-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
                 {t('emergency.calmHeading')}
               </p>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
@@ -2242,7 +2248,7 @@ function App() {
               <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-violet-300/35 to-transparent" />
               <div className="absolute -right-8 top-10 h-20 w-20 rounded-full bg-violet-400/10 blur-3xl pointer-events-none" />
               <div className="mb-4 rounded-2xl border border-slate-800/80 bg-slate-950/75 p-3">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
                   {t('emergency.calmToolEyebrow')}
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-slate-400">
@@ -2251,7 +2257,7 @@ function App() {
               </div>
               <BreathingGuide compact={true} key={breathingResetKey} />
               <div className="mt-5 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-4 text-center">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
                   {t('emergency.calmQuoteEyebrow')}
                 </p>
                 <p className="mt-3 text-sm italic leading-relaxed text-slate-400">
@@ -2264,7 +2270,7 @@ function App() {
             <div className="relative mb-5 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 px-4 py-4 sm:mb-6">
               <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-gradient-to-b from-blue-400 via-slate-300 to-slate-500" />
               <div className="pl-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
                 {t('emergency.utilitiesHeading')}
               </p>
               </div>
@@ -2321,7 +2327,7 @@ function App() {
               <div className="absolute -right-10 top-10 h-24 w-24 rounded-full bg-red-500/10 blur-3xl pointer-events-none" />
               <div className="mb-3 flex items-center gap-2">
                 <Trash size={18} weight="bold" className="text-red-400" />
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-red-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-300">
                   {t('emergency.dangerHeading')}
                 </p>
               </div>
@@ -2438,6 +2444,7 @@ function App() {
       <AnimatePresence>
         {showInstallBanner && (
           <motion.div
+            data-shell-top-banner="true"
             initial={{ y: -48, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -48, opacity: 0 }}
@@ -2475,6 +2482,7 @@ function App() {
       <AnimatePresence>
         {!isOnline && (
           <motion.div
+            data-shell-top-banner="true"
             initial={{ y: -40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -40, opacity: 0 }}
@@ -2518,6 +2526,10 @@ function App() {
         </div>
       )}
 
+      {showInteractionShield && (
+        <div className="fixed inset-0 z-[95] bg-transparent" aria-hidden="true" />
+      )}
+
       {/* Main Content */}
       <main
         className="overflow-hidden"
@@ -2526,18 +2538,9 @@ function App() {
           transition: 'padding-top 0.3s ease',
         }}
       >
-        <AnimatePresence mode="sync" initial={false} custom={{ direction, isRTL }}>
-          <motion.div
-            key={currentPage}
-            custom={{ direction, isRTL }}
-            variants={pageVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-          >
-            {renderPage()}
-          </motion.div>
-        </AnimatePresence>
+        <div key={currentPage} className={currentPage === 'scenarios' ? '' : 'page-transition-in'}>
+          {renderPage()}
+        </div>
       </main>
 
       {/* Contact Footer */}
@@ -2633,15 +2636,29 @@ function App() {
 }
 
 function NavButton({ icon: Icon, label, active, onClick }) {
+  const [isPressed, setIsPressed] = useState(false);
+
+  useEffect(() => {
+    if (active) {
+      setIsPressed(false);
+    }
+  }, [active]);
+
   return (
     <button
       type="button"
       onClick={onClick}
+      onPointerDown={() => setIsPressed(true)}
+      onPointerUp={() => setIsPressed(false)}
+      onPointerCancel={() => setIsPressed(false)}
+      onBlur={() => setIsPressed(false)}
       style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-      className={`flex flex-col items-center gap-0.5 sm:gap-1 px-1.5 sm:px-3 py-2 rounded-lg transition-all ${
+      className={`flex flex-col items-center gap-0.5 sm:gap-1 px-1.5 sm:px-3 py-2 rounded-lg transition-[transform,color,background-color,box-shadow] duration-150 active:scale-[0.96] ${
         active
           ? 'text-red-500 bg-red-950/30'
-          : 'text-slate-400 hover:text-slate-200'
+          : isPressed
+            ? 'text-slate-100 bg-slate-800/80 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] scale-[0.96]'
+            : 'text-slate-400 hover:text-slate-200'
       }`}
     >
       <Icon size={22} className="sm:w-[22px] sm:h-[22px] w-5 h-5" />

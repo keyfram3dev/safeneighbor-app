@@ -131,7 +131,7 @@ function BackupSettings({ onClose }) {
     }
   };
 
-  const saveSettings = async () => {
+  const saveSettings = async ({ closeOnSuccess = true } = {}) => {
     setIsSaving(true);
     try {
       // Generate encryption key if not exists
@@ -173,7 +173,7 @@ function BackupSettings({ onClose }) {
       }
 
       // Close the settings modal after successful save
-      if (onClose) onClose();
+      if (onClose && closeOnSuccess) onClose();
     } catch (error) {
       console.error('Failed to save settings:', error);
       alert(t('backup.failedSaveSettings') + error.message);
@@ -318,6 +318,7 @@ ${accessPackage.instructions}
       const client = createDriveClient();
       await client.testConnection();
       setGoogleConnectionStatus('success');
+      await saveSettings({ closeOnSuccess: false });
     } catch (error) {
       console.error('Drive connection test failed:', error);
       setGoogleConnectionStatus('error');
@@ -340,7 +341,7 @@ ${accessPackage.instructions}
   const hasAnyProvider = credentials.accessKeyId || googleSignedIn;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex justify-center overflow-hidden safe-modal-frame">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -354,21 +355,24 @@ ${accessPackage.instructions}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="max-w-lg mx-auto px-4 py-6 pb-32 relative"
+        className="safe-modal-panel relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-[28px] border border-slate-700/60 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.9)]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="safe-modal-header flex items-center justify-between border-b border-white/5 px-4 py-3">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Shield size={24} className="text-blue-400" />
             {t('backup.secureBackup')}
           </h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-2"
+            className="safe-modal-close inline-flex items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+            aria-label="Close backup settings"
           >
             <X size={24} />
           </button>
         </div>
+
+        <div className="safe-modal-scroll flex-1 overflow-y-auto px-4 pb-32 pt-4">
 
         {/* Status Banner */}
         <div className={`rounded-xl p-4 mb-6 ${
@@ -870,11 +874,12 @@ ${accessPackage.instructions}
             {t('backup.securityNotice')}
           </p>
         </div>
+        </div>
 
         {/* Cloudflare R2 Setup Guide Modal */}
         <AnimatePresence>
           {showSetupGuide && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 safe-modal-frame">
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -888,24 +893,24 @@ ${accessPackage.instructions}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+                className="safe-modal-panel w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/50 flex flex-col relative"
               >
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
+                <div className="safe-modal-header flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
                   <div className="flex items-center gap-2">
                     <Cloud size={20} className="text-cyan-400" />
                     <h2 className="text-lg font-bold text-white">{t('backup.r2SetupGuide')}</h2>
                   </div>
                   <button
                     onClick={() => setShowSetupGuide(false)}
-                    className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                    className="safe-modal-close p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
                   >
                     <X size={20} />
                   </button>
                 </div>
 
                 {/* Scrollable Content */}
-                <div className="p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+                <div className="safe-modal-scroll p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
 
                   {/* Section 1: Create Account */}
                   <div className="bg-blue-950/30 border border-blue-800/50 rounded-lg p-3">
@@ -1050,7 +1055,7 @@ ${accessPackage.instructions}
 
         {/* Access Package Modal */}
         {accessPackage && selectedContactForAccess && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 safe-modal-frame">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1067,8 +1072,18 @@ ${accessPackage.instructions}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="bg-slate-800 border border-slate-600 rounded-xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto relative"
+              className="safe-modal-panel relative w-full max-w-md overflow-y-auto rounded-xl border border-slate-600 p-6"
             >
+              <button
+                onClick={() => {
+                  setAccessPackage(null);
+                  setSelectedContactForAccess(null);
+                }}
+                className="safe-modal-close absolute right-4 top-4 inline-flex items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+                aria-label="Close access package"
+              >
+                <X size={20} />
+              </button>
               <h3 className="text-xl font-bold text-white mb-4">
                 {t('backup.accessPackageFor', { name: selectedContactForAccess.name })}
               </h3>

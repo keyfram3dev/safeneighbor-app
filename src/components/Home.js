@@ -192,7 +192,7 @@ const HomeCard = ({ item, variant = 'standard' }) => {
               </p>
             )}
             {isFeatured && (
-              <p className={`mb-2 text-[11px] font-black uppercase tracking-[0.24em] ${c.link}`}>
+              <p className={`mb-2 text-[11px] font-black uppercase tracking-[0.2em] ${c.link}`}>
                 Priority Guide
               </p>
             )}
@@ -212,15 +212,15 @@ const HomeCard = ({ item, variant = 'standard' }) => {
   );
 };
 
-const HomeSection = ({ eyebrow, title, description, children }) => (
-  <section className="relative mt-14 sm:mt-16">
+const HomeSection = ({ eyebrow, title, description, children, className = '' }) => (
+  <section className={`relative mt-14 sm:mt-16 ${className}`}>
     <div className="pointer-events-none absolute -top-6 left-6 right-6 h-px bg-gradient-to-r from-transparent via-slate-700/60 to-transparent" />
     <div className="mb-5 relative overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-950/65 px-5 py-4 backdrop-blur-sm">
       <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-gradient-to-b from-red-500 via-cyan-400 to-emerald-400" />
       <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-transparent to-transparent pointer-events-none" />
       <div className="absolute -right-10 top-1/2 h-24 w-24 -translate-y-1/2 rounded-full bg-slate-700/10 blur-3xl pointer-events-none" />
       <div className="relative pl-4">
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500 mb-2">
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">
           {eyebrow}
         </p>
         <h2 className="text-2xl font-black text-white tracking-tight">
@@ -951,7 +951,7 @@ const Home = ({
     : null;
 
   return (
-    <div className="max-w-4xl mx-auto pb-24 px-4 relative">
+    <div className="max-w-4xl mx-auto pb-24 px-4 relative page-section-stagger">
       <div
         className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
         style={{
@@ -959,7 +959,7 @@ const Home = ({
         }}
       />
 
-      <div className="mb-10 pt-5 relative sm:mb-12 sm:pt-6">
+      <div className="mb-10 pt-5 relative sm:mb-12 sm:pt-6 page-section-item">
         <div className="absolute inset-x-10 -top-14 h-40 bg-gradient-to-b from-blue-500/15 via-cyan-500/5 to-transparent blur-3xl pointer-events-none" />
 
         <div className="xl:grid xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)] xl:items-stretch xl:gap-4">
@@ -1000,7 +1000,7 @@ const Home = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/8 via-transparent to-red-500/8" />
                   <div className="absolute inset-x-6 bottom-6 flex justify-center xl:justify-start">
-                    <div className="rounded-full border border-cyan-400/20 bg-slate-950/80 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200 shadow-[0_12px_30px_rgba(8,47,73,0.28)] backdrop-blur-md">
+                    <div className="rounded-full border border-cyan-400/20 bg-slate-950/80 px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200 shadow-[0_12px_30px_rgba(8,47,73,0.28)] backdrop-blur-md">
                       {t('home.openingRightsGuide', { defaultValue: 'Opening Rights Guide' })}
                     </div>
                   </div>
@@ -1009,7 +1009,7 @@ const Home = ({
             </AnimatePresence>
 
             <div className="relative">
-              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.28em] text-blue-300/80">
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-blue-300/80">
                 {t('home.heroEyebrow')}
               </p>
               <div className="mb-4 flex flex-col items-center justify-center gap-3 text-center xl:flex-row xl:items-start xl:justify-start xl:text-left">
@@ -1071,7 +1071,7 @@ const Home = ({
             <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
               <div className="flex items-start justify-between gap-3 sm:gap-4">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/65">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/65">
                     {primaryRecommendation.eyebrow}
                   </p>
                   <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-xl">
@@ -1101,7 +1101,7 @@ const Home = ({
             </div>
 
             <div className="rounded-2xl border border-slate-800/80 bg-gradient-to-r from-slate-950/85 via-slate-950/70 to-slate-900/80 px-4 py-3 shadow-[0_14px_30px_rgba(2,6,23,0.12)] sm:py-3.5">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
                 {t('home.trustEyebrow')}
               </p>
               <p className="mt-1 text-xs leading-relaxed text-slate-300 sm:text-sm">
@@ -1145,7 +1145,7 @@ const Home = ({
           <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/[0.08] via-slate-900/80 to-slate-900/70 px-4 py-4 text-left shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">
                   {t('home.setupOverviewEyebrow')}
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-slate-300">
@@ -1207,7 +1207,7 @@ const Home = ({
           )}
 
           <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/[0.07] via-slate-950/90 to-slate-900/90 px-4 py-4 text-left shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-300">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-300">
               {isFirstTimeUser ? t('home.startHereFirstTimeEyebrow') : t('home.startHereEyebrow')}
             </p>
             <p className="mt-1 text-sm leading-relaxed text-slate-300">
@@ -1263,7 +1263,7 @@ const Home = ({
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-red-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-300">
                   {t('home.liveReportsEyebrow', { defaultValue: 'Live Community Activity' })}
                 </p>
                 <h3 className="mt-1 text-lg font-black tracking-tight text-white">
@@ -1358,7 +1358,7 @@ const Home = ({
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/70">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/70">
                     {resumeAction.eyebrow}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1397,7 +1397,7 @@ const Home = ({
           <div className={`mt-2 grid gap-3 sm:mt-4 ${(retentionPrompts.length > 0 || quietStateSupport) ? 'xl:grid-cols-[minmax(0,1fr)_minmax(300px,0.95fr)]' : ''}`}>
             {featuredQuickActions.length > 0 && (
               <div className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/[0.06] via-slate-950/90 to-slate-900/90 px-4 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-300">
                   {t('home.frequentEyebrow', { defaultValue: 'Used often' })}
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-slate-300">
@@ -1429,7 +1429,7 @@ const Home = ({
 
             {retentionPrompts.length > 0 && (
               <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.06] via-slate-950/90 to-slate-900/90 px-4 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">
                   {t('home.retentionEyebrow', { defaultValue: 'Keep ready' })}
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-slate-300">
@@ -1456,7 +1456,7 @@ const Home = ({
 
             {quietStateSupport && retentionPrompts.length === 0 && (
               <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] via-slate-950/90 to-slate-900/90 px-4 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">
                   {t('home.quietStateEyebrow', { defaultValue: 'Quiet state' })}
                 </p>
                 <h3 className="mt-1 text-lg font-black tracking-tight text-white">{quietStateSupport.title}</h3>
@@ -1476,6 +1476,7 @@ const Home = ({
       </div>
 
       <HomeSection
+        className="page-section-item"
         eyebrow={t('home.immediateHelpEyebrow')}
         title={t('home.immediateHelpTitle')}
         description={
@@ -1493,6 +1494,7 @@ const Home = ({
       </HomeSection>
 
       <HomeSection
+        className="page-section-item"
         eyebrow={t('home.prepareEyebrow')}
         title={t('home.prepareTitle')}
         description={
@@ -1506,13 +1508,13 @@ const Home = ({
         </div>
       </HomeSection>
 
-      <HomeSection eyebrow={t('home.documentEyebrow')} title={t('home.documentTitle')} description={t('home.documentDesc')}>
+      <HomeSection className="page-section-item" eyebrow={t('home.documentEyebrow')} title={t('home.documentTitle')} description={t('home.documentDesc')}>
         <div className="grid gap-3 md:grid-cols-2">
           {dynamicDocumentItems.map((item) => <HomeCard key={item.id} item={item} variant={item.id === leadingDocumentItemId ? 'featured' : 'standard'} />)}
         </div>
       </HomeSection>
 
-      <HomeSection eyebrow={t('home.rightsEyebrow')} title={t('home.rightsTitle')} description={t('home.rightsDesc')}>
+      <HomeSection className="page-section-item" eyebrow={t('home.rightsEyebrow')} title={t('home.rightsTitle')} description={t('home.rightsDesc')}>
         <div className="grid gap-3 md:grid-cols-2">
           {dynamicRightsItems.map((item) => <HomeCard key={item.id} item={item} variant={item.id === leadingRightsItemId ? 'featured' : 'standard'} />)}
         </div>
@@ -1546,7 +1548,7 @@ const Home = ({
         </div>
       </HomeSection>
 
-      <HomeSection eyebrow={t('home.afterEyebrow')} title={t('home.afterTitle')} description={t('home.afterDesc')}>
+      <HomeSection className="page-section-item" eyebrow={t('home.afterEyebrow')} title={t('home.afterTitle')} description={t('home.afterDesc')}>
         <div className="space-y-3">
           <HomeCard
             variant="featured"
@@ -1564,22 +1566,22 @@ const Home = ({
         </div>
       </HomeSection>
 
-      <div className="relative mt-14 overflow-hidden rounded-[28px] border border-slate-800/70 bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900/90 px-6 py-10 text-center shadow-[0_18px_54px_rgba(2,6,23,0.22)] sm:px-10">
+      <div className="relative mt-14 overflow-hidden rounded-[28px] border border-slate-800/70 bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900/90 px-6 py-10 text-center shadow-[0_18px_54px_rgba(2,6,23,0.22)] sm:px-10 page-section-item">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.08),transparent_42%)] pointer-events-none" />
         <div className="absolute left-1/2 top-0 h-px w-36 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
         <div className="absolute bottom-0 left-1/2 h-px w-36 -translate-x-1/2 bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
         <div className="relative">
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
             Reflection
           </p>
           <p className="mt-4 text-slate-300 italic text-lg max-w-2xl mx-auto leading-relaxed sm:text-xl">
             {homeQuote.quote}
           </p>
-          <p className="text-slate-500 text-xs mt-4 tracking-[0.32em] uppercase">{homeQuote.author}</p>
+          <p className="text-slate-500 text-xs mt-4 tracking-[0.24em] uppercase">{homeQuote.author}</p>
         </div>
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-2 page-section-item">
         {utilityActions.map((action) => (
           <button
             key={action.id}
@@ -1592,9 +1594,9 @@ const Home = ({
         ))}
       </div>
 
-      <div className="mt-8 rounded-[24px] border border-slate-800/70 bg-slate-950/65 px-4 py-5 shadow-[0_12px_32px_rgba(2,6,23,0.14)] sm:px-6">
+      <div className="mt-8 rounded-[24px] border border-slate-800/70 bg-slate-950/65 px-4 py-5 shadow-[0_12px_32px_rgba(2,6,23,0.14)] sm:px-6 page-section-item">
         <div className="mb-3 text-center">
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
             Important Context
           </p>
         </div>

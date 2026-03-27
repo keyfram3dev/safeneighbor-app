@@ -327,7 +327,7 @@ const LegalResponse = ({ isOpen, onClose, onOpenTrustedContacts, onOpenLegalDire
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm safe-modal-frame"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -339,18 +339,18 @@ const LegalResponse = ({ isOpen, onClose, onOpenTrustedContacts, onOpenLegalDire
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[88vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+            className="safe-modal-panel bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm rounded-2xl w-full max-w-md overflow-hidden border border-slate-700/50 flex flex-col relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-700/50 shrink-0">
+            <div className="safe-modal-header flex items-center justify-between p-4 border-b border-slate-700/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Scales size={20} weight="bold" className="text-amber-400" />
                 <h2 className="text-lg font-bold text-white">{t('legalResponse.title')}</h2>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
+                className="safe-modal-close p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-white/80"
                 aria-label="Close legal response"
               >
                 <X size={20} weight="bold" />

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { VideoCamera, Microphone, UploadSimple, Stop, Trash, FolderOpen, Camera, DownloadSimple, Warning, Cloud, CloudSlash, Shield, Lock, LockOpen, EyeSlash, CameraRotate, Question, X, CheckCircle, CloudArrowUp, Key, ClipboardText, Eye } from '@phosphor-icons/react';
@@ -65,6 +65,14 @@ const isMobileDevice = () => {
          (navigator.maxTouchPoints > 0 && /Mobile|Tablet/i.test(navigator.userAgent));
 };
 
+const RecordSectionHeader = ({ eyebrow, title, description, accent = 'text-blue-400' }) => (
+  <div className="mb-4">
+    <p className={`mb-2 text-xs font-bold uppercase tracking-[0.22em] ${accent}`}>{eyebrow}</p>
+    <h2 className="text-xl font-black tracking-wide text-white">{title}</h2>
+    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">{description}</p>
+  </div>
+);
+
 const Record = ({ isDuressMode = false, onNavigate }) => {
   const { t } = useTranslation();
   const recordQuote = useRotatingQuote('record.aureliusQuote', 'record.aureliusAuthor', 'record');
@@ -111,6 +119,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
 
   // Workflow guide modal
   const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
+  const [isWorkflowGuideClosing, setIsWorkflowGuideClosing] = useState(false);
 
   // PIN gate state — Record section requires PIN when key wrapping is active
   const [recordUnlocked, setRecordUnlocked] = useState(false);
@@ -135,6 +144,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
   const analyserRef = useRef(null);
   const animationRef = useRef(null);
   const audioStreamRef = useRef(null);
+  const workflowGuideCloseTimerRef = useRef(null);
 
   // Helper to load vault and init backup queue
   const loadVaultAndInit = async () => {
@@ -224,14 +234,32 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
   // Show workflow guide on first Record visit per page load (resets on refresh, not on navigation)
   useEffect(() => {
     if (recordUnlocked && !isDuressMode && !workflowGuideShownThisLoad) {
+      setIsWorkflowGuideClosing(false);
       setShowWorkflowGuide(true);
       workflowGuideShownThisLoad = true;
     }
   }, [recordUnlocked, isDuressMode]);
 
-  const dismissWorkflowGuide = () => {
-    setShowWorkflowGuide(false);
-  };
+  useEffect(() => {
+    return () => {
+      if (workflowGuideCloseTimerRef.current) {
+        window.clearTimeout(workflowGuideCloseTimerRef.current);
+      }
+    };
+  }, []);
+
+  const dismissWorkflowGuide = useCallback((event) => {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    if (isWorkflowGuideClosing) return;
+    setIsWorkflowGuideClosing(true);
+    workflowGuideCloseTimerRef.current = window.setTimeout(() => {
+      setShowWorkflowGuide(false);
+      setIsWorkflowGuideClosing(false);
+    }, 150);
+  }, [isWorkflowGuideClosing]);
 
   const recordingNotificationRef = useRef(null);
 
@@ -950,6 +978,9 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
 
   const fmt = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
   const fmtB = (b) => !b ? '0 B' : b < 1024 ? b+' B' : b < 1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
+  const savedEncryptionKey = getSavedEncryptionKey();
+  const backedUpCount = vaultRecordings.filter((rec) => rec.backedUp).length;
+  const pendingBackupCount = vaultRecordings.filter((rec) => rec.markedForBackup && !rec.backedUp).length;
 
   // BACKUP handler
   const handleToggleBackup = async (id, currentState) => {
@@ -1024,54 +1055,51 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto pb-24 px-4 pt-3">
-      <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <VideoCamera size={52} weight="bold" className="text-red-400 sm:w-[60px] sm:h-[60px]" />
-            <h1 className="text-[1.7rem] sm:text-3xl font-black text-white tracking-wide">{t('record.title')}</h1>
+    <div className="mx-auto max-w-5xl px-4 pb-24 pt-3 page-section-stagger">
+      <div className="mb-8 rounded-[28px] border border-slate-800/80 bg-gradient-to-br from-slate-950/90 via-slate-950/75 to-slate-900/70 p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.95)] page-section-item">
+        <div className="max-w-3xl">
+          <div className="flex items-center gap-3">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 text-red-300 shadow-[0_0_0_1px_rgba(248,113,113,0.08)]">
+              <VideoCamera size={26} weight="bold" />
+            </div>
+            <h1 className="text-3xl font-black tracking-wide text-white sm:text-[2.3rem]">
+              {t('record.title')}
+            </h1>
           </div>
-          <div className="flex gap-2 flex-wrap justify-center sm:justify-end">
-            {/* Privacy indicator - shows when metadata stripping is active */}
-            {isMetadataStripEnabled() && (
-              <div
-                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg text-emerald-400 bg-emerald-600/20 border border-emerald-500/30 backdrop-blur-sm"
-                title={t('record.metadataStrippingActive')}
-              >
-                <EyeSlash size={14} weight="bold" />
-                <span className="hidden sm:inline">{t('record.private')}</span>
-              </div>
-            )}
-            <button
-              onClick={() => setShowPinSetup(true)}
-              className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg backdrop-blur-sm transition-colors ${
-                pinEnabled
-                  ? 'text-green-400 bg-green-600/20 border border-green-500/30 hover:bg-green-600/30 hover:text-green-300'
-                  : 'text-amber-400 bg-amber-600/20 border border-amber-500/30 hover:bg-amber-600/30 hover:text-amber-300'
-              }`}
+          <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-[1.05rem]">
+            {t('record.subtitle')}
+          </p>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          {isMetadataStripEnabled() && (
+            <div
+              className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-600/20 px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300"
+              title={t('record.metadataStrippingActive')}
             >
-              <Lock size={16} weight="bold" />
-              {pinEnabled ? t('record.pinIO') : t('record.setPin')}
-            </button>
-            <button
-              onClick={() => setShowBackupSettings(true)}
-              className="text-blue-400 hover:text-blue-300 flex items-center gap-2 text-sm bg-blue-600/20 border border-blue-500/30 backdrop-blur-sm px-3 py-1.5 rounded-lg hover:bg-blue-600/30 transition-colors"
-            >
-              <Shield size={16} weight="bold" />
-              {t('record.backup')}
-            </button>
-            <button
-              onClick={() => setShowBackupInfo(true)}
-              className="text-cyan-400 hover:text-cyan-300 p-1.5 rounded-lg bg-cyan-600/20 border border-cyan-500/30 backdrop-blur-sm hover:bg-cyan-600/30 transition-colors"
-              title={t('record.whyBackup')}
-            >
-              <Question size={18} weight="bold" />
-            </button>
+              <EyeSlash size={13} weight="bold" />
+              {t('record.private')}
+            </div>
+          )}
+          <div className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
+            pinEnabled
+              ? 'border-green-500/30 bg-green-600/20 text-green-300'
+              : 'border-amber-500/30 bg-amber-600/20 text-amber-300'
+          }`}>
+            <Lock size={13} weight="bold" />
+            {pinEnabled ? t('record.pinIO') : t('record.setPin')}
+          </div>
+          <div className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
+            savedEncryptionKey
+              ? 'border-blue-500/30 bg-blue-600/20 text-blue-300'
+              : 'border-slate-600/50 bg-slate-700/40 text-slate-300'
+          }`}>
+            <Cloud size={13} weight="bold" />
+            {savedEncryptionKey ? t('record.backupReady') : t('record.backup')}
           </div>
         </div>
-        <p className="text-slate-400 text-sm text-center sm:text-left">{t('record.subtitle')}</p>
         {!pinEnabled && (
-          <p className="text-amber-400/80 text-xs text-center sm:text-left mt-2 flex items-center justify-center sm:justify-start gap-1.5">
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-400/80">
             <Lock size={12} weight="bold" />
             {t('record.pinWarning')}
           </p>
@@ -1079,14 +1107,33 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm flex justify-between">
+        <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm flex justify-between page-section-item">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="underline">{t('record.dismiss')}</button>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex flex-wrap justify-center sm:justify-start gap-2 mb-6">
+      <section className="mb-8 page-section-item">
+        <RecordSectionHeader
+          eyebrow={t('record.captureNowEyebrow')}
+          title={t('record.captureNowTitle')}
+          description={t('record.captureNowDesc')}
+          accent="text-red-400"
+        />
+        <div className="mb-5 grid gap-3 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/75 to-slate-900/45 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.captureStorageLabel')}</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-200">{t('record.captureStorageValue')}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/75 to-slate-900/45 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.captureBackupLabel')}</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-200">
+              {savedEncryptionKey ? t('record.captureBackupReady') : t('record.captureBackupSetup')}
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-6 flex flex-wrap justify-center gap-2 sm:justify-start">
         {[
           { id: 'video', label: t('record.tabVideo'), icon: VideoCamera },
           { id: 'audio', label: t('record.tabAudio'), icon: Microphone },
@@ -1095,7 +1142,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); if (tab.id !== 'video') stopCamera(); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors backdrop-blur-sm ${
+            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold uppercase tracking-[0.16em] transition-colors backdrop-blur-sm ${
               activeTab === tab.id
                 ? 'bg-blue-600 text-white border border-blue-500/50'
                 : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 border border-slate-600/50'
@@ -1106,27 +1153,17 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           </button>
         ))}
         <button
-          onClick={() => { setActiveTab('decrypt'); stopCamera(); }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors backdrop-blur-sm ${
-            activeTab === 'decrypt'
-              ? 'bg-emerald-600 text-white border border-emerald-500/50'
-              : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 border border-slate-600/50'
-          }`}
-        >
-          <Lock size={16} weight="bold" />
-          {t('record.tabDecrypt')}
-        </button>
-        <button
           onClick={() => setShowWorkflowGuide(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-colors backdrop-blur-sm bg-slate-700/50 text-slate-300 hover:bg-slate-700 border border-slate-600/50"
+          className="flex items-center gap-1.5 rounded-full border border-slate-600/50 bg-slate-700/50 px-3.5 py-2.5 text-sm font-medium text-slate-300 transition-colors backdrop-blur-sm hover:bg-slate-700"
           title={t('record.howRecordingWorks')}
+          aria-label={t('record.howRecordingWorks')}
         >
           <Question size={16} weight="bold" />
         </button>
-      </div>
+        </div>
 
-      {/* VIDEO TAB */}
-      {activeTab === 'video' && (
+        {/* VIDEO TAB */}
+        {activeTab === 'video' && (
         <div className="space-y-4">
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-slate-700/50">
             <div className="relative aspect-video bg-black flex items-center justify-center">
@@ -1344,10 +1381,10 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           </div>
 
         </div>
-      )}
+        )}
 
-      {/* AUDIO TAB */}
-      {activeTab === 'audio' && (
+        {/* AUDIO TAB */}
+        {activeTab === 'audio' && (
         <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6">
           {/* High fidelity visualizer */}
           <div className="h-40 flex items-center justify-center gap-[2px] mb-4 bg-slate-800 rounded-lg p-4 overflow-hidden">
@@ -1416,10 +1453,10 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
             </div>
           )}
         </div>
-      )}
+        )}
 
-      {/* IMPORT TAB */}
-      {activeTab === 'import' && (
+        {/* IMPORT TAB */}
+        {activeTab === 'import' && (
         <div className="space-y-4">
           {/* Import from Photos */}
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50 text-center">
@@ -1462,7 +1499,81 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           </div>
 
         </div>
-      )}
+        )}
+      </section>
+
+      <section className="mb-6 page-section-item">
+        <RecordSectionHeader
+          eyebrow={t('record.manageEyebrow')}
+          title={t('record.manageTitle')}
+          description={t('record.manageDesc')}
+          accent="text-blue-400"
+        />
+
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.vault')}</p>
+            <p className="mt-3 text-3xl font-black text-white">{isDuressMode ? 0 : vaultRecordings.length}</p>
+            <p className="mt-2 text-sm text-slate-400">{t('record.manageVaultDesc', { count: backedUpCount, pending: pendingBackupCount })}</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.manageSecurityTitle')}</p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-300">{t('record.manageSecurityDesc')}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowPinSetup(true)}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                  pinEnabled
+                    ? 'border-green-500/30 bg-green-600/20 text-green-300 hover:bg-green-600/30'
+                    : 'border-amber-500/30 bg-amber-600/20 text-amber-300 hover:bg-amber-600/30'
+                }`}
+              >
+                <Lock size={15} weight="bold" />
+                {pinEnabled ? t('record.pinIO') : t('record.setPin')}
+              </button>
+              <button
+                onClick={() => setShowWorkflowGuide(true)}
+                className="flex items-center gap-2 rounded-lg border border-slate-600/50 bg-slate-700/40 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-700"
+              >
+                <Question size={15} weight="bold" />
+                {t('record.howRecordingWorks')}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.manageBackupTitle')}</p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-300">{savedEncryptionKey ? t('record.manageBackupReadyDesc') : t('record.manageBackupSetupDesc')}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowBackupSettings(true)}
+                className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600/20 px-3 py-2 text-sm text-blue-300 transition-colors hover:bg-blue-600/30"
+              >
+                <Shield size={15} weight="bold" />
+                {t('record.backup')}
+              </button>
+              <button
+                onClick={() => { setActiveTab('decrypt'); stopCamera(); }}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                  activeTab === 'decrypt'
+                    ? 'border-emerald-500/40 bg-emerald-600/20 text-emerald-300'
+                    : 'border-slate-600/50 bg-slate-700/40 text-slate-200 hover:bg-slate-700'
+                }`}
+              >
+                <Lock size={15} weight="bold" />
+                {t('record.tabDecrypt')}
+              </button>
+              <button
+                onClick={() => setShowBackupInfo(true)}
+                className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-600/20 px-3 py-2 text-sm text-cyan-300 transition-colors hover:bg-cyan-600/30"
+              >
+                <Question size={15} weight="bold" />
+                {t('record.whyBackup')}
+              </button>
+            </div>
+          </div>
+        </div>
 
       {/* DECRYPT TAB */}
       {activeTab === 'decrypt' && (
@@ -1637,30 +1748,12 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
         </div>
       )}
 
-      {/* PURGE DATA Section - Hidden in duress mode */}
-      {!isDuressMode && (
-        <div className="mt-6 bg-red-950/30 border border-red-900/50 rounded-2xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-red-400 font-bold text-sm flex items-center gap-2">
-                <Warning size={16} weight="bold" />
-                {t('record.purgeTitle')}
-              </h3>
-              <p className="text-slate-400 text-xs mt-1">
-                {t('record.purgeDesc', { count: vaultRecordings.length })}
-              </p>
-            </div>
-            <button
-              onClick={() => setShowPurgeConfirm(true)}
-              disabled={vaultRecordings.length === 0}
-              className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <Trash size={16} weight="bold" />
-              {t('record.purgeAll')}
-            </button>
-          </div>
+      {/* VAULT */}
+      <div className="mt-6 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl border border-slate-700/50">
+        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+          <h3 className="font-bold text-white flex items-center gap-2"><FolderOpen size={18} weight="bold" /> {t('record.vault')}</h3>
+          <span className="text-slate-400 text-sm">{isDuressMode ? 0 : vaultRecordings.length} {t('record.items')}</span>
         </div>
-      )}
 
       {/* Purge Confirmation Modal */}
       {showPurgeConfirm && (
@@ -1707,13 +1800,6 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           </motion.div>
         </div>
       )}
-
-      {/* VAULT */}
-      <div className="mt-6 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl border border-slate-700/50">
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
-          <h3 className="font-bold text-white flex items-center gap-2"><FolderOpen size={18} weight="bold" /> {t('record.vault')}</h3>
-          <span className="text-slate-400 text-sm">{isDuressMode ? 0 : vaultRecordings.length} {t('record.items')}</span>
-        </div>
 
         <div className="divide-y divide-slate-700">
           {/* Show empty state in duress mode to hide real recordings */}
@@ -1839,17 +1925,51 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           )}
         </div>
       </div>
+      </section>
 
-      <div className="mt-6 text-center py-6 border-t border-slate-700">
+      {!isDuressMode && (
+        <section className="mt-6 page-section-item">
+          <RecordSectionHeader
+            eyebrow={t('record.dangerEyebrow')}
+            title={t('record.dangerTitle')}
+            description={t('record.dangerDesc')}
+            accent="text-red-400"
+          />
+
+          <div className="bg-red-950/30 border border-red-900/50 rounded-2xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-red-400 font-bold text-sm flex items-center gap-2">
+                  <Warning size={16} weight="bold" />
+                  {t('record.purgeTitle')}
+                </h3>
+                <p className="text-slate-400 text-xs mt-1">
+                  {t('record.purgeDesc', { count: vaultRecordings.length })}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPurgeConfirm(true)}
+                disabled={vaultRecordings.length === 0}
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <Trash size={16} weight="bold" />
+                {t('record.purgeAll')}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="mt-6 text-center py-6 border-t border-slate-700 page-section-item">
         <p className="text-slate-400 italic text-sm">{recordQuote.quote}</p>
         <p className="text-slate-500 text-xs mt-2">{recordQuote.author}</p>
       </div>
 
       {/* FAQ Link */}
-      <FaqCta onNavigate={onNavigate} className="mt-3 mb-6" />
+      <FaqCta onNavigate={onNavigate} className="mt-3 mb-6 page-section-item" />
 
       {/* Disclaimer */}
-      <div className="mt-2 mb-6">
+      <div className="mt-2 mb-6 page-section-item">
         <Disclaimer>
           {t('record.disclaimerLine1')}
           <br />{t('record.disclaimerLine2')}
@@ -2018,38 +2138,31 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
 
       {/* Record Workflow Guide Modal */}
       {showWorkflowGuide && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            onClick={dismissWorkflowGuide}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col relative"
+        <div
+          className={`fixed inset-0 z-[100] flex items-center justify-center p-4 safe-modal-frame transition-opacity duration-100 ${isWorkflowGuideClosing ? 'bg-black/0 opacity-0' : 'feature-modal-backdrop-in bg-black/80 backdrop-blur-sm opacity-100'}`}
+          onClick={dismissWorkflowGuide}
+        >
+          <div
+            className={`safe-modal-panel bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm rounded-2xl w-full max-w-md overflow-hidden border border-slate-700/50 flex flex-col relative transition-[opacity,transform] duration-150 ease-out ${isWorkflowGuideClosing ? 'opacity-0 translate-y-1.5 scale-[0.986]' : 'feature-modal-panel-in opacity-100 translate-y-0 scale-100'}`}
+            onClick={(event) => event.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
+            <div className="safe-modal-header flex items-center justify-between p-4 border-b border-slate-700 shrink-0">
               <div className="flex items-center gap-2">
                 <Shield size={22} weight="bold" className="text-red-400" />
                 <h2 className="text-lg font-bold text-white">{t('record.howRecordingWorks')}</h2>
               </div>
               <button
+                onPointerDown={dismissWorkflowGuide}
                 onClick={dismissWorkflowGuide}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                className="safe-modal-close p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-[transform,background-color,color,box-shadow] duration-150 active:scale-[0.9] active:bg-slate-700/90 active:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
               >
                 <X size={20} weight="bold" />
               </button>
             </div>
 
             {/* Scrollable Content */}
-            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+            <div className="safe-modal-scroll p-5 overflow-y-auto flex-1 space-y-4">
               {/* Overview */}
               <p className="text-slate-300 text-sm leading-relaxed">
                 {t('record.workflowOverview')}
@@ -2163,7 +2276,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
                 {t('record.gotIt')}
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 

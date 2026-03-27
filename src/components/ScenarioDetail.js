@@ -34,7 +34,7 @@ const ScenarioIcon = ({ iconName, size = 48, className = '', weight = 'bold' }) 
 
 
 // Breathing Guide Component with Countdown Timer
-const BreathingGuide = ({ onComplete, onSkip }) => {
+const BreathingGuide = ({ onComplete, onSkip, containerRef = null }) => {
   const { t } = useTranslation();
   const [phase, setPhase] = useState('ready'); // ready, inhale, hold, exhale, pause, complete
   const [isActive, setIsActive] = useState(false);
@@ -174,7 +174,7 @@ const BreathingGuide = ({ onComplete, onSkip }) => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 mb-6">
+    <div ref={containerRef} className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 mb-6">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <FlowerLotus size={24} weight="bold" className="text-cyan-400" />
@@ -264,18 +264,21 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
   const [showBreathingGuide, setShowBreathingGuide] = useState(true);
   const [selectedBranchIdx, setSelectedBranchIdx] = useState(null);
   const [copiedBranch, setCopiedBranch] = useState(false);
+  const modeToggleRef = useRef(null);
+  const scriptCardRef = useRef(null);
+  const breathingGuideRef = useRef(null);
+  const pendingEmergencyEntryScrollRef = useRef(false);
 
   const scenario = scenarios[scenarioId];
 
-  // Stoic quotes for calm during emergency
-  const stoicQuotes = [
-    { quote: t('scenarioDetail.stoicQuote1'), author: t('scenarioDetail.stoicAuthor1') },
-    { quote: t('scenarioDetail.stoicQuote2'), author: t('scenarioDetail.stoicAuthor2') },
-    { quote: t('scenarioDetail.stoicQuote3'), author: t('scenarioDetail.stoicAuthor3') },
-    { quote: t('scenarioDetail.stoicQuote4'), author: t('scenarioDetail.stoicAuthor4') },
-    { quote: t('scenarioDetail.stoicQuote5'), author: t('scenarioDetail.stoicAuthor5') },
-  ];
-  const randomQuote = stoicQuotes[Math.floor(Math.random() * stoicQuotes.length)];
+  useEffect(() => {
+    if (!pendingEmergencyEntryScrollRef.current || mode !== 'emergency' || !showBreathingGuide) {
+      return;
+    }
+
+    pendingEmergencyEntryScrollRef.current = false;
+    scrollToEmergencyEntry();
+  }, [mode, showBreathingGuide]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!scenario) {
     return (
@@ -294,15 +297,79 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
     setTimeout(() => setCopiedStep(null), 2000);
   };
 
+  const getTopChromeBottom = () => {
+    const topNav = document.querySelector('[data-shell-top-nav="true"]');
+    const topBanners = Array.from(document.querySelectorAll('[data-shell-top-banner="true"]'));
+
+    const navBottom = topNav ? topNav.getBoundingClientRect().bottom : 0;
+    const bannerBottom = topBanners.reduce((maxBottom, banner) => {
+      const rect = banner.getBoundingClientRect();
+      if (rect.height <= 0 || rect.bottom <= 0) return maxBottom;
+      return Math.max(maxBottom, rect.bottom);
+    }, 0);
+
+    return Math.max(navBottom, bannerBottom);
+  };
+
+  const getScrollTargetForElement = (element, gap = 10) => {
+    if (!element) return 0;
+
+    const chromeBottom = getTopChromeBottom();
+    const elementTop = window.scrollY + element.getBoundingClientRect().top;
+    return Math.max(0, elementTop - chromeBottom - gap);
+  };
+
+  const scrollToScriptCard = () => {
+    const alignScriptCard = (behavior = 'smooth') => {
+      const scriptCard = scriptCardRef.current;
+      if (!scriptCard) return;
+
+      window.scrollTo({
+        top: getScrollTargetForElement(scriptCard, 32),
+        behavior,
+      });
+    };
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        alignScriptCard('smooth');
+
+        window.setTimeout(() => {
+          alignScriptCard('auto');
+        }, 220);
+
+        window.setTimeout(() => {
+          alignScriptCard('auto');
+        }, 520);
+      });
+    });
+  };
+
+  const scrollToBreathingGuide = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const breathingGuide = breathingGuideRef.current;
+        if (!breathingGuide) return;
+
+        const headerOffset = 92;
+        const nextTop = window.scrollY + breathingGuide.getBoundingClientRect().top - headerOffset;
+        window.scrollTo({
+          top: Math.max(0, nextTop),
+          behavior: 'smooth',
+        });
+      });
+    });
+  };
+
   const currentStepData = scenario.emergencyScript[currentStep];
   const totalSteps = scenario.emergencyScript.length;
   const progress = ((currentStep + 1) / totalSteps) * 100;
-
   const nextStep = () => {
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
       setSelectedBranchIdx(null);
       setCopiedBranch(false);
+      scrollToScriptCard();
     }
   };
 
@@ -311,10 +378,26 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
       setCurrentStep(currentStep - 1);
       setSelectedBranchIdx(null);
       setCopiedBranch(false);
+      scrollToScriptCard();
     }
   };
 
+  const scrollToEmergencyEntry = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const modeToggle = modeToggleRef.current;
+        if (!modeToggle) return;
+
+        window.scrollTo({
+          top: getScrollTargetForElement(modeToggle, 14),
+          behavior: 'smooth',
+        });
+      });
+    });
+  };
+
   const enterEmergencyMode = () => {
+    pendingEmergencyEntryScrollRef.current = true;
     setMode('emergency');
     setShowBreathingGuide(true);
     setCurrentStep(0);
@@ -324,126 +407,116 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
 
   const handleBreathingComplete = () => {
     setShowBreathingGuide(false);
+    scrollToEmergencyEntry();
   };
 
   const handleSkipBreathing = () => {
     setShowBreathingGuide(false);
+    scrollToEmergencyEntry();
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 pt-3 pb-24 sm:pt-4">
-      {/* Back Button & Active Encounter Badge */}
-      <div className="flex items-center justify-between mb-6">
-        <button 
-          onClick={onBack}
-          className="text-slate-400 hover:text-white font-medium text-sm flex items-center gap-2 transition-colors"
-        >
-          <ArrowLeft size={18} weight="bold" className="rtl:scale-x-[-1]" />
-          {t('scenarioDetail.back')}
-        </button>
-        {mode === 'emergency' && (
-          <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-            {t('scenarioDetail.activeEncounterTrack')}
-          </span>
-        )}
-      </div>
-
-      {/* Header - Only show when not in breathing guide */}
+    <div className="max-w-5xl mx-auto px-4 pb-24 pt-3 sm:pt-4">
       {!(mode === 'emergency' && showBreathingGuide) && (
-        <>
-        {mode === 'emergency' && handoffContext && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.24, ease: 'easeOut' }}
-            className="mb-5 overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/[0.08] via-slate-950/95 to-slate-900/90 p-4"
-          >
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
-                {t('scenarioDetail.handoffEyebrow')}
-              </span>
-              {handoffContext.locationState === 'live' && (
-                <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">
-                  {t('scenarioDetail.handoffLive')}
-                </span>
-              )}
-              {handoffContext.locationState === 'shared' && (
-                <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-amber-100">
-                  {t('scenarioDetail.handoffShared')}
-                </span>
-              )}
+        <section className="relative overflow-hidden rounded-[32px] border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-950/95 to-slate-900/80 px-5 py-5 shadow-[0_24px_70px_-44px_rgba(15,23,42,0.92)] sm:px-6">
+          <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
+          <div className="pointer-events-none absolute -top-16 right-0 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 left-0 h-44 w-44 rounded-full bg-cyan-500/10 blur-3xl" />
+
+          <div className="relative">
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10 text-blue-300 shadow-[0_0_0_1px_rgba(96,165,250,0.08)]">
+              <ScenarioIcon iconName={scenario.icon} size={32} />
             </div>
-            <p className="text-sm leading-relaxed text-slate-200">
-              {t('scenarioDetail.handoffDesc')}
+            <h1 className="max-w-3xl text-3xl font-black tracking-tight text-white sm:text-[2.45rem]">
+              {t(scenario.title)}
+            </h1>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base">
+              {t(scenario.description)}
             </p>
-            {handoffContext.recommendationTitle && (
-              <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-400">
-                {t('scenarioDetail.handoffRecommendation', { title: handoffContext.recommendationTitle })}
-              </p>
-            )}
-            <div className="mt-4 flex flex-wrap gap-3">
-              {onReturnToEmergency && (
-                <button
-                  onClick={onReturnToEmergency}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition-colors hover:bg-white/10"
-                >
-                  <Warning size={16} weight="bold" />
-                  {t('scenarioDetail.handoffReturn')}
-                </button>
-              )}
-              <button
-                onClick={() => setCurrentStep(0)}
-                className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-500/15"
-              >
-                <CaretRight size={16} weight="bold" />
-                {t('scenarioDetail.handoffStart')}
-              </button>
-            </div>
-          </motion.div>
-        )}
-        <motion.div
-          layoutId={`scenario-card-${scenarioId}`}
-          className="text-center mb-6 bg-transparent"
-          transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
-        >
-          <motion.div
-            layoutId={`scenario-icon-${scenarioId}`}
-            className="text-blue-400 mb-3 flex justify-center"
-            transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
-          >
-            <ScenarioIcon iconName={scenario.icon} size={48} />
-          </motion.div>
-          <motion.h1
-            layoutId={`scenario-title-${scenarioId}`}
-            className="text-2xl font-bold text-white mb-2"
-            transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
-          >
-            {t(scenario.title)}
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
-            className="text-slate-400 text-sm"
-          >
-            {t(scenario.description)}
-          </motion.p>
-        </motion.div>
-        </>
+          </div>
+        </section>
       )}
 
-      {/* Mode Toggle */}
+      {mode === 'emergency' && handoffContext && !(mode === 'emergency' && showBreathingGuide) && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, ease: 'easeOut' }}
+          className="mt-5 overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/[0.08] via-slate-950/95 to-slate-900/90 p-4"
+        >
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold tracking-[0.06em] text-cyan-100">
+              {t('scenarioDetail.handoffEyebrow')}
+            </span>
+            {handoffContext.locationState === 'live' && (
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold tracking-[0.06em] text-emerald-100">
+                {t('scenarioDetail.handoffLive')}
+              </span>
+            )}
+            {handoffContext.locationState === 'shared' && (
+              <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold tracking-[0.06em] text-amber-100">
+                {t('scenarioDetail.handoffShared')}
+              </span>
+            )}
+          </div>
+          <p className="text-sm leading-relaxed text-slate-200">
+            {t('scenarioDetail.handoffDesc')}
+          </p>
+          {handoffContext.recommendationTitle && (
+            <p className="mt-2 text-xs tracking-[0.06em] text-slate-400">
+              {t('scenarioDetail.handoffRecommendation', { title: handoffContext.recommendationTitle })}
+            </p>
+          )}
+          <div className="mt-4 flex flex-wrap gap-3">
+            {onReturnToEmergency && (
+              <button
+                onClick={onReturnToEmergency}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-bold tracking-[0.06em] text-white transition-colors hover:bg-white/10"
+              >
+                <Warning size={16} weight="bold" />
+                {t('scenarioDetail.handoffReturn')}
+              </button>
+            )}
+            <button
+              onClick={() => setCurrentStep(0)}
+              className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-xs font-bold tracking-[0.06em] text-cyan-100 transition-colors hover:bg-cyan-500/15"
+            >
+              <CaretRight size={16} weight="bold" />
+              {t('scenarioDetail.handoffStart')}
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {mode === 'emergency' && showBreathingGuide && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12, duration: 0.24 }}
+          className="mt-5 mb-3"
+        >
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-900/80 px-4 py-2.5 text-sm font-bold text-slate-300 transition-colors hover:text-white"
+          >
+            <ArrowLeft size={18} weight="bold" className="rtl:scale-x-[-1]" />
+            {t('scenarioDetail.back')}
+          </button>
+        </motion.div>
+      )}
+
       <motion.div
+        ref={modeToggleRef}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, duration: 0.3 }}
-        className="flex gap-2 mb-6 bg-slate-900 p-1.5 rounded-xl"
+        className="mt-5 mb-6 grid grid-cols-2 gap-2 rounded-[24px] border border-slate-800/80 bg-slate-950/72 p-2"
       >
         <button
           onClick={() => setMode('study')}
-          className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+          className={`rounded-xl px-4 py-3 font-bold text-sm transition-all flex items-center justify-center gap-2 ${
             mode === 'study'
-              ? 'bg-blue-600 text-white shadow-lg'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -452,9 +525,9 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
         </button>
         <button
           onClick={enterEmergencyMode}
-          className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+          className={`rounded-xl px-4 py-3 font-bold text-sm transition-all flex items-center justify-center gap-2 ${
             mode === 'emergency'
-              ? 'bg-red-600 text-white shadow-lg'
+              ? 'bg-red-600 text-white shadow-lg shadow-red-950/30'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -463,9 +536,7 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
         </button>
       </motion.div>
 
-      {/* Mode Content with Horizontal Slide + Fade Animation */}
       <AnimatePresence mode="wait">
-        {/* STUDY MODE */}
         {mode === 'study' && (
           <motion.div
             key="study-mode"
@@ -473,85 +544,95 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-            className="space-y-6"
+            className="space-y-5"
           >
-          {/* Overview */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5">
-            <h3 className="text-lg font-bold mb-3 text-blue-400 flex items-center gap-2">
-              <Shield size={20} weight="bold" />
-              {t('scenarioDetail.overview')}
-            </h3>
-            <p className="text-slate-300 text-sm leading-relaxed">{t(scenario.studyContent.overview)}</p>
-          </div>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+              <div className="rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900/90 to-slate-950/90 p-5 shadow-[0_18px_40px_rgba(2,6,23,0.18)]">
+                <h3 className="flex items-center gap-2 text-lg font-black text-white">
+                  <Shield size={20} weight="bold" className="text-blue-400" />
+                  {t('scenarioDetail.overview')}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-300">{t(scenario.studyContent.overview)}</p>
+              </div>
 
-          {/* Key Points */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5">
-            <h3 className="text-lg font-bold mb-3 text-green-400">{t('scenarioDetail.keyPoints')}</h3>
-            <div className="space-y-2">
-              {scenario.studyContent.keyPoints.map((point, idx) => (
-                <div key={idx} className="flex items-start gap-2">
-                  <span className="text-green-500">•</span>
-                  <p className="text-slate-300 text-sm">{t(point)}</p>
+              <div className="rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900/90 to-slate-950/90 p-5 shadow-[0_18px_40px_rgba(2,6,23,0.18)]">
+                <h3 className="text-lg font-black text-white">{t('scenarioDetail.keyPoints')}</h3>
+                <div className="mt-4 space-y-3">
+                  {scenario.studyContent.keyPoints.map((point, idx) => (
+                    <div key={idx} className="flex items-start gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/55 px-4 py-3">
+                      <span className="mt-0.5 text-emerald-400">•</span>
+                      <p className="text-sm leading-relaxed text-slate-300">{t(point)}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Warrant Types / Comparison */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-red-950/20 border border-red-900/50 rounded-xl p-5">
-              <div className="mb-2">
-                <ScenarioIcon iconName={scenario.studyContent.warrantTypes.judicial.icon} size={32} className="text-red-400" />
               </div>
-              <h4 className="font-bold text-red-400 mb-2">{t(scenario.studyContent.warrantTypes.judicial.title)}</h4>
-              <p className="text-slate-300 text-sm">{t(scenario.studyContent.warrantTypes.judicial.description)}</p>
             </div>
-            <div className="bg-amber-950/20 border border-amber-900/50 rounded-xl p-5">
-              <div className="mb-2">
-                <ScenarioIcon iconName={scenario.studyContent.warrantTypes.administrative.icon} size={32} className="text-amber-400" />
-              </div>
-              <h4 className="font-bold text-amber-400 mb-2">{t(scenario.studyContent.warrantTypes.administrative.title)}</h4>
-              <p className="text-slate-300 text-sm">{t(scenario.studyContent.warrantTypes.administrative.description)}</p>
-            </div>
-          </div>
 
-          {/* Step by Step Preview */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5">
-            <h3 className="text-lg font-bold mb-4 text-purple-400">{t('scenarioDetail.stepByStepGuide')}</h3>
-            <div className="space-y-3">
-              {scenario.emergencyScript.map((step, idx) => (
-                <div key={idx} className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                  <div className="flex items-start gap-3">
-                    <div className="bg-purple-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
-                      {step.step}
+            {scenario.studyContent.warrantTypes && (
+              <div className="rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900/90 to-slate-950/90 p-5 shadow-[0_18px_40px_rgba(2,6,23,0.18)]">
+                <h3 className="text-lg font-black text-white">
+                  {t('scenarioDetail.warrantComparisonTitle', { defaultValue: 'Know which document changes the rules' })}
+                </h3>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-[24px] border border-red-900/50 bg-gradient-to-br from-red-950/30 to-slate-950/90 p-5">
+                    <div className="mb-3">
+                      <ScenarioIcon iconName={scenario.studyContent.warrantTypes.judicial.icon} size={32} className="text-red-400" />
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-white text-sm mb-1">{t(step.action)}</h4>
-                      {step.copyable && (
-                        <p className="text-blue-400 italic text-sm mb-1">"{t(step.script)}"</p>
-                      )}
-                      <p className="text-slate-400 text-xs">{t(step.explanation)}</p>
-                      {step.decision && (
-                        <div className="mt-3 pl-3 border-l-2 border-amber-600/40 space-y-2">
-                          <p className="text-amber-400 text-xs font-bold">{t(step.decision.questionKey)}</p>
-                          {step.decision.options.map((opt, oi) => (
-                            <div key={oi} className="text-xs">
-                              <span className="text-amber-300/80 font-medium">{t(opt.labelKey)}:</span>{' '}
-                              <span className="text-slate-400 italic">"{t(opt.responseScript)}"</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    <h4 className="text-base font-black text-red-300">{t(scenario.studyContent.warrantTypes.judicial.title)}</h4>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-300">{t(scenario.studyContent.warrantTypes.judicial.description)}</p>
+                  </div>
+                  <div className="rounded-[24px] border border-amber-900/50 bg-gradient-to-br from-amber-950/30 to-slate-950/90 p-5">
+                    <div className="mb-3">
+                      <ScenarioIcon iconName={scenario.studyContent.warrantTypes.administrative.icon} size={32} className="text-amber-400" />
                     </div>
+                    <h4 className="text-base font-black text-amber-300">{t(scenario.studyContent.warrantTypes.administrative.title)}</h4>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-300">{t(scenario.studyContent.warrantTypes.administrative.description)}</p>
                   </div>
                 </div>
-              ))}
+              </div>
+            )}
+
+            <div className="rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900/90 to-slate-950/90 p-5 shadow-[0_18px_40px_rgba(2,6,23,0.18)]">
+              <h3 className="text-lg font-black text-white">{t('scenarioDetail.stepByStepGuide')}</h3>
+              <div className="mt-4 space-y-3">
+                {scenario.emergencyScript.map((step, idx) => (
+                  <div key={idx} className="rounded-[24px] border border-slate-800/80 bg-slate-950/60 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-600 text-sm font-black text-white">
+                        {step.step}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-black text-white">{t(step.action)}</h4>
+                        {step.copyable && (
+                          <p className="mt-2 rounded-2xl border border-blue-900/40 bg-blue-950/20 px-3 py-2 text-sm italic leading-relaxed text-blue-200">
+                            "{t(step.script)}"
+                          </p>
+                        )}
+                        <p className="mt-2 text-sm leading-relaxed text-slate-400">{t(step.explanation)}</p>
+                        {step.decision && (
+                          <div className="mt-3 rounded-2xl border border-amber-800/30 bg-amber-950/15 px-3 py-3">
+                            <p className="text-xs font-semibold tracking-[0.06em] text-amber-300">
+                              {t(step.decision.questionKey)}
+                            </p>
+                            <div className="mt-2 space-y-2">
+                              {step.decision.options.map((opt, oi) => (
+                                <div key={oi} className="text-sm leading-relaxed text-slate-300">
+                                  <span className="font-semibold text-amber-200">{t(opt.labelKey)}:</span>{' '}
+                                  <span className="italic text-slate-400">"{t(opt.responseScript)}"</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
         )}
 
-        {/* EMERGENCY MODE */}
         {mode === 'emergency' && (
           <motion.div
             key="emergency-mode"
@@ -560,257 +641,267 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
           >
-            {/* Breathing Guide Popup */}
             {showBreathingGuide && (
               <BreathingGuide
+                containerRef={breathingGuideRef}
                 onComplete={handleBreathingComplete}
                 onSkip={handleSkipBreathing}
               />
             )}
 
-            {/* Emergency Script Steps - Show after breathing guide */}
             {!showBreathingGuide && (
               <div className="space-y-4">
-              {/* Stoic Quote */}
-              <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 text-center">
-                <p className="text-slate-300 italic text-sm">"{randomQuote.quote}"</p>
-                <p className="text-slate-500 text-xs mt-2">— {randomQuote.author}</p>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="bg-slate-800 rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-red-600 h-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <p className="text-center text-slate-500 text-xs">{t('scenarioDetail.stepProgress', { current: currentStep + 1, total: totalSteps })}</p>
-
-              {/* Current Step Card */}
-              <div className="bg-gradient-to-br from-slate-900/90 to-slate-950/90 backdrop-blur-sm border-2 border-red-600/50 rounded-2xl overflow-hidden">
-                {/* Step Header */}
-                <div className="bg-red-950/50 px-5 py-4 border-b border-red-900/50">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-red-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-black text-lg">
-                      {currentStepData.step}
-                    </div>
-                    <h3 className="font-black text-white uppercase tracking-wide">
-                      {t(currentStepData.action)}
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Step Content */}
-                <div className="p-5">
-                  {/* Script */}
-                  <div className="bg-gradient-to-br from-slate-950 to-slate-900 rounded-xl p-5 mb-4 border border-slate-700/50">
-                    <p className="text-xl text-white font-medium leading-relaxed">
-                      {currentStepData.copyable ? `"${t(currentStepData.script)}"` : t(currentStepData.script)}
+                <div
+                  ref={scriptCardRef}
+                  className="overflow-hidden rounded-[28px] border-2 border-red-600/50 bg-gradient-to-br from-slate-900/95 to-slate-950/95 shadow-[0_22px_54px_rgba(127,29,29,0.16)]"
+                >
+                  <div className="border-b border-red-900/50 bg-red-950/45 px-5 py-4">
+                    <p className="text-xs font-semibold tracking-[0.08em] text-red-200/80">
+                      {t('scenarioDetail.nextStepLabel', { defaultValue: 'Next step' })}
                     </p>
-                  </div>
-
-                  {/* Copy Button */}
-                  {currentStepData.copyable && (
-                    <button
-                      onClick={() => copyToClipboard(t(currentStepData.script), currentStep)}
-                      className={`w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all mb-4 ${
-                        copiedStep === currentStep
-                          ? 'bg-green-600 text-white'
-                          : 'bg-red-600 hover:bg-red-700 text-white'
-                      }`}
-                    >
-                      {copiedStep === currentStep ? (
-                        <>
-                          <Check size={18} weight="bold" />
-                          {t('scenarioDetail.copied')}
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={18} weight="bold" />
-                          {t('scenarioDetail.copyScript')}
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  {/* Explanation */}
-                  <div className="bg-gradient-to-br from-blue-950/40 to-blue-900/30 backdrop-blur-sm border border-blue-900/40 rounded-xl p-4">
-                    <p className="text-blue-300 text-sm">
-                      <span className="font-bold">{t('scenarioDetail.why')}:</span> {t(currentStepData.explanation)}
-                    </p>
-                  </div>
-
-                  {/* Decision Branch */}
-                  {currentStepData.decision && (
-                    <div className="mt-4">
-                      <p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-3">
-                        {t(currentStepData.decision.questionKey)}
-                      </p>
-                      <div className="space-y-2">
-                        {currentStepData.decision.options.map((opt, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => { setSelectedBranchIdx(idx); setCopiedBranch(false); }}
-                            className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                              selectedBranchIdx === idx
-                                ? 'bg-amber-600/20 border-amber-500/50 text-amber-200'
-                                : 'bg-slate-800/60 border-slate-700/50 text-slate-300 hover:border-amber-500/30 hover:text-white'
-                            }`}
-                          >
-                            {t(opt.labelKey)}
-                          </button>
-                        ))}
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-lg font-black text-white">
+                        {currentStepData.step}
                       </div>
+                      <h3 className="text-lg font-black leading-tight text-white">
+                        {t(currentStepData.action)}
+                      </h3>
+                    </div>
+                  </div>
 
-                      {selectedBranchIdx !== null && (() => {
-                        const opt = currentStepData.decision.options[selectedBranchIdx];
-                        return (
-                          <div className="mt-4 bg-gradient-to-br from-amber-950/40 to-slate-900/60 border border-amber-700/40 rounded-xl overflow-hidden">
-                            <div className="bg-amber-950/30 px-4 py-2 border-b border-amber-800/30">
-                              <p className="text-amber-400 text-xs font-bold uppercase tracking-widest">Response</p>
-                            </div>
-                            <div className="p-4">
-                              <div className="bg-slate-950/60 rounded-xl p-4 mb-3">
-                                <p className="text-lg text-white font-medium leading-relaxed">
-                                  {opt.responseCopyable ? `"${t(opt.responseScript)}"` : t(opt.responseScript)}
+                  <div className="p-5">
+                    <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-950 to-slate-900 p-5">
+                      <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">
+                        {t('scenarioDetail.sayThisLabel', { defaultValue: 'Say this' })}
+                      </p>
+                      <p className="mt-2 text-xl font-medium leading-relaxed text-white">
+                        {currentStepData.copyable ? `"${t(currentStepData.script)}"` : t(currentStepData.script)}
+                      </p>
+                    </div>
+
+                    {currentStepData.copyable && (
+                      <button
+                        onClick={() => copyToClipboard(t(currentStepData.script), currentStep)}
+                        className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
+                          copiedStep === currentStep
+                            ? 'bg-green-600 text-white'
+                            : 'bg-red-600 text-white hover:bg-red-700'
+                        }`}
+                      >
+                        {copiedStep === currentStep ? (
+                          <>
+                            <Check size={18} weight="bold" />
+                            {t('scenarioDetail.copied')}
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={18} weight="bold" />
+                            {t('scenarioDetail.copyScript')}
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    <div className="mt-4 rounded-2xl border border-blue-900/40 bg-gradient-to-br from-blue-950/40 to-blue-900/30 p-4">
+                      <p className="text-sm leading-relaxed text-blue-200">
+                        <span className="font-bold text-blue-100">{t('scenarioDetail.why')}:</span> {t(currentStepData.explanation)}
+                      </p>
+                    </div>
+
+                    {currentStepData.decision && (
+                      <div className="mt-4 rounded-[24px] border border-amber-800/30 bg-amber-950/12 p-4">
+                        <p className="text-sm font-semibold leading-relaxed text-amber-200">
+                          {t(currentStepData.decision.questionKey)}
+                        </p>
+                        <div className="mt-3 space-y-2">
+                          {currentStepData.decision.options.map((opt, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setSelectedBranchIdx(idx);
+                                setCopiedBranch(false);
+                              }}
+                              className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-medium transition-all ${
+                                selectedBranchIdx === idx
+                                  ? 'border-amber-500/50 bg-amber-600/20 text-amber-100'
+                                  : 'border-slate-700/50 bg-slate-800/60 text-slate-300 hover:border-amber-500/30 hover:text-white'
+                              }`}
+                            >
+                              {t(opt.labelKey)}
+                            </button>
+                          ))}
+                        </div>
+
+                        {selectedBranchIdx !== null && (() => {
+                          const opt = currentStepData.decision.options[selectedBranchIdx];
+                          return (
+                            <div className="mt-4 overflow-hidden rounded-2xl border border-amber-700/40 bg-gradient-to-br from-amber-950/40 to-slate-900/60">
+                              <div className="border-b border-amber-800/30 bg-amber-950/30 px-4 py-2">
+                                <p className="text-xs font-semibold tracking-[0.08em] text-amber-300">
+                                  {t('scenarioDetail.responseLabel', { defaultValue: 'Response' })}
                                 </p>
                               </div>
-                              {opt.responseCopyable && (
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(t(opt.responseScript));
-                                    setCopiedBranch(true);
-                                    setTimeout(() => setCopiedBranch(false), 2000);
-                                  }}
-                                  className={`w-full py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all mb-3 ${
-                                    copiedBranch
-                                      ? 'bg-green-600 text-white'
-                                      : 'bg-amber-600 hover:bg-amber-700 text-white'
-                                  }`}
-                                >
-                                  {copiedBranch ? (
-                                    <><Check size={16} weight="bold" /> {t('scenarioDetail.copied')}</>
-                                  ) : (
-                                    <><Copy size={16} weight="bold" /> {t('scenarioDetail.copyScript')}</>
-                                  )}
-                                </button>
-                              )}
-                              <p className="text-amber-200/70 text-xs leading-relaxed">
-                                <span className="font-bold text-amber-300">{t('scenarioDetail.why')}:</span> {t(opt.responseExplanation)}
-                              </p>
+                              <div className="p-4">
+                                <div className="rounded-xl bg-slate-950/60 p-4">
+                                  <p className="text-lg font-medium leading-relaxed text-white">
+                                    {opt.responseCopyable ? `"${t(opt.responseScript)}"` : t(opt.responseScript)}
+                                  </p>
+                                </div>
+                                {opt.responseCopyable && (
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(t(opt.responseScript));
+                                      setCopiedBranch(true);
+                                      setTimeout(() => setCopiedBranch(false), 2000);
+                                    }}
+                                    className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-all ${
+                                      copiedBranch
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-amber-600 text-white hover:bg-amber-700'
+                                    }`}
+                                  >
+                                    {copiedBranch ? (
+                                      <><Check size={16} weight="bold" /> {t('scenarioDetail.copied')}</>
+                                    ) : (
+                                      <><Copy size={16} weight="bold" /> {t('scenarioDetail.copyScript')}</>
+                                    )}
+                                  </button>
+                                )}
+                                <p className="mt-3 text-xs leading-relaxed text-amber-100/80">
+                                  <span className="font-bold text-amber-200">{t('scenarioDetail.why')}:</span> {t(opt.responseExplanation)}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-                </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
 
-                {/* Navigation */}
-                <div className="px-5 pb-5 flex gap-3">
-                  <button
-                    onClick={prevStep}
-                    disabled={currentStep === 0}
-                    className={`flex-1 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all ${
-                      currentStep === 0
-                        ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                        : 'bg-slate-700 hover:bg-slate-600 text-white'
-                    }`}
-                  >
-                    <CaretLeft size={18} weight="bold" className="rtl:scale-x-[-1]" />
-                    {t('scenarioDetail.previous')}
-                  </button>
-                  <button
-                    onClick={nextStep}
-                    disabled={currentStep === totalSteps - 1}
-                    className={`flex-1 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all ${
-                      currentStep === totalSteps - 1
-                        ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                        : 'bg-red-600 hover:bg-red-700 text-white'
-                    }`}
-                  >
-                    {t('scenarioDetail.next')}
-                    <CaretRight size={18} weight="bold" className="rtl:scale-x-[-1]" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Quick Jump */}
-              <div className="flex justify-center gap-2 mt-4">
-                {scenario.emergencyScript.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => { setCurrentStep(idx); setSelectedBranchIdx(null); setCopiedBranch(false); }}
-                    className={`w-8 h-8 rounded-full font-bold text-xs transition-all ${
-                      idx === currentStep
-                        ? 'bg-red-600 text-white'
-                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                    }`}
-                  >
-                    {idx + 1}
-                  </button>
-                ))}
-              </div>
-
-              {/* Back to Breathing Button */}
-              <div className="text-center mt-4">
-                <button
-                  onClick={() => setShowBreathingGuide(true)}
-                  className="text-slate-400 hover:text-white text-sm underline"
-                >
-                  <PersonSimpleTaiChi size={18} weight="bold" className="inline-block me-1 align-text-bottom" /> {t('scenarioDetail.needToBreatheAgain')}
-                </button>
-              </div>
-
-              {/* What's Next — links to Encounter Log & Post-Encounter Guide */}
-              {onNavigateToScenario && (
-                <div className="mt-8 pt-6 border-t border-slate-700/50">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 text-center">
-                    {t('scenarioDetail.whenEncounterOver')}
-                  </p>
-                  <div className="space-y-2.5">
+                  <div className="flex gap-3 border-t border-slate-800/80 px-5 py-5">
                     <button
-                      onClick={() => onNavigateToScenario({ id: 'encounter-log-after' })}
-                      className="w-full flex items-center gap-3 bg-gradient-to-br from-slate-800/60 to-slate-900/60 border border-amber-700/25 hover:border-amber-500/40 rounded-xl px-4 py-3.5 transition-all group"
+                      onClick={prevStep}
+                      disabled={currentStep === 0}
+                      className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                        currentStep === 0
+                          ? 'cursor-not-allowed bg-slate-800 text-slate-600'
+                          : 'bg-slate-700 text-white hover:bg-slate-600'
+                      }`}
                     >
-                      <div className="p-2 bg-amber-950/40 rounded-lg border border-amber-700/20 group-hover:border-amber-500/30 transition-colors">
-                        <NotePencil size={18} weight="bold" className="text-amber-400" />
-                      </div>
-                      <div className="flex-1 text-start">
-                        <p className="text-white text-sm font-semibold">{t('scenarioDetail.documentWhatHappened')}</p>
-                        <p className="text-slate-500 text-xs">{t('scenarioDetail.logDetailsFresh')}</p>
-                      </div>
-                      <CaretRight size={16} weight="bold" className="text-slate-600 group-hover:text-amber-400 transition-colors" />
+                      <CaretLeft size={18} weight="bold" className="rtl:scale-x-[-1]" />
+                      {t('scenarioDetail.previous')}
                     </button>
                     <button
-                      onClick={() => onNavigateToScenario({ id: 'post-encounter' })}
-                      className="w-full flex items-center gap-3 bg-gradient-to-br from-slate-800/60 to-slate-900/60 border border-emerald-700/25 hover:border-emerald-500/40 rounded-xl px-4 py-3.5 transition-all group"
+                      onClick={nextStep}
+                      disabled={currentStep === totalSteps - 1}
+                      className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                        currentStep === totalSteps - 1
+                          ? 'cursor-not-allowed bg-slate-800 text-slate-600'
+                          : 'bg-red-600 text-white hover:bg-red-700'
+                      }`}
                     >
-                      <div className="p-2 bg-emerald-950/40 rounded-lg border border-emerald-700/20 group-hover:border-emerald-500/30 transition-colors">
-                        <FirstAidKit size={18} weight="bold" className="text-emerald-400" />
-                      </div>
-                      <div className="flex-1 text-start">
-                        <p className="text-white text-sm font-semibold">{t('scenarioDetail.whatNowNextSteps')}</p>
-                        <p className="text-slate-500 text-xs">{t('scenarioDetail.legalHelpComplaintsEvidence')}</p>
-                      </div>
-                      <CaretRight size={16} weight="bold" className="text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                      {t('scenarioDetail.next')}
+                      <CaretRight size={18} weight="bold" className="rtl:scale-x-[-1]" />
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
+
+                <div className="rounded-[24px] border border-slate-800/80 bg-slate-950/80 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-200">{t('scenarioDetail.stepProgress', { current: currentStep + 1, total: totalSteps })}</p>
+                    </div>
+                    <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100">
+                      {Math.round(progress)}%
+                    </span>
+                  </div>
+
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-full bg-red-600 transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {scenario.emergencyScript.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setCurrentStep(idx);
+                          setSelectedBranchIdx(null);
+                          setCopiedBranch(false);
+                          scrollToScriptCard();
+                        }}
+                        className={`h-9 w-9 rounded-full text-xs font-bold transition-all ${
+                          idx === currentStep
+                            ? 'bg-red-600 text-white'
+                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                        }`}
+                      >
+                        {idx + 1}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-[24px] border border-slate-800/80 bg-slate-950/72 p-4">
+                  <button
+                    onClick={() => {
+                      setShowBreathingGuide(true);
+                      scrollToBreathingGuide();
+                    }}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-400 transition-colors hover:text-white"
+                  >
+                    <PersonSimpleTaiChi size={18} weight="bold" />
+                    {t('scenarioDetail.needToBreatheAgain')}
+                  </button>
+
+                  {onNavigateToScenario && (
+                    <div className="mt-5 border-t border-slate-800/80 pt-5">
+                      <div className="space-y-2.5">
+                        <button
+                          onClick={() => onNavigateToScenario({ id: 'encounter-log-after' })}
+                          className="group flex w-full items-center gap-3 rounded-xl border border-amber-700/25 bg-gradient-to-br from-slate-800/60 to-slate-900/60 px-4 py-3.5 transition-all hover:border-amber-500/40"
+                        >
+                          <div className="rounded-lg border border-amber-700/20 bg-amber-950/40 p-2 transition-colors group-hover:border-amber-500/30">
+                            <NotePencil size={18} weight="bold" className="text-amber-400" />
+                          </div>
+                          <div className="flex-1 text-start">
+                            <p className="text-sm font-semibold text-white">{t('scenarioDetail.documentWhatHappened')}</p>
+                            <p className="text-xs text-slate-500">{t('scenarioDetail.logDetailsFresh')}</p>
+                          </div>
+                          <CaretRight size={16} weight="bold" className="text-slate-600 transition-colors group-hover:text-amber-400" />
+                        </button>
+                        <button
+                          onClick={() => onNavigateToScenario({ id: 'post-encounter' })}
+                          className="group flex w-full items-center gap-3 rounded-xl border border-emerald-700/25 bg-gradient-to-br from-slate-800/60 to-slate-900/60 px-4 py-3.5 transition-all hover:border-emerald-500/40"
+                        >
+                          <div className="rounded-lg border border-emerald-700/20 bg-emerald-950/40 p-2 transition-colors group-hover:border-emerald-500/30">
+                            <FirstAidKit size={18} weight="bold" className="text-emerald-400" />
+                          </div>
+                          <div className="flex-1 text-start">
+                            <p className="text-sm font-semibold text-white">{t('scenarioDetail.whatNowNextSteps')}</p>
+                            <p className="text-xs text-slate-500">{t('scenarioDetail.legalHelpComplaintsEvidence')}</p>
+                          </div>
+                          <CaretRight size={16} weight="bold" className="text-slate-600 transition-colors group-hover:text-emerald-400" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Disclaimer */}
-      <div className="mt-8 text-center">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-amber-500">⚠️</span>
-          <h3 className="text-amber-400 font-medium text-xs tracking-wider">{t('scenarioDetail.disclaimerTitle')}</h3>
+      <div className="mt-8 rounded-[24px] border border-amber-900/40 bg-amber-950/10 px-5 py-4 text-center">
+        <div className="mb-2 flex items-center justify-center gap-2">
+          <Warning size={16} weight="fill" className="text-amber-400" />
+          <h3 className="text-xs font-medium tracking-[0.08em] text-amber-300">{t('scenarioDetail.disclaimerTitle')}</h3>
         </div>
-        <p className="text-slate-500 text-xs">
+        <p className="text-xs leading-relaxed text-slate-400">
           {t('scenarioDetail.disclaimerText')}
         </p>
       </div>

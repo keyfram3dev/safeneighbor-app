@@ -80,9 +80,9 @@ function Whistle() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 pb-24">
+    <div className="max-w-4xl mx-auto px-4 pb-24 page-section-stagger">
       {/* Header */}
-      <div className="text-center mb-8 pt-4">
+      <div className="text-center mb-8 pt-4 page-section-item">
         <div className="flex items-center justify-center gap-3 mb-4">
           <Megaphone size={36} weight="bold" className="text-blue-400" />
           <h1 className="text-3xl font-black text-white tracking-wide">{t('signals.title')}</h1>
@@ -93,7 +93,7 @@ function Whistle() {
       </div>
 
       {/* Section 1: Community Alert Signals */}
-      <div className="mb-10">
+      <div className="mb-10 page-section-item">
         {/* The Hierarchy of Sound */}
         <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6">
           <div className="flex items-center gap-2 mb-4">
@@ -141,7 +141,7 @@ function Whistle() {
       </div>
 
       {/* Section 2: Whistle Protocol */}
-      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6">
+      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6 page-section-item">
         <div className="flex items-center gap-2 mb-4">
           <Megaphone size={28} weight="bold" className="text-amber-400" />
           <h2 className="text-xl font-bold text-white">{t('signals.whistleProtocolTitle')}</h2>
@@ -168,7 +168,7 @@ function Whistle() {
       </div>
 
       {/* Section 4: Visual Signaling */}
-      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6">
+      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6 page-section-item">
         <div className="flex items-center gap-2 mb-4">
           <Eye size={28} weight="bold" className="text-cyan-400" />
           <h2 className="text-xl font-bold text-white">{t('signals.visualTitle')}</h2>
@@ -193,7 +193,7 @@ function Whistle() {
       </div>
 
       {/* Section 5: De-escalation */}
-      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6">
+      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6 page-section-item">
         <div className="flex items-center gap-2 mb-4">
           <Thermometer size={28} weight="bold" className="text-red-400" />
           <h2 className="text-xl font-bold text-white">{t('signals.deescTitle')}</h2>
@@ -214,7 +214,7 @@ function Whistle() {
       </div>
 
       {/* Section 6: Digital & External Comms */}
-      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-8">
+      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-8 page-section-item">
         <div className="flex items-center gap-2 mb-4">
           <DeviceMobile size={28} weight="bold" className="text-blue-400" />
           <h2 className="text-xl font-bold text-white">{t('signals.digitalTitle')}</h2>
@@ -258,7 +258,7 @@ function Whistle() {
       </div>
 
       {/* Rotating Quote */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-8 page-section-item">
         <p className="text-slate-400 italic text-sm mb-2">
           {whistleQuote.quote}
         </p>
@@ -266,7 +266,7 @@ function Whistle() {
       </div>
 
       {/* Disclaimer */}
-      <div className="text-center mb-6">
+      <div className="text-center mb-6 page-section-item">
         <div className="flex items-center justify-center gap-2 mb-2">
           <Warning size={18} weight="bold" className="text-amber-500" />
           <h3 className="text-amber-400 font-medium text-xs tracking-wider">{t('disclaimer.title')}</h3>
@@ -286,7 +286,7 @@ function Whistle() {
       </div>
 
       {/* Install CTA */}
-      <div className="text-center">
+      <div className="text-center page-section-item">
         <button
           onClick={() => {
             if (window.deferredPrompt) {
