@@ -147,7 +147,7 @@
   "welcome": {
     "title": "Maligayang Pagdating sa SafeNeighbor",
     "knowledgeTitle": "Ang Kaalaman ay Proteksyon",
-    "mainMessage": "Tinuturuan at binibigyang-lakas ng SafeNeighbor ang mga tao sa pamamagitan ng kaalaman upang protektahan ang kanilang sarili at komunidad sa pamamagitan ng edukasyon tungkol sa inyong mga karapatan, nagbibigay ng mga script para sa mga encounter sa ICE, at legal na crowd-sourced na pag-uulat ng mga encounter sa ICE at DHS. Itinayo ang app na ito na ang inyong kaligtasan ang pinakamataas na priyoridad—nananatili ang inyong data sa inyong device, naka-encrypt bilang default, at hindi kailanman ibinabahagi nang walang inyong tahasang pahintulot.",
+    "mainMessage": "Binibigyan ka ng SafeNeighbor ng kaalaman at mga kasangkapan upang maprotektahan ang iyong sarili at ang iyong komunidad sa pamamagitan ng impormasyon tungkol sa iyong mga karapatan, mga script para sa mga pakikipagtagpo sa ICE, at legal na crowd-sourced na pag-uulat tungkol sa mga pakikipagtagpo sa ICE at DHS. Ginawa ang app na ito na ang iyong kaligtasan ang pinakamataas na prayoridad: ang mga recording at naka-save na safety data ay naka-encrypt sa device, nananatiling available offline ang mga gabay, at ang mga ulat ng komunidad ay nagbabahagi lamang ng pangkalahatang detalye na kailangan upang balaan ang mga taong nasa malapit.",
     "communityMessage": "Naniniwala kami na ang mga komunidad na may kaalaman ay mas ligtas na mga komunidad. Sa pamamagitan ng pagkakaalam sa inyong mga karapatan at pagsuporta sa isa't isa, makakagawa tayo ng network ng mutual aid at proteksyon.",
     "setupPin": "Magtakda ng PIN",
     "pinDescription": "Protektahan ang inyong mga recording at data sa pamamagitan ng pagtakda ng PIN sa Security Settings. Maaari din kayong magtakda ng <1>Decoy PIN</1> — kung pipilitin kayong i-unlock ang app, ang decoy PIN ay nagpapakita ng walang laman na vault na walang nakikitang recordings.",
@@ -223,7 +223,8 @@
     "installApp": "I-install ang App",
     "offlineSecure": "Offline at secure na paggamit",
     "installHelp": "Tulong sa Pag-install",
-    "installAlert": "Upang mag-install: pindutin ang share button sa inyong browser at piliin ang \"Add to Home Screen\""
+    "installAlert": "Upang mag-install: pindutin ang share button sa inyong browser at piliin ang \"Add to Home Screen\"",
+    "trustIntro": "Dinisenyo ang SafeNeighbor upang manatiling kapaki-pakinabang kapag nakaka-stress ang sitwasyon: mabilis na entry points, mga default na nakatuon sa privacy para sa sensitibong data, offline access, at mga ulat ng komunidad na tumutulong sa iyong manatiling may alam nang hindi nangangailangan ng account."
   },
   "settings": {
     "title": "Mga Setting ng Seguridad",
@@ -1643,7 +1644,7 @@
     "iUnderstand": "Naiintindihan Ko",
     "privacyAndSecurity": "Privacy at Seguridad",
     "privacyComesFirst": "Ang Iyong Privacy ay Una",
-    "privacyComesFirstDesc": "Ang SafeNeighbor ay dinisenyo na may privacy sa core. Kinokolekta namin ang minimum na impormasyon na kailangan upang tulungan ang mga komunidad na manatiling may kaalaman habang pinoprotektahan ang indibidwal na privacy.",
+    "privacyComesFirstDesc": "Dinisenyo ang SafeNeighbor upang mabawasan ang pagkalantad. Iniiwasan namin ang mga account at direktang personal na identifier, ine-encrypt nang lokal ang sensitibong data ng device, at nililimitahan ang mga ulat ng komunidad sa pangkalahatang lokasyon at sa mga detalyeng kailangan upang makatulong sa mga taong nasa malapit na manatiling may alam.",
     "anonymousReportingTitle": "Anonymous Reporting",
     "anonymousReporting1": "• Walang account o login na kailangan",
     "anonymousReporting2": "• Walang personal na impormasyon na kinokolekta",
@@ -2477,16 +2478,16 @@
     "generalQ2": "Ito ba ay isang app ng gobyerno?",
     "generalA2": "Hindi. Ang SafeNeighbor ay isang independiyente at community-driven na mapagkukunan. Hindi kami kaanib ng anumang ahensya ng gobyerno o katawan ng pagpapatupad ng batas. Ang aming katapatan ay ganap na para sa privacy at kaligtasan ng aming mga gumagamit.",
     "generalQ3": "Paano gumagana ang mapa ng mga ulat?",
-    "generalA3": "Kapag may nakitang aktibidad ng mga awtoridad ang isang gumagamit, maaari silang mag-pin ng ulat. Ang ulat na ito ay makikita ng ibang mga gumagamit sa lugar, na nagpapahintulot sa mga kapitbahay na gumawa ng matalinong desisyon tungkol sa kanilang paglalakbay at kaligtasan sa real-time. Ang iyong pagkakakilanlan ay hindi kailanman nakakabit sa anumang ulat — walang account, walang IP logging, at walang eksaktong GPS coordinates na naka-store. Ang mga lokasyon ng ulat ay ginagawang pangkalahatan sa antas ng kapitbahayan at naka-encrypt bago umalis sa iyong device, kaya imposibleng ma-trace ang isang ulat pabalik sa taong nag-submit nito.",
-    "privacyTitle": "Privacy at Seguridad — Ang Modelong \"Zero-Knowledge\"",
+    "generalA3": "Kapag may user na nakakita ng aktibidad ng pagpapatupad, maaari siyang mag-pin ng ulat. Makikita ang ulat na ito ng ibang mga user sa lugar, kaya nakagagawa ang mga kapitbahay ng mas maalam na desisyon tungkol sa kanilang biyahe at kaligtasan sa real time. Hindi kailangan ng account, pangalan, email, o numero ng telepono para sa mga ulat. Ginagawang pangkalahatan ang lokasyon ng ulat bago ito itago, at gumagamit ng mga kontrol sa server upang mabawasan ang spam at pang-aabuso. Maaari pa ring iproseso ang network metadata para sa mga operasyonal na proteksyon gaya ng rate limiting, pero hindi ito ikinakabit sa pampublikong ulat na nakikita ng ibang user.",
+    "privacyTitle": "Privacy at Seguridad — Ano ang Pinoprotektahan ng SafeNeighbor",
     "privacyQ1": "Kailangan ko bang gumawa ng account para magamit ang SafeNeighbor?",
     "privacyA1": "Hindi. Hindi namin kinakailangan ng pangalan, email, numero ng telepono, o pag-login sa social media. Ma-access mo ang mapa at lahat ng legal na script nang ganap na anonymous.",
     "privacyQ2": "Paano ninyo pinoprotektahan ang aking lokasyon?",
     "privacyA2": "Hindi ka namin tini-track. Bagama't ginagamit ng app ang GPS ng iyong device para ipakita ang mga lokal na ulat, ang data na iyon ay pinoproseso nang lokal sa iyong telepono. Hindi namin iniimbak ang kasaysayan ng iyong mga galaw sa aming mga server.",
-    "privacyQ3": "Ano ang \"Zero-Knowledge\" encryption?",
-    "privacyA3": "Ibig sabihin nito, ginawa namin ang sistema upang maging imposible kahit para sa amin na makita ang detalye ng iyong pribadong data. Ang mga ulat ay naka-encrypt sa iyong device bago ipadala sa aming database. Kung sakaling makatanggap kami ng subpoena, wala kaming personal na data ng gumagamit na maibibigay dahil hindi namin ito nakolekta sa una pa lang.",
+    "privacyQ3": "Paano ginagamit ng SafeNeighbor ang encryption?",
+    "privacyA3": "Gumagamit ang SafeNeighbor ng dalawang magkaibang privacy model. Ang mga recording, backup, at iba pang sensitibong data ng device ay pinoprotektahan ng lokal na encryption at ng mga key na ikaw ang may kontrol. Samantala, ang mga ulat ng komunidad ay gumagamit ng modelong nakapreserba sa privacy at nagmi-minimize ng data: inaalis ang mga direktang identifier bago mag-upload, ginagawang pangkalahatan ang mga lokasyon, at hindi kailangan ng account, pangalan, email, o numero ng telepono upang gamitin ang mapa.",
     "privacyQ4": "Ligtas ba ang aking mga recording?",
-    "privacyA4": "Kung gagamitin mo ang platform para idokumento ang isang pangyayari, ang file ay iniimbak na may end-to-end encryption. Ikaw ang may hawak ng susi. Kung hindi mo sadyang ibabahagi, mananatiling hindi ma-access ng third parties ang data.",
+    "privacyA4": "Oo. Kung gagamitin mo ang platform upang magdokumento ng isang engkwentro, itinatago ang file sa iyong naka-encrypt na lokal na vault at ang anumang backup ay ini-encrypt bago i-upload. Nasa iyo ang key. Kung wala ang malinaw mong aksyon na ibahagi ito, hindi maa-access ng mga third party ang recording.",
     "legalTitle": "Legal at Kaligtasan",
     "legalQ1": "Magiging target ba ako sa paggamit ng app na ito?",
     "legalA1": "Legal ang pag-eehersisyo ng iyong mga karapatang konstitusyonal at ang pananatiling may kaalaman. Dahil hindi kami nangongolekta ng impormasyon na makakatukoy ng pagkakakilanlan, ang paggamit ng app ay hindi lumilikha ng digital na bakas na mag-uugnay sa iyong pagkakakilanlan sa iyong aktibidad.",
@@ -2525,5 +2526,12 @@
     "noResults": "No cases found for this search.",
     "viewOpinion": "Read Full Opinion",
     "poweredBy": "Powered by"
+  },
+  "techSecurity": {
+    "zkaTitle": "Disenyong nagmi-minimize ng data",
+    "zkaDesc": "Dinisenyo namin ang app upang panatilihing lokal ang sensitibong data kung maaari at mag-imbak ng kasing kaunting impormasyong makakakilala hangga’t maaari. Sa praktika, ibig sabihin nito:",
+    "subpoenaTitle": "Pag-minimize ng data sa praktika",
+    "subpoenaDesc": "Teknikal din ang aming legal na estratehiya: panatilihing minimal ang makakakilalang data at sensitibong nilalaman. Hindi kami nangangailangan ng user account para sa reporting map, hindi kami naglalakip ng pangalan o detalye sa pakikipag-ugnayan sa mga pampublikong ulat, at nananatiling naka-encrypt ang mga recording gamit ang mga key na nasa kontrol ng user.",
+    "specsArchitectureValue": "Client-side encryption para sa data ng device, pangkalahatang mga ulat, walang kailangang account"
   }
 }

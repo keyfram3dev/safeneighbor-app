@@ -8,28 +8,12 @@ import { readEncrypted, writeEncrypted } from '../encryptedStorage';
 // LocalStorage keys for trusted contacts
 const CONTACTS_STORAGE_KEY = 'safeneighbor_trusted_contacts';
 
-const writeContactsLocally = (contacts) => {
-  localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
-};
-
 const persistTrustedContacts = async (contacts) => {
-  try {
-    await ensureEncryptionReady();
-  } catch {
-    // Trusted contacts are critical safety data. If the encrypted path
-    // cannot initialize here, we still persist locally on-device.
+  await ensureEncryptionReady();
+  const didWrite = await writeEncrypted(CONTACTS_STORAGE_KEY, contacts);
+  if (!didWrite) {
+    throw new Error('Trusted contacts are locked until encryption is available.');
   }
-
-  try {
-    const didWrite = await writeEncrypted(CONTACTS_STORAGE_KEY, contacts);
-    if (didWrite) {
-      return true;
-    }
-  } catch {
-    // Fall through to device-local plaintext storage below.
-  }
-
-  writeContactsLocally(contacts);
   return true;
 };
 

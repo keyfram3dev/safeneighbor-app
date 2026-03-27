@@ -10,69 +10,9 @@ service cloud.firestore {
       allow get: if true;
       allow list: if request.query.limit <= 100;
 
-      // Create: Accept encrypted payload format OR legacy plaintext format
-      allow create: if
-        // New encrypted format: all sensitive fields in single encrypted payload
-        (request.resource.data.encryptedPayload is string &&
-         request.resource.data.encryptedPayload.size() >= 10 &&
-         request.resource.data.payloadVersion is int &&
-         request.resource.data.timestamp is string &&
-         request.resource.data.verified is bool &&
-         request.resource.data.verifiers is list)
-        ||
-        // Legacy plaintext format (backward compat for existing reports + encryption fallback)
-        (request.resource.data.keys().hasAll(['timestamp', 'lat', 'lng', 'description']) &&
-         request.resource.data.lat is number &&
-         request.resource.data.lat >= 24 &&
-         request.resource.data.lat <= 50 &&
-         request.resource.data.lng is number &&
-         request.resource.data.lng >= -125 &&
-         request.resource.data.lng <= -66 &&
-         request.resource.data.description is string &&
-         request.resource.data.description.size() >= 1 &&
-         request.resource.data.description.size() <= 500 &&
-         request.resource.data.timestamp is string &&
-         (!('encryptedDescription' in request.resource.data) ||
-           request.resource.data.encryptedDescription is string) &&
-         (!('descriptionVersion' in request.resource.data) ||
-           request.resource.data.descriptionVersion is int) &&
-         (!('agents' in request.resource.data) ||
-           (request.resource.data.agents is int &&
-            request.resource.data.agents >= 0 &&
-            request.resource.data.agents <= 50)) &&
-         (!('vehicles' in request.resource.data) ||
-           (request.resource.data.vehicles is int &&
-            request.resource.data.vehicles >= 0 &&
-            request.resource.data.vehicles <= 20)) &&
-         (!('verified' in request.resource.data) ||
-           request.resource.data.verified is bool) &&
-         (!('verifiers' in request.resource.data) ||
-           request.resource.data.verifiers is list));
-
-      // Update: Only allow modifying verification and flagging fields
-      // Cap verifiers and flaggers lists to prevent spam
-      allow update: if
-        // Only verifiers, verified, and flaggers fields can be modified
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['verifiers', 'verified', 'flaggers']) &&
-
-        // Verified must be boolean
-        request.resource.data.verified is bool &&
-
-        // Verifiers must be list, can only grow by exactly 1, max 50
-        request.resource.data.verifiers is list &&
-        request.resource.data.verifiers.size() == resource.data.verifiers.size() + 1 &&
-        request.resource.data.verifiers.size() <= 50 &&
-
-        // Flaggers: if being updated, must be a list that grows by exactly 1, max 50
-        (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['flaggers']) ||
-          (
-            request.resource.data.flaggers is list &&
-            request.resource.data.flaggers.size() == resource.data.get('flaggers', []).size() + 1 &&
-            request.resource.data.flaggers.size() <= 50
-          )
-        );
+      // Report creation and moderation are server-only so clients cannot bypass
+      // rate limits, forge verification state, or submit plaintext directly.
+      allow create, update: if false;
 
       // Delete: Not allowed from client - server-side cleanup deletes reports after 48 hours
       allow delete: if false;

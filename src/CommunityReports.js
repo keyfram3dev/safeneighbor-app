@@ -16,9 +16,6 @@ import {
   orderBy,
   onSnapshot,
   getDocs,
-  updateDoc,
-  addDoc,
-  doc
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { reverseGeocode } from './utils/locationShare';
@@ -146,6 +143,8 @@ const RESOURCES_RADIUS = 5000; // 5km ~ 3.1 miles
 
 // Server-side rate-limited report submission URL
 const SUBMIT_REPORT_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/submitReport';
+const VERIFY_REPORT_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/verifyReport';
+const FLAG_REPORT_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/flagReport';
 
 /**
  * Submit report via Cloud Function (server-side rate limiting)
@@ -160,6 +159,8 @@ const submitReportToServer = async (reportData) => {
           encryptedPayload: reportData.encryptedPayload,
           payloadVersion: reportData.payloadVersion,
           timestamp: reportData.timestamp,
+          coarseLat: reportData.coarseLat,
+          coarseLng: reportData.coarseLng,
           deviceId: getOrCreateVerifierId()
         }
       : {
@@ -176,6 +177,8 @@ const submitReportToServer = async (reportData) => {
           location: reportData.location || '',
           city: reportData.city || '',
           state: reportData.state || '',
+          coarseLat: reportData.coarseLat ?? reportData.lat,
+          coarseLng: reportData.coarseLng ?? reportData.lng,
           deviceId: getOrCreateVerifierId()
         };
 
@@ -199,6 +202,67 @@ const submitReportToServer = async (reportData) => {
     return { success: true, reportId: data.reportId };
   } catch (error) {
     console.error('Server submission error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+const verifyReportOnServer = async ({ reportId, lat, lng }) => {
+  try {
+    const response = await fetch(VERIFY_REPORT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reportId,
+        verifierId: getOrCreateVerifierId(),
+        lat,
+        lng,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Failed to verify report',
+      };
+    }
+
+    return {
+      success: true,
+      verified: data.verified,
+      verifierCount: data.verifierCount,
+    };
+  } catch (error) {
+    console.error('Server verification error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+const flagReportOnServer = async (reportId) => {
+  try {
+    const response = await fetch(FLAG_REPORT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reportId,
+        verifierId: getOrCreateVerifierId(),
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Failed to flag report',
+      };
+    }
+
+    return {
+      success: true,
+      flagCount: data.flagCount,
+    };
+  } catch (error) {
+    console.error('Server flag error:', error);
     return { success: false, error: error.message };
   }
 };
@@ -259,19 +323,12 @@ const getStateAbbreviation = (state) => {
 const RATE_LIMIT_KEY = 'safeneighbor_report_rate_limit';
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const MAX_REPORTS_PER_WINDOW = 5;
-const DEV_MODE_KEY = 'safeneighbor_dev_mode'; // Set via console: localStorage.setItem('safeneighbor_dev_mode', 'enabled')
-
 // Security: Duplicate detection settings
 const DUPLICATE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 const DUPLICATE_DISTANCE_KM = 0.5; // 500 meters
 
 // Security: Check rate limit before submission
 const checkRateLimit = () => {
-  // Developer bypass for testing
-  if (localStorage.getItem(DEV_MODE_KEY) === 'enabled') {
-    return { allowed: true, devMode: true };
-  }
-
   const stored = localStorage.getItem(RATE_LIMIT_KEY);
   const now = Date.now();
   let records = stored ? JSON.parse(stored) : [];
@@ -1296,12 +1353,10 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     setNearbyReport(null);
 
     if (pendingSubmission) {
-      // Re-submit with the bypassed nearby check (set a flag)
+      // Re-submit after the user chose to continue despite a nearby report.
       setIsSubmitting(true);
 
       try {
-        const isDevMode = localStorage.getItem(DEV_MODE_KEY) === 'enabled';
-
         // Build timestamp from form data
         const reportTimestamp = new Date(`${pendingSubmission.date}T${pendingSubmission.time}`).toISOString();
 
@@ -1338,6 +1393,8 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
           const encrypted = await encryptReport(pendingSensitiveFields);
           pendingServerReport = {
             ...encrypted,
+            coarseLat: reportLat,
+            coarseLng: reportLng,
             timestamp: roundedTimestamp,
             verified: false,
             verifiers: []
@@ -1346,6 +1403,8 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
           console.warn('Encryption unavailable, using legacy format:', encErr.message);
           pendingServerReport = {
             ...pendingSensitiveFields,
+            coarseLat: reportLat,
+            coarseLng: reportLng,
             timestamp: roundedTimestamp,
             verified: false,
             verifiers: []
@@ -1353,32 +1412,19 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
         }
 
         if (isOnline) {
-          if (isDevMode) {
-            // Dev mode: bypass Cloud Function rate limiting
-            const reportToSave = {
-              ...pendingServerReport,
-              createdAt: new Date().toISOString(),
-              deviceId: getOrCreateVerifierId(),
-              devModeSubmission: true
-            };
-            await addDoc(collection(db, 'iceReports'), reportToSave);
-            if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown', mode: 'dev' });
-          } else {
-            const result = await submitReportToServer(pendingServerReport);
-            if (!result.success) {
-              if (result.rateLimited) {
-                alert(result.error || t('reports.tooManyReports'));
-              } else {
-                alert(result.error || t('reports.failedToSubmit'));
-              }
-              setPendingSubmission(null);
-              setIsSubmitting(false);
-              return;
+          const result = await submitReportToServer(pendingServerReport);
+          if (!result.success) {
+            if (result.rateLimited) {
+              alert(result.error || t('reports.tooManyReports'));
+            } else {
+              alert(result.error || t('reports.failedToSubmit'));
             }
-            recordSubmission();
-            if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown' });
-
+            setPendingSubmission(null);
+            setIsSubmitting(false);
+            return;
           }
+          recordSubmission();
+          if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown' });
         } else {
           // Offline: encrypt and queue to IndexedDB for background sync
           const reportId = `pending_${Date.now()}`;
@@ -1858,7 +1904,11 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
 
         let synced = 0;
         for (const record of records) {
-          const result = await submitReportToServer(record.serverPayload);
+          const result = await submitReportToServer({
+            ...record.serverPayload,
+            coarseLat: record.serverPayload?.coarseLat ?? record.displayFields?.lat,
+            coarseLng: record.serverPayload?.coarseLng ?? record.displayFields?.lng,
+          });
           if (!result.success) {
             if (result.rateLimited) {
               console.log('Rate limited, will retry remaining reports later');
@@ -2526,27 +2576,15 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     }
 
     try {
-      console.log('Adding verification for report:', id);
-      const reportRef = doc(db, 'iceReports', id);
-
-      // Build new verifier entry
-      const newVerifier = {
-        id: verifierId,
-        timestamp: new Date().toISOString(),
-        distance: parseFloat(distance.toFixed(2))
-      };
-
-      // Get current verifiers and add new one
-      const currentVerifiers = report.verifiers || [];
-      const updatedVerifiers = [...currentVerifiers, newVerifier];
-
-      await updateDoc(reportRef, {
-        verifiers: updatedVerifiers,
-        // Update legacy field for backwards compatibility
-        verified: updatedVerifiers.length >= VERIFICATION_THRESHOLD
+      const result = await verifyReportOnServer({
+        reportId: id,
+        lat: userCoords.lat,
+        lng: userCoords.lng,
       });
-
-      console.log('Verification added!');
+      if (!result.success) {
+        alert(result.error || t('reports.failedToVerify'));
+        return;
+      }
     } catch (error) {
       console.error("Error updating verification:", error);
       alert(t('reports.failedToVerify'));
@@ -2562,12 +2600,10 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     if (report.flaggers?.some(f => f.id === verifierId)) return;
 
     try {
-      const reportRef = doc(db, 'iceReports', reportId);
-      const updatedFlaggers = [
-        ...(report.flaggers || []),
-        { id: verifierId, timestamp: new Date().toISOString() },
-      ];
-      await updateDoc(reportRef, { flaggers: updatedFlaggers });
+      const result = await flagReportOnServer(reportId);
+      if (!result.success) {
+        console.error('Failed to flag report:', result.error);
+      }
     } catch (err) {
       console.error('Failed to flag report:', err);
     }
@@ -2580,11 +2616,8 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    // Check if dev mode is enabled (for testing)
-    const isDevMode = localStorage.getItem(DEV_MODE_KEY) === 'enabled';
-
     try {
-      // Security: Rate limit check (bypassed in dev mode)
+      // Security: Client-side rate limit check (server enforces the authoritative limit)
       const rateCheck = checkRateLimit();
       if (!rateCheck.allowed) {
         alert(t('reports.rateLimitReached', { max: MAX_REPORTS_PER_WINDOW, minutes: rateCheck.resetInMinutes }));
@@ -2621,7 +2654,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
 
       // Check for nearby existing reports (prompt to verify instead of duplicate)
       const nearbyResult = findNearbyReport(formData.lat, formData.lng);
-      if (nearbyResult && !isDevMode) {
+      if (nearbyResult) {
         // Store the pending submission and show the modal
         setPendingSubmission({ ...formData });
         setNearbyReport(nearbyResult);
@@ -2633,10 +2666,10 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       // Build timestamp from form data
       const reportTimestamp = new Date(`${formData.date}T${formData.time}`).toISOString();
 
-      // Security: Check for duplicate reports (bypassed in dev mode)
+      // Security: Check for duplicate reports
       const allReports = [...reports, ...pendingReports];
       const isDuplicate = isDuplicateReport(formData.lat, formData.lng, reportTimestamp, allReports, calculateDistance);
-      if (isDuplicate && !isDevMode) {
+      if (isDuplicate) {
         alert(t('reports.duplicateReport'));
         return;
       }
@@ -2672,21 +2705,25 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       // serverReport goes to Cloud Function / Firestore (encrypted)
       // localReport stays in memory for display (plaintext)
       let serverReport;
-      try {
-        const encrypted = await encryptReport(sensitiveFields);
-        serverReport = {
-          ...encrypted,
-          timestamp: roundedTimestamp,
-          verified: false,
-          verifiers: []
+        try {
+          const encrypted = await encryptReport(sensitiveFields);
+          serverReport = {
+            ...encrypted,
+            coarseLat: reportLat,
+            coarseLng: reportLng,
+            timestamp: roundedTimestamp,
+            verified: false,
+            verifiers: []
         };
-      } catch (encErr) {
-        console.warn('Encryption unavailable, using legacy format:', encErr.message);
-        serverReport = {
-          ...sensitiveFields,
-          timestamp: roundedTimestamp,
-          verified: false,
-          verifiers: []
+        } catch (encErr) {
+          console.warn('Encryption unavailable, using legacy format:', encErr.message);
+          serverReport = {
+            ...sensitiveFields,
+            coarseLat: reportLat,
+            coarseLng: reportLng,
+            timestamp: roundedTimestamp,
+            verified: false,
+            verifiers: []
         };
       }
 
@@ -2698,41 +2735,6 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
       };
 
       if (isOnline) {
-        // Dev mode: bypass Cloud Function rate limiting and write directly to Firestore
-        const isDevMode = localStorage.getItem(DEV_MODE_KEY) === 'enabled';
-
-        if (isDevMode) {
-          // Dev mode: bypass Cloud Function rate limiting
-          try {
-            const reportToSave = {
-              ...serverReport,
-              createdAt: new Date().toISOString(),
-              deviceId: getOrCreateVerifierId(),
-              devModeSubmission: true // Mark as dev mode for easy cleanup
-            };
-            await addDoc(collection(db, 'iceReports'), reportToSave);
-            // Track successful submission (privacy-safe: only state, no precise location)
-            if (window.umami) window.umami.track('report_submitted', { state: geoData.state || 'unknown', mode: 'dev' });
-            setSubmitted(true);
-
-            if (mapRef.current) {
-              mapRef.current.flyTo([reportLat, reportLng], 11, { duration: 1.5 });
-            }
-
-            setFormData(prev => ({
-              ...prev,
-              description: '',
-              agents: '',
-              vehicles: ''
-            }));
-            setShowInlinePicker(false);
-            return;
-          } catch (devError) {
-            alert(t('reports.devModeSubmissionFailed') + ': ' + devError.message);
-            return;
-          }
-        }
-
         const result = await submitReportToServer(serverReport);
 
         if (!result.success) {

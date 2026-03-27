@@ -1100,28 +1100,13 @@ const Home = ({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800/80 bg-gradient-to-r from-slate-950/85 via-slate-950/70 to-slate-900/80 px-4 py-3.5 shadow-[0_14px_30px_rgba(2,6,23,0.12)] sm:py-4">
-              <div className="flex flex-col gap-2.5">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
-                    {t('home.trustEyebrow')}
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-300 sm:text-sm">
-                    {t('home.trustIntro')}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200">
-                    {t('home.trustPrivate')}
-                  </span>
-                  <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-200">
-                    {t('home.trustOffline')}
-                  </span>
-                  <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-violet-200">
-                    {t('home.trustCommunity')}
-                  </span>
-                </div>
-              </div>
+            <div className="rounded-2xl border border-slate-800/80 bg-gradient-to-r from-slate-950/85 via-slate-950/70 to-slate-900/80 px-4 py-3 shadow-[0_14px_30px_rgba(2,6,23,0.12)] sm:py-3.5">
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+                {t('home.trustEyebrow')}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-300 sm:text-sm">
+                {t('home.trustIntro')}
+              </p>
             </div>
           </div>
         </div>

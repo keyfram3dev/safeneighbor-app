@@ -6,8 +6,7 @@
 //
 // When locked (cachedLocationsKey == null):
 //   - getSavedLocations() returns [] (app shows "unlock to view locations")
-//   - write operations fall back to plaintext (should not happen in practice
-//     since the UI is hidden while locked, but safe-guards against race conditions)
+//   - write operations fail closed rather than storing plaintext
 //
 // Legacy plaintext migration: on first decryption attempt after an upgrade,
 // plaintext JSON will fail AES-GCM decryption — the catch falls back to
@@ -49,27 +48,24 @@ async function read() {
 
   const key = getCachedLocationsKey();
 
-  if (key) {
-    try {
-      return await decryptJSON(raw, key);
-    } catch {
-      // Legacy plaintext fallback — migrates on next write
-      try { return JSON.parse(raw); } catch { return []; }
-    }
+  if (!key) {
+    return [];
   }
 
-  // No key in memory (app locked or no PIN set yet) — try legacy plaintext
-  try { return JSON.parse(raw); } catch { return []; }
+  try {
+    return await decryptJSON(raw, key);
+  } catch {
+    // Legacy plaintext fallback — migrates on next write
+    try { return JSON.parse(raw); } catch { return []; }
+  }
 }
 
 async function write(locations) {
   const key = getCachedLocationsKey();
-  if (key) {
-    localStorage.setItem(STORAGE_KEY, await encryptJSON(locations, key));
-  } else {
-    // Key not available — write plaintext (should only happen in dev / before init)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(locations));
+  if (!key) {
+    throw new Error('Saved locations are locked until encryption is available.');
   }
+  localStorage.setItem(STORAGE_KEY, await encryptJSON(locations, key));
 }
 
 // ─── Public API (all async) ────────────────────────────────────

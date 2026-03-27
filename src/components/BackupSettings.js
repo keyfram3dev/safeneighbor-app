@@ -156,7 +156,10 @@ function BackupSettings({ onClose }) {
         encryptionKey: keyString,
       };
 
-      await writeEncrypted(SETTINGS_KEY, settings);
+      const didWrite = await writeEncrypted(SETTINGS_KEY, settings);
+      if (!didWrite) {
+        throw new Error('Encrypted backup settings are unavailable until the device is unlocked.');
+      }
       setIsConfigured(true);
 
       // Initialize upload queue if auto-backup is enabled
@@ -216,17 +219,25 @@ function BackupSettings({ onClose }) {
 
   const handleAddContact = async () => {
     if (newContact.name && newContact.email) {
-      const added = await addTrustedContact(newContact);
-      setTrustedContacts([...trustedContacts, added]);
-      setNewContact({ name: '', email: '', relationship: '' });
-      setShowAddContact(false);
+      try {
+        const added = await addTrustedContact(newContact);
+        setTrustedContacts([...trustedContacts, added]);
+        setNewContact({ name: '', email: '', relationship: '' });
+        setShowAddContact(false);
+      } catch (error) {
+        alert(t('backup.failedAccessPackage') + error.message);
+      }
     }
   };
 
   const handleRemoveContact = async (id) => {
     if (window.confirm(t('backup.removeContactConfirm'))) {
-      await removeTrustedContact(id);
-      setTrustedContacts(trustedContacts.filter(c => c.id !== id));
+      try {
+        await removeTrustedContact(id);
+        setTrustedContacts(trustedContacts.filter(c => c.id !== id));
+      } catch (error) {
+        alert(t('backup.failedAccessPackage') + error.message);
+      }
     }
   };
 

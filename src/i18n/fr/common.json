@@ -147,7 +147,7 @@
   "welcome": {
     "title": "Bienvenue sur SafeNeighbor",
     "knowledgeTitle": "La connaissance est une protection",
-    "mainMessage": "SafeNeighbor vous éduque et vous donne les moyens de vous protéger ainsi que votre communauté grâce à la connaissance de vos droits, fournit des scripts pour les rencontres avec ICE, et le signalement participatif d'activités ICE et DHS. Cette application a été conçue avec votre sécurité comme priorité absolue — vos données restent sur votre appareil, chiffrées par défaut, et ne sont jamais partagées sans votre consentement explicite.",
+    "mainMessage": "SafeNeighbor vous informe et vous donne les moyens de vous protéger, vous et votre communauté, grâce à des informations sur vos droits, des scripts pour les rencontres avec l’ICE et des signalements juridiques participatifs concernant les rencontres avec l’ICE et le DHS. Cette application a été conçue en donnant la priorité absolue à votre sécurité : les enregistrements et les données de sécurité sauvegardées sont chiffrés sur votre appareil, les guides restent disponibles hors ligne et les signalements communautaires ne partagent que les informations générales nécessaires pour avertir les personnes à proximité.",
     "communityMessage": "Nous pensons que les communautés informées sont des communautés plus sûres. En connaissant vos droits et en vous entraidant, nous pouvons créer un réseau d'aide mutuelle et de protection.",
     "setupPin": "Configurer un PIN",
     "pinDescription": "Protégez vos enregistrements et données en configurant un PIN dans les Paramètres de sécurité. Vous pouvez également définir un <1>PIN leurre</1> — si vous êtes forcé de déverrouiller l'application, le PIN leurre affiche un coffre vide sans enregistrements visibles.",
@@ -223,7 +223,8 @@
     "installApp": "Installer l'application",
     "offlineSecure": "Utilisation hors ligne et sécurisée",
     "installHelp": "Aide à l'installation",
-    "installAlert": "Pour installer : appuyez sur le bouton de partage dans votre navigateur et sélectionnez \"Ajouter à l'écran d'accueil\""
+    "installAlert": "Pour installer : appuyez sur le bouton de partage dans votre navigateur et sélectionnez \"Ajouter à l'écran d'accueil\"",
+    "trustIntro": "SafeNeighbor est conçu pour rester utile lorsque la situation devient stressante : accès rapides, paramètres par défaut axés sur la confidentialité pour les données sensibles, accès hors ligne et signalements communautaires qui vous aident à rester informé sans exiger de compte."
   },
   "settings": {
     "title": "Paramètres de sécurité",
@@ -1643,7 +1644,7 @@
     "iUnderstand": "Je comprends",
     "privacyAndSecurity": "Confidentialité et sécurité",
     "privacyComesFirst": "Votre confidentialité avant tout",
-    "privacyComesFirstDesc": "SafeNeighbor est conçu avec la confidentialité au cœur. Nous collectons le minimum d'informations nécessaire pour aider les communautés à rester informées tout en protégeant la confidentialité individuelle.",
+    "privacyComesFirstDesc": "SafeNeighbor est conçu pour limiter l’exposition au minimum. Nous évitons les comptes et les identifiants personnels directs, nous chiffrons localement les données sensibles de l’appareil et nous limitons les signalements communautaires à une localisation généralisée et aux détails nécessaires pour aider les personnes proches à rester informées.",
     "anonymousReportingTitle": "Signalement anonyme",
     "anonymousReporting1": "• Aucun compte ou connexion requis",
     "anonymousReporting2": "• Aucune information personnelle collectée",
@@ -2477,16 +2478,16 @@
     "generalQ2": "Est-ce une application gouvernementale ?",
     "generalA2": "Non. SafeNeighbor est une ressource indépendante portée par la communauté. Nous ne sommes affiliés à aucune agence gouvernementale ni à aucun corps de police. Notre engagement est entièrement dédié à la confidentialité et à la sécurité de nos utilisateurs.",
     "generalQ3": "Comment fonctionne la carte des signalements ?",
-    "generalA3": "Lorsqu'un utilisateur observe une activité des forces de l'ordre, il peut épingler un signalement. Ce signalement devient alors visible pour les autres utilisateurs de la zone, permettant aux voisins de prendre des décisions éclairées sur leurs déplacements et leur sécurité en temps réel. Votre identité n'est jamais associée à un signalement — aucun compte requis, aucune journalisation d'adresse IP et aucune coordonnée GPS précise n'est stockée. Les emplacements des signalements sont généralisés à un rayon au niveau du quartier et chiffrés avant de quitter votre appareil, rendant impossible de remonter un signalement jusqu'à la personne qui l'a soumis.",
-    "privacyTitle": "Confidentialité et Sécurité — Le Modèle « Zéro Connaissance »",
+    "generalA3": "Lorsqu’une personne voit une activité de contrôle, elle peut épingler un signalement. Ce signalement devient alors visible pour les autres personnes dans la zone, ce qui permet aux voisins de prendre des décisions éclairées sur leurs déplacements et leur sécurité en temps réel. Les signalements ne nécessitent ni compte, ni nom, ni adresse e-mail, ni numéro de téléphone. Les emplacements des signalements sont généralisés avant le stockage, et des contrôles côté serveur sont utilisés pour réduire le spam et les abus. Des métadonnées réseau peuvent néanmoins être traitées pour des protections opérationnelles comme la limitation de débit, mais elles ne sont pas rattachées au signalement public visible par les autres utilisateurs.",
+    "privacyTitle": "Confidentialité et sécurité — Ce que SafeNeighbor protège",
     "privacyQ1": "Dois-je créer un compte pour utiliser SafeNeighbor ?",
     "privacyA1": "Non. Nous n'exigeons ni nom, ni adresse e-mail, ni numéro de téléphone, ni connexion via les réseaux sociaux. Vous pouvez accéder à la carte et à tous les scripts juridiques de manière totalement anonyme.",
     "privacyQ2": "Comment protégez-vous ma position ?",
     "privacyA2": "Nous ne vous pistons pas. Bien que l'application utilise le GPS de votre appareil pour afficher les signalements locaux, ces données sont traitées localement sur votre téléphone. Nous ne stockons aucun historique de vos déplacements sur nos serveurs.",
-    "privacyQ3": "Qu'est-ce que le chiffrement « Zéro Connaissance » ?",
-    "privacyA3": "Cela signifie que nous avons conçu le système de sorte que même nous ne pouvons pas consulter vos données privées. Les signalements sont chiffrés sur votre appareil avant d'être envoyés à notre base de données. Si nous recevions un jour une assignation, nous n'aurions aucune donnée personnelle à remettre car nous ne les avons jamais collectées.",
+    "privacyQ3": "Comment SafeNeighbor utilise-t-il le chiffrement ?",
+    "privacyA3": "SafeNeighbor utilise deux modèles de confidentialité différents. Les enregistrements, les sauvegardes et les autres données sensibles de l’appareil sont protégés par un chiffrement local et des clés que vous contrôlez. Les signalements communautaires, eux, utilisent plutôt un modèle respectueux de la vie privée et de minimisation des données : les identifiants directs sont supprimés avant l’envoi, les lieux sont généralisés et aucun compte, nom, e-mail ni numéro de téléphone n’est requis pour utiliser la carte.",
     "privacyQ4": "Mes enregistrements sont-ils en sécurité ?",
-    "privacyA4": "Si vous utilisez la plateforme pour documenter une interaction, le fichier est stocké avec un chiffrement de bout en bout. Vous détenez la clé. Sans action explicite de votre part pour le partager, les données restent inaccessibles aux tiers.",
+    "privacyA4": "Oui. Si vous utilisez la plateforme pour documenter une rencontre, le fichier est stocké dans votre coffre local chiffré et toute sauvegarde est chiffrée avant l’envoi. Vous détenez la clé. Sans action explicite de votre part pour le partager, l’enregistrement reste inaccessible aux tiers.",
     "legalTitle": "Juridique et Sécurité",
     "legalQ1": "Utiliser cette application fait-il de moi une cible ?",
     "legalA1": "Exercer vos droits constitutionnels et rester informé est légal. Comme nous ne collectons aucune information d'identification, utiliser l'application ne crée aucune trace numérique reliant votre identité à votre activité.",
@@ -2525,5 +2526,12 @@
     "noResults": "No cases found for this search.",
     "viewOpinion": "Read Full Opinion",
     "poweredBy": "Powered by"
+  },
+  "techSecurity": {
+    "zkaTitle": "Conception fondée sur la minimisation des données",
+    "zkaDesc": "Nous concevons l’application pour conserver les données sensibles localement lorsque c’est possible et pour stocker le moins possible d’informations identifiantes. En pratique, cela signifie :",
+    "subpoenaTitle": "La minimisation des données en pratique",
+    "subpoenaDesc": "Notre stratégie juridique est aussi technique : conserver un minimum de données identifiantes et de contenu sensible. Nous n’exigeons pas de compte utilisateur pour la carte des signalements, nous n’associons pas de noms ni de coordonnées aux signalements publics, et les enregistrements restent chiffrés avec des clés qui demeurent sous le contrôle de l’utilisateur.",
+    "specsArchitectureValue": "Chiffrement côté client pour les données de l’appareil, signalements généralisés, aucun compte requis"
   }
 }

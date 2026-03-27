@@ -147,7 +147,7 @@
   "welcome": {
     "title": "Ku soo dhawaaw SafeNeighbor",
     "knowledgeTitle": "Aqoontu waa Ilaalinta",
-    "mainMessage": "SafeNeighbor wuxuu ku baraa oo ku xoojiyaa aqoonta si aad isu ilaaliso adiga iyo bulshada aqoonta xuquuqdaada, wuxuu bixiyaa qoraalada kulanka ICE, iyo warbixinta dadweynaha ee sharciga ah ee kulammada ICE iyo DHS. Barnaamijkan waxaa lagu dhisay amnigtaada sida mudnaanta ugu sareysa—xogtaadu waxay ku hadhaa qalabkaaga, waxaa lagu sirtay si caadi ah, marnaba lama wadaago la'aanta oggollaanshahaaga cad.",
+    "mainMessage": "SafeNeighbor waxay ku siisaa aqoon iyo awood aad naftaada iyo bulshadaada ugu ilaaliso iyadoo ku baraysa xuquuqdaada, ku siinaysa qoraallo loo adeegsado kulamada ICE, iyo warbixinno sharciyeysan oo bulshada ka yimaada oo ku saabsan la kulanka ICE iyo DHS. App-kan waxaa loo dhisay iyadoo badbaadadaada mudnaanta koowaad la siinayo: duubista iyo xogta badbaadada ee la keydiyo waxaa lagu sirgeliyaa qalabkaaga, hagayaashuna waxay sii ahaanayaan kuwo la heli karo xitaa adigoon internet lahayn, halka warbixinnada bulshada ay wadaagaan oo keliya faahfaahinta guud ee looga baahan yahay in lagu digto dadka kuu dhow.",
     "communityMessage": "Waxaan rumaysneyn in bulshada warkaaga leh ay ka badbaadsan yihiin. Iyadoo la ogaado xuquuqdaada oo midba midka kale taageeraya, waxaan samayn karnaa shabakad gargaar is dhexgal iyo ilaalin.",
     "setupPin": "Deji PIN",
     "pinDescription": "Ilaali duubidaada iyo xogtaada adiga oo dejinaya PIN Dejinta Amniga. Waxaad sidoo kale dejin kartaa <1>PIN Khiyaano ah</1> — haddii mar la kugu qasbay inaad furto barnaamijka, PIN khiyaano ahu wuxuu muujiyaa khaznad madhan oo aan lahayn duubis muuqda.",
@@ -223,7 +223,8 @@
     "installApp": "Rakib Barnaamijka",
     "offlineSecure": "Isticmaalka khadka ka baxsan iyo mid aamin ah",
     "installHelp": "Caawinta Rakibidda",
-    "installAlert": "Si aad u rakibto: riix badhanka la wadaagida browserkaaga oo dooro \"Ku dar Shaashadda Guriga\""
+    "installAlert": "Si aad u rakibto: riix badhanka la wadaagida browserkaaga oo dooro \"Ku dar Shaashadda Guriga\"",
+    "trustIntro": "SafeNeighbor waxaa loo dhisay inuu waxtar yeesho xitaa marka xaaladdu kacsan tahay: marinno degdeg ah, dejinno caadi ah oo u janjeera asturnaanta xogta xasaasiga ah, helitaan offline ah, iyo warbixinno bulsho oo kaa caawinaya inaad xog ogaal ahaato adigoon xisaab sameysan."
   },
   "settings": {
     "title": "Dejinta Amniga",
@@ -1643,7 +1644,7 @@
     "iUnderstand": "Waan Fahansanahay",
     "privacyAndSecurity": "Asturnaanta & Amniga",
     "privacyComesFirst": "Asturnaantaadu Way Horreyso",
-    "privacyComesFirstDesc": "SafeNeighbor waxaa loogu talagalay inuu ilaalinayo asturnaantaada. Waxaan ururinaa ugu yaraan macluumaadka lagama maarmaanka ah ee caawiya bulshada inay is wargeliyaan iyadoo la ilaalinayo asturnaanta shakhsiyaadka.",
+    "privacyComesFirstDesc": "SafeNeighbor waxaa loo qaabeeyey inuu yareeyo soo-bixidda xogta. Kama shaqeyno xisaabaad ama aqoonsiyo shaqsiyeed oo toos ah, xogta xasaasiga ah ee qalabka si maxalli ah ayaan u sirgelinnaa, waxaana warbixinnada bulshada ku koobnaa goob guud iyo faahfaahinta loo baahan yahay si dadka kuu dhow xog loogu hayo.",
     "anonymousReportingTitle": "Warbixinta Aan Magaca La Shaacinin",
     "anonymousReporting1": "• Akoon ama soo-gal looma baahna",
     "anonymousReporting2": "• Macluumaad shakhsiyeed lama ururiyo",
@@ -2477,16 +2478,16 @@
     "generalQ2": "Miyay tani tahay app dawladda?",
     "generalA2": "Maya. SafeNeighbor waa kheyraad madax-bannaan oo ay bulshadu hogaaminayso. Xiriir kama lihin hay'ad dawladeed iyo qaybta fulinta sharciga. Daacadnimadayadu waa oo dhan ku aaddan asturnaanta iyo badbaadada isticmaalayaashayada.",
     "generalQ3": "Sidee bay u shaqeysaa khariidadda warbixinta?",
-    "generalA3": "Marka isticmaale arko howlaha fulinta sharciga, wuxuu dhigi karaa warbixin. Warbixintaas ka dib waxay u muuqataa isticmaalayaasha kale ee aagga ku nool, taasoo waxay u oggolaataa derisyada inay go'aamo aqoon leh ku sameeyaan safarka iyo badbaadadooda waqtiga dhabta ah. Aqoonsigaaga marnaba laguma xidho warbixin kasta — akoon ma jiro, IP logging ma jiro, iyo GPS coordinates sax ah oo la kaydiyo ma jiraan. Goobaha warbixinta waxaa lagu guud-mariiyaa radius heer-xaafadeed ah waxaana lagu encrypt-gareyaa ka hor intaanu ka bixin qalabkaaga, taasoo waxay ka dhigtaa mid aan suurta gal ahayn in warbixinta lagu raad raaco qofka soo gudbiyay.",
-    "privacyTitle": "Asturnaanta & Amniga — Qaabka \"Aqoon-la'aanta\"",
+    "generalA3": "Marka isticmaale arko dhaqdhaqaaq fulineed, wuxuu calaamadeyn karaa warbixin. Warbixintaas markaas waxay u muuqanaysaa isticmaaleyaasha kale ee aaggaas jooga, taasoo u saamaxaysa deriska inay go’aanno xog ogaal ah ka gaaraan safarkooda iyo badbaadadooda waqtiga dhabta ah. Warbixinnadu uma baahna xisaab, magac, iimayl ama lambarka taleefanka. Goobaha warbixinta waa la guudmariyaa ka hor kaydinta, waxaana la adeegsadaa xakameynno dhinaca server-ka ah si loo yareeyo spam iyo ku-takrifal. Metadata-ga shabakadda weli waa la farsameyn karaa si loo helo difaacyo hawlgal sida xaddididda heerka, laakiin laguma lifaaqo warbixinta dadweynaha ee isticmaaleyaasha kale arkaan.",
+    "privacyTitle": "Asturnaanta iyo amniga — Waxa SafeNeighbor ilaaliso",
     "privacyQ1": "Miyaan u baahanahay inaan akoon sameysto si aan u isticmaalo SafeNeighbor?",
     "privacyA1": "Maya. Kama dalbanayno magac, iimayl, lambar taleefan, ama gelitaanka baraha bulshada. Waxaad heli kartaa khariidadda iyo dhammaan qoraalada sharciga si buuxda oo qarsoodi ah.",
     "privacyQ2": "Sidee baad u ilaalineysaa goobta aan joogo?",
     "privacyA2": "Kuma raadraacayno. In kasta oo app-ku isticmaalayo GPS-ka qalabkaaga si uu kuugu muujiyo warbixinaha maxalliga ah, xogtaas waxaa lagu habeeya si maxalli ah oo taleefankaaga ah. Kuma kaydinayno taariikh-socodkaaga server-yadayada.",
-    "privacyQ3": "Waa maxay sirta \"Aqoon-la'aanta\"?",
-    "privacyA3": "Macnaheedu waa in aan nidaamka u dhistay si aannu annagiiba u awoodi waayin inaan aragno faahfaahinaha xogtaada gaarka ah. Warbixinaha waxaa lagu sirtay qalabkaaga ka hor intaanay loo dirin database-kayaga. Haddii nala siiyo amar maxkamadeed, xog isticmaale shaqsiyeed oo la gudbiyo ma hayno maxaa yeelay horey uma soo ururin.",
+    "privacyQ3": "Sidee SafeNeighbor u adeegsataa sirgelinta?",
+    "privacyA3": "SafeNeighbor waxay isticmaashaa laba qaab oo asturnaaneed oo kala duwan. Duubista, kaydka, iyo xogta kale ee xasaasiga ah ee qalabka waxaa ilaaliya sirgelin maxalli ah iyo furayaal aad adigu maamusho. Warbixinnada bulshada se waxay adeegsadaan qaab asturnaanta ilaaliya oo xogta yareeya: aqoonsiyada tooska ah waa la saaraa ka hor dirista, goobaha waa la guudmariyaa, mana jiro xisaab, magac, iimayl ama lambarka taleefanka oo looga baahan yahay adeegsiga khariidadda.",
     "privacyQ4": "Miyay duubbitaankaygu badbaado yihiin?",
-    "privacyA4": "Haddii aad isticmaasho madalka si aad u diiwaangeliso dhacdooyinka, faylku waxaa lagu kaydiyaa sirta dhamaadka-ilaa-dhamaadka. Adiga ayaa haysata furaha. Adiga oo aan ficil cad ku samaynin wadaagidda, xogtu waa ka mamnuuc dhinacyada saddexaad.",
+    "privacyA4": "Haa. Haddii aad isticmaasho barxadda si aad u diiwaangeliso la kulanka, faylka waxaa lagu kaydiyaa keydkaaga maxalliga ah ee sirgelsan, kayd kastaana waa la sirgeliyaa ka hor inta aan la dirin. Adiga ayaa haya furaha. Adigoon si cad u dooran inaad la wadaagto, duubistu ma noqonayso mid ay heli karaan dhinacyo saddexaad.",
     "legalTitle": "Sharci & Badbaado",
     "legalQ1": "Miyuu isticmaalka app-kan iga dhigayaa bartilmaameed?",
     "legalA1": "Isticmaalka xuquuqdaada dastuuri ah iyo ogaanshaha waa sharci. Sababtoo ah ma soo ururinaynno macluumaadka aqoonsiga, isticmaalka app-ku ma abuuro raad dijitaal ah oo ku xira aqoonsigaaga howlahaaga.",
@@ -2525,5 +2526,12 @@
     "noResults": "No cases found for this search.",
     "viewOpinion": "Read Full Opinion",
     "poweredBy": "Powered by"
+  },
+  "techSecurity": {
+    "zkaTitle": "Naqshad xog-yareyn ah",
+    "zkaDesc": "Waxaan app-ka u naqshadeynaa si xogta xasaasiga ah ugu sii jirto maxalli ahaan marka ay suurtagal tahay, isla markaana loo keydiyo xog aqoonsi leh intii ugu yareyd ee suurtagal ah. Ficil ahaan, tani waxay ka dhigan tahay:",
+    "subpoenaTitle": "Xog-yareyn ku dhaqan ahaan",
+    "subpoenaDesc": "Istaraatiijiyaddeenna sharci waa mid farsamo sidoo kale ah: inaan xogta aqoonsiga leh iyo nuxurka xasaasiga ah ku hayno heerka ugu yar. Uma baahnin xisaabaad isticmaale khariidadda warbixinta, mana ku lifaaqno magacyo ama faahfaahinta xiriirka warbixinnada dadweynaha, duubistuna waxay ahaanayaan kuwo lagu sirgeliyey furayaal ku jira gacanta isticmaalaha.",
+    "specsArchitectureValue": "Sirgelin dhinaca macmiilka ah oo xogta qalabka ah, warbixinno guudmariyeysan, xisaab looma baahna"
   }
 }

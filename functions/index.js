@@ -33,6 +33,8 @@ const GEMINI_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_GEMINI_PER_WINDOW = 10; // Max 10 Gemini calls per minute per IP
 const PROXY_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_PROXY_PER_WINDOW = 15; // Max 15 proxy calls per minute per IP
+const REPORT_ACTION_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_REPORT_ACTIONS_PER_WINDOW = 20; // Max 20 verify/flag actions per window per IP
 
 /**
  * Reusable rate limiter — checks/increments a Firestore rate limit doc
@@ -199,6 +201,31 @@ const getClientIP = (req) => {
          'unknown';
 };
 
+const sanitizeDeviceId = (value) => {
+  if (typeof value !== 'string') return 'unknown';
+  const cleaned = value.replace(/[^a-zA-Z0-9\-_]/g, '').slice(0, 128);
+  return cleaned || 'unknown';
+};
+
+const isValidUSCoordinatePair = (lat, lng) => (
+  typeof lat === 'number' &&
+  typeof lng === 'number' &&
+  lat >= 24 && lat <= 50 &&
+  lng >= -125 && lng <= -66
+);
+
+const calculateDistanceMiles = (lat1, lng1, lat2, lng2) => {
+  const toRad = (degrees) => (degrees * Math.PI) / 180;
+  const earthRadiusMiles = 3958.8;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusMiles * c;
+};
+
 /**
  * Rate-limited report submission
  * Enforces server-side rate limiting that can't be bypassed
@@ -238,7 +265,14 @@ exports.submitReport = functions.https.onRequest((req, res) => {
       }
 
       // Determine submission format: encrypted payload vs legacy plaintext
-      const { encryptedPayload, payloadVersion, timestamp: clientTimestamp, deviceId } = req.body;
+      const {
+        encryptedPayload,
+        payloadVersion,
+        timestamp: clientTimestamp,
+        deviceId,
+        coarseLat,
+        coarseLng,
+      } = req.body;
       const isFullyEncrypted = !!encryptedPayload;
 
       let report;
@@ -251,16 +285,21 @@ exports.submitReport = functions.https.onRequest((req, res) => {
         if (!clientTimestamp || typeof clientTimestamp !== 'string') {
           return res.status(400).json({ error: 'Timestamp is required' });
         }
+        if (!isValidUSCoordinatePair(coarseLat, coarseLng)) {
+          return res.status(400).json({ error: 'Generalized report location is required' });
+        }
 
         report = {
           encryptedPayload,
           payloadVersion: payloadVersion || 1,
           timestamp: clientTimestamp,
+          coarseLat,
+          coarseLng,
+          geoHash5: encodeGeohash(coarseLat, coarseLng, 5),
           verified: false,
           verifiers: [],
-          deviceId: typeof deviceId === 'string'
-            ? deviceId.replace(/[^a-zA-Z0-9\-_]/g, '').slice(0, 128)
-            : 'unknown',
+          flaggers: [],
+          deviceId: sanitizeDeviceId(deviceId),
           createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
       } else {
@@ -303,6 +342,9 @@ exports.submitReport = functions.https.onRequest((req, res) => {
         report = {
           lat: roundedLat,
           lng: roundedLng,
+          coarseLat: roundedLat,
+          coarseLng: roundedLng,
+          geoHash5: encodeGeohash(roundedLat, roundedLng, 5),
           description: isDescEncrypted ? '[encrypted]' : sanitizedDescription,
           ...(isDescEncrypted && { encryptedDescription, descriptionVersion: descriptionVersion || 1 }),
           agents: agentCount,
@@ -314,7 +356,8 @@ exports.submitReport = functions.https.onRequest((req, res) => {
           timestamp: timestamp.toISOString(),
           verified: false,
           verifiers: [],
-          deviceId: (deviceId || 'unknown'),
+          flaggers: [],
+          deviceId: sanitizeDeviceId(deviceId),
           createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
       }
@@ -349,6 +392,189 @@ exports.submitReport = functions.https.onRequest((req, res) => {
 
     } catch (error) {
       console.error('Submit report error:', error.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+});
+
+/**
+ * Add a verification to a community report.
+ * Server-enforced so verification cannot be forged with direct Firestore writes.
+ */
+exports.verifyReport = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+      const clientIP = getClientIP(req);
+      const ipHash = hashIP(clientIP);
+      const allowed = await checkRateLimit('verify', ipHash, REPORT_ACTION_WINDOW_MS, MAX_REPORT_ACTIONS_PER_WINDOW, res);
+      if (!allowed) return;
+
+      const { reportId, verifierId, lat, lng } = req.body;
+      const safeVerifierId = sanitizeDeviceId(verifierId);
+      if (typeof reportId !== 'string' || reportId.length < 5 || reportId.length > 128) {
+        return res.status(400).json({ error: 'Invalid report id' });
+      }
+      if (!isValidUSCoordinatePair(lat, lng)) {
+        return res.status(400).json({ error: 'Current location is required to verify reports' });
+      }
+
+      const reportRef = db.collection('iceReports').doc(reportId);
+      const actionRef = db.collection('reportActionLocks').doc(
+        crypto.createHash('sha256').update(`verify:${reportId}:${ipHash}:${safeVerifierId}`).digest('hex').substring(0, 32)
+      );
+
+      const result = await db.runTransaction(async (tx) => {
+        const [reportSnap, actionSnap] = await Promise.all([tx.get(reportRef), tx.get(actionRef)]);
+        if (!reportSnap.exists) {
+          throw new functions.https.HttpsError('not-found', 'Report not found');
+        }
+        if (actionSnap.exists) {
+          throw new functions.https.HttpsError('already-exists', 'You have already verified this report');
+        }
+
+        const data = reportSnap.data();
+        const reportLat = typeof data.coarseLat === 'number' ? data.coarseLat : data.lat;
+        const reportLng = typeof data.coarseLng === 'number' ? data.coarseLng : data.lng;
+        if (!isValidUSCoordinatePair(reportLat, reportLng)) {
+          throw new functions.https.HttpsError('failed-precondition', 'This report cannot be verified');
+        }
+
+        const distance = calculateDistanceMiles(lat, lng, reportLat, reportLng);
+        if (distance > 3) {
+          throw new functions.https.HttpsError('permission-denied', `You must be within 3 miles to verify this report`);
+        }
+
+        const verifiers = Array.isArray(data.verifiers) ? data.verifiers : [];
+        if (verifiers.some((entry) => entry?.id === safeVerifierId)) {
+          throw new functions.https.HttpsError('already-exists', 'You have already verified this report');
+        }
+
+        const nextVerifiers = [
+          ...verifiers,
+          {
+            id: safeVerifierId,
+            timestamp: new Date().toISOString(),
+            distance: parseFloat(distance.toFixed(2)),
+          }
+        ].slice(0, 50);
+
+        tx.set(actionRef, {
+          action: 'verify',
+          reportId,
+          ipHash,
+          verifierId: safeVerifierId,
+          createdAt: new Date().toISOString(),
+        });
+        tx.update(reportRef, {
+          verifiers: nextVerifiers,
+          verified: nextVerifiers.length >= 2,
+        });
+
+        return {
+          verified: nextVerifiers.length >= 2,
+          verifierCount: nextVerifiers.length,
+        };
+      });
+
+      await incrementRateLimit('verify', ipHash, REPORT_ACTION_WINDOW_MS);
+      return res.status(200).json({ success: true, ...result });
+    } catch (error) {
+      const code = error?.code || error?.details;
+      if (code === 'not-found') {
+        return res.status(404).json({ error: 'Report not found' });
+      }
+      if (code === 'already-exists') {
+        return res.status(409).json({ error: error.message || 'Already verified' });
+      }
+      if (code === 'permission-denied') {
+        return res.status(403).json({ error: error.message || 'Verification denied' });
+      }
+      if (code === 'failed-precondition') {
+        return res.status(409).json({ error: error.message || 'Report cannot be verified' });
+      }
+      console.error('verifyReport error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+});
+
+/**
+ * Flag a community report for review.
+ * Server-enforced so the same client cannot repeatedly flag a report.
+ */
+exports.flagReport = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+      const clientIP = getClientIP(req);
+      const ipHash = hashIP(clientIP);
+      const allowed = await checkRateLimit('flag', ipHash, REPORT_ACTION_WINDOW_MS, MAX_REPORT_ACTIONS_PER_WINDOW, res);
+      if (!allowed) return;
+
+      const { reportId, verifierId } = req.body;
+      const safeVerifierId = sanitizeDeviceId(verifierId);
+      if (typeof reportId !== 'string' || reportId.length < 5 || reportId.length > 128) {
+        return res.status(400).json({ error: 'Invalid report id' });
+      }
+
+      const reportRef = db.collection('iceReports').doc(reportId);
+      const actionRef = db.collection('reportActionLocks').doc(
+        crypto.createHash('sha256').update(`flag:${reportId}:${ipHash}:${safeVerifierId}`).digest('hex').substring(0, 32)
+      );
+
+      const result = await db.runTransaction(async (tx) => {
+        const [reportSnap, actionSnap] = await Promise.all([tx.get(reportRef), tx.get(actionRef)]);
+        if (!reportSnap.exists) {
+          throw new functions.https.HttpsError('not-found', 'Report not found');
+        }
+        if (actionSnap.exists) {
+          throw new functions.https.HttpsError('already-exists', 'You have already flagged this report');
+        }
+
+        const data = reportSnap.data();
+        const flaggers = Array.isArray(data.flaggers) ? data.flaggers : [];
+        if (flaggers.some((entry) => entry?.id === safeVerifierId)) {
+          throw new functions.https.HttpsError('already-exists', 'You have already flagged this report');
+        }
+
+        const nextFlaggers = [
+          ...flaggers,
+          {
+            id: safeVerifierId,
+            timestamp: new Date().toISOString(),
+          }
+        ].slice(0, 50);
+
+        tx.set(actionRef, {
+          action: 'flag',
+          reportId,
+          ipHash,
+          verifierId: safeVerifierId,
+          createdAt: new Date().toISOString(),
+        });
+        tx.update(reportRef, { flaggers: nextFlaggers });
+
+        return { flagCount: nextFlaggers.length };
+      });
+
+      await incrementRateLimit('flag', ipHash, REPORT_ACTION_WINDOW_MS);
+      return res.status(200).json({ success: true, ...result });
+    } catch (error) {
+      const code = error?.code || error?.details;
+      if (code === 'not-found') {
+        return res.status(404).json({ error: 'Report not found' });
+      }
+      if (code === 'already-exists') {
+        return res.status(409).json({ error: error.message || 'Already flagged' });
+      }
+      console.error('flagReport error:', error);
       return res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -631,7 +857,13 @@ exports.sendPushDigests = functions.pubsub.schedule('every 2 hours').onRun(async
   let reportCount = 0;
   reportsSnap.forEach((doc) => {
     const data = doc.data();
-    if (typeof data.lat === 'number' && typeof data.lng === 'number') {
+    if (typeof data.geoHash5 === 'string' && data.geoHash5.length === 5) {
+      reportGeohashes.add(data.geoHash5);
+      reportCount++;
+    } else if (typeof data.coarseLat === 'number' && typeof data.coarseLng === 'number') {
+      reportGeohashes.add(encodeGeohash(data.coarseLat, data.coarseLng));
+      reportCount++;
+    } else if (typeof data.lat === 'number' && typeof data.lng === 'number') {
       reportGeohashes.add(encodeGeohash(data.lat, data.lng));
       reportCount++;
     }
@@ -814,4 +1046,3 @@ exports.courtListenerSearch = functions.https.onRequest((req, res) => {
     }
   });
 });
-

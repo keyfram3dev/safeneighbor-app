@@ -147,7 +147,7 @@
   "welcome": {
     "title": "Bem-vindo ao SafeNeighbor",
     "knowledgeTitle": "Conhecimento é Proteção",
-    "mainMessage": "O SafeNeighbor educa e capacita você com o conhecimento para proteger a si mesmo e sua comunidade com educação sobre seus direitos, fornece roteiros para encontros com o ICE e relatórios colaborativos de encontros com ICE e DHS. Este app foi construído com sua segurança como prioridade máxima — seus dados ficam no seu dispositivo, criptografados por padrão, e nunca compartilhados sem seu consentimento explícito.",
+    "mainMessage": "O SafeNeighbor informa e fortalece você com o conhecimento necessário para proteger a si mesmo e sua comunidade, com educação sobre seus direitos, roteiros para encontros com o ICE e relatos legais colaborativos sobre encontros com o ICE e o DHS. Este aplicativo foi criado com sua segurança como prioridade máxima: gravações e dados de segurança salvos são criptografados no dispositivo, os guias continuam disponíveis offline e os relatos da comunidade compartilham apenas os detalhes generalizados necessários para alertar pessoas próximas.",
     "communityMessage": "Acreditamos que comunidades informadas são comunidades mais seguras. Ao conhecer seus direitos e apoiar uns aos outros, podemos criar uma rede de ajuda mútua e proteção.",
     "setupPin": "Configurar um PIN",
     "pinDescription": "Proteja suas gravações e dados configurando um PIN nas Configurações de Segurança. Você também pode definir um <1>PIN Disfarce</1> — se alguém forçar você a desbloquear o app, o PIN disfarce mostra um cofre vazio sem gravações visíveis.",
@@ -223,7 +223,8 @@
     "installApp": "Instalar App",
     "offlineSecure": "Uso offline e seguro",
     "installHelp": "Ajuda para Instalação",
-    "installAlert": "Para instalar: toque no botão de compartilhar no seu navegador e selecione \"Adicionar à Tela Inicial\""
+    "installAlert": "Para instalar: toque no botão de compartilhar no seu navegador e selecione \"Adicionar à Tela Inicial\"",
+    "trustIntro": "O SafeNeighbor foi projetado para continuar útil quando as coisas ficam estressantes: pontos de acesso rápidos, padrões focados em privacidade para dados sensíveis, acesso offline e relatos da comunidade que ajudam você a se manter informado sem exigir uma conta."
   },
   "settings": {
     "title": "Configurações de Segurança",
@@ -1643,7 +1644,7 @@
     "iUnderstand": "Eu Entendo",
     "privacyAndSecurity": "Privacidade e Segurança",
     "privacyComesFirst": "Sua Privacidade em Primeiro Lugar",
-    "privacyComesFirstDesc": "O SafeNeighbor foi projetado com privacidade no seu núcleo. Coletamos o mínimo de informações necessárias para ajudar as comunidades a se manterem informadas enquanto protegemos a privacidade individual.",
+    "privacyComesFirstDesc": "O SafeNeighbor foi projetado para minimizar a exposição. Evitamos contas e identificadores pessoais diretos, criptografamos localmente os dados sensíveis do dispositivo e mantemos os relatos da comunidade limitados à localização generalizada e aos detalhes necessários para ajudar pessoas próximas a se manterem informadas.",
     "anonymousReportingTitle": "Relato Anônimo",
     "anonymousReporting1": "• Nenhuma conta ou login necessário",
     "anonymousReporting2": "• Nenhuma informação pessoal coletada",
@@ -2477,16 +2478,16 @@
     "generalQ2": "Este é um aplicativo do governo?",
     "generalA2": "Não. O SafeNeighbor é um recurso independente e comunitário. Não somos vinculados a nenhum órgão governamental ou força policial. Nosso compromisso é inteiramente com a privacidade e segurança dos nossos usuários.",
     "generalQ3": "Como funciona o mapa de relatos?",
-    "generalA3": "Quando um usuário observa atividade das autoridades, pode fixar um relato. Esse relato fica visível para outros usuários na região, permitindo que vizinhos tomem decisões informadas sobre seus deslocamentos e segurança em tempo real. Sua identidade nunca é vinculada a nenhum relato — sem conta, sem registro de IP e sem armazenamento de coordenadas GPS precisas. As localizações dos relatos são generalizadas para um raio em nível de bairro e criptografadas antes de sair do seu dispositivo, tornando impossível rastrear um relato até a pessoa que o enviou.",
-    "privacyTitle": "Privacidade e Segurança — O Modelo de \"Conhecimento Zero\"",
+    "generalA3": "Quando uma pessoa vê atividade de fiscalização, ela pode fixar um relato. Esse relato então fica visível para outras pessoas na área, permitindo que a comunidade tome decisões informadas sobre deslocamento e segurança em tempo real. Os relatos não exigem conta, nome, e-mail nem número de telefone. Os locais dos relatos são generalizados antes do armazenamento, e controles do lado do servidor são usados para reduzir spam e abuso. Metadados de rede ainda podem ser processados para proteções operacionais, como limitação de taxa, mas não são anexados ao relato público visto por outras pessoas usuárias.",
+    "privacyTitle": "Privacidade e segurança — O que o SafeNeighbor protege",
     "privacyQ1": "Preciso criar uma conta para usar o SafeNeighbor?",
     "privacyA1": "Não. Não exigimos nomes, e-mails, números de telefone ou login por redes sociais. Você pode acessar o mapa e todos os roteiros jurídicos de forma completamente anônima.",
     "privacyQ2": "Como vocês protegem minha localização?",
     "privacyA2": "Nós não rastreamos você. Embora o aplicativo use o GPS do seu dispositivo para mostrar relatos próximos, esses dados são processados localmente no seu celular. Não armazenamos o histórico dos seus deslocamentos em nossos servidores.",
-    "privacyQ3": "O que é criptografia de \"Conhecimento Zero\"?",
-    "privacyA3": "Significa que construímos o sistema de modo que nem nós mesmos conseguimos ver os detalhes dos seus dados privados. Os relatos são criptografados no seu dispositivo antes de serem enviados ao nosso banco de dados. Se algum dia recebêssemos uma intimação judicial, não teríamos dados pessoais para entregar, porque nunca os coletamos.",
+    "privacyQ3": "Como o SafeNeighbor usa criptografia?",
+    "privacyA3": "O SafeNeighbor usa dois modelos diferentes de privacidade. Gravações, backups e outros dados sensíveis do dispositivo são protegidos com criptografia local e chaves que você controla. Já os relatos da comunidade usam um modelo que preserva a privacidade e minimiza dados: identificadores diretos são removidos antes do envio, os locais são generalizados e não é necessário conta, nome, e-mail ou número de telefone para usar o mapa.",
     "privacyQ4": "Minhas gravações estão seguras?",
-    "privacyA4": "Se você usar a plataforma para documentar um incidente, o arquivo é armazenado com criptografia ponta a ponta. A chave fica com você. Sem sua ação explícita para compartilhar, os dados permanecem inacessíveis para terceiros.",
+    "privacyA4": "Sim. Se você usar a plataforma para documentar um encontro, o arquivo é armazenado no seu cofre local criptografado e qualquer backup é criptografado antes do envio. Você detém a chave. Sem uma ação explícita sua para compartilhá-lo, a gravação permanece inacessível a terceiros.",
     "legalTitle": "Jurídico e Segurança",
     "legalQ1": "Usar este aplicativo me torna um alvo?",
     "legalA1": "Exercer seus direitos constitucionais e manter-se informado é legal. Como não coletamos informações de identificação, usar o aplicativo não cria rastro digital que vincule sua identidade à sua atividade.",
@@ -2525,5 +2526,12 @@
     "noResults": "No cases found for this search.",
     "viewOpinion": "Read Full Opinion",
     "poweredBy": "Powered by"
+  },
+  "techSecurity": {
+    "zkaTitle": "Design de minimização de dados",
+    "zkaDesc": "Projetamos o aplicativo para manter os dados sensíveis no dispositivo sempre que possível e armazenar o mínimo possível de informações identificáveis. Na prática, isso significa:",
+    "subpoenaTitle": "Minimização de dados na prática",
+    "subpoenaDesc": "Nossa estratégia jurídica também é técnica: manter o mínimo possível de dados identificáveis e conteúdo sensível. Não exigimos contas de usuário para o mapa de relatos, não anexamos nomes ou dados de contato aos relatos públicos e as gravações permanecem criptografadas com chaves que continuam sob controle do usuário.",
+    "specsArchitectureValue": "Criptografia no cliente para dados do dispositivo, relatos generalizados, sem necessidade de conta"
   }
 }

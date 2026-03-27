@@ -147,7 +147,7 @@
   "welcome": {
     "title": "Chào Mừng Đến Với SafeNeighbor",
     "knowledgeTitle": "Kiến Thức Là Sự Bảo Vệ",
-    "mainMessage": "SafeNeighbor giáo dục và trao quyền cho bạn với kiến thức để bảo vệ bản thân và cộng đồng với giáo dục về quyền của bạn, cung cấp kịch bản cho các cuộc gặp ICE, và báo cáo cộng đồng về các cuộc gặp ICE và DHS. Ứng dụng này được xây dựng với sự an toàn của bạn là ưu tiên cao nhất — dữ liệu của bạn ở trên thiết bị, được mã hóa mặc định, và không bao giờ được chia sẻ mà không có sự đồng ý rõ ràng của bạn.",
+    "mainMessage": "SafeNeighbor cung cấp cho bạn kiến thức và công cụ để bảo vệ bản thân và cộng đồng thông qua thông tin về quyền của bạn, các mẫu lời thoại cho các cuộc chạm trán với ICE, và các báo cáo pháp lý do cộng đồng đóng góp về các cuộc chạm trán với ICE và DHS. Ứng dụng này được xây dựng với ưu tiên cao nhất là sự an toàn của bạn: bản ghi và dữ liệu an toàn đã lưu được mã hóa trên thiết bị, các hướng dẫn vẫn khả dụng khi ngoại tuyến, và các báo cáo cộng đồng chỉ chia sẻ những chi tiết khái quát cần thiết để cảnh báo người dùng ở gần.",
     "communityMessage": "Chúng tôi tin rằng cộng đồng được thông tin là cộng đồng an toàn hơn. Bằng cách biết quyền của mình và hỗ trợ lẫn nhau, chúng ta có thể tạo ra một mạng lưới hỗ trợ và bảo vệ lẫn nhau.",
     "setupPin": "Thiết Lập PIN",
     "pinDescription": "Bảo vệ bản ghi và dữ liệu của bạn bằng cách thiết lập PIN trong Cài Đặt Bảo Mật. Bạn cũng có thể đặt một <1>PIN Ngụy Trang</1> — nếu bạn bị buộc mở khóa ứng dụng, PIN ngụy trang sẽ hiển thị một kho trống không có bản ghi nào.",
@@ -223,7 +223,8 @@
     "installApp": "Cài Đặt Ứng Dụng",
     "offlineSecure": "Sử dụng ngoại tuyến & an toàn",
     "installHelp": "Hướng Dẫn Cài Đặt",
-    "installAlert": "Để cài đặt: chạm nút chia sẻ trong trình duyệt và chọn \"Thêm vào Màn Hình Chính\""
+    "installAlert": "Để cài đặt: chạm nút chia sẻ trong trình duyệt và chọn \"Thêm vào Màn Hình Chính\"",
+    "trustIntro": "SafeNeighbor được thiết kế để vẫn hữu ích khi mọi việc trở nên căng thẳng: điểm truy cập nhanh, mặc định tập trung vào quyền riêng tư cho dữ liệu nhạy cảm, truy cập ngoại tuyến và các báo cáo cộng đồng giúp bạn luôn nắm thông tin mà không cần tài khoản."
   },
   "settings": {
     "title": "Cài Đặt Bảo Mật",
@@ -1643,7 +1644,7 @@
     "iUnderstand": "Tôi Hiểu",
     "privacyAndSecurity": "Quyền Riêng Tư & Bảo Mật",
     "privacyComesFirst": "Quyền Riêng Tư Của Bạn Là Ưu Tiên Hàng Đầu",
-    "privacyComesFirstDesc": "SafeNeighbor được thiết kế với quyền riêng tư là cốt lõi. Chúng tôi chỉ thu thập thông tin tối thiểu cần thiết để giúp cộng đồng luôn được thông tin trong khi bảo vệ quyền riêng tư cá nhân.",
+    "privacyComesFirstDesc": "SafeNeighbor được thiết kế để giảm thiểu mức độ lộ dữ liệu. Chúng tôi tránh tài khoản và các định danh cá nhân trực tiếp, mã hóa cục bộ dữ liệu thiết bị nhạy cảm, và giới hạn các báo cáo cộng đồng ở vị trí khái quát cùng những chi tiết cần thiết để giúp người dùng ở gần luôn được cập nhật.",
     "anonymousReportingTitle": "Báo Cáo Ẩn Danh",
     "anonymousReporting1": "• Không cần tài khoản hoặc đăng nhập",
     "anonymousReporting2": "• Không thu thập thông tin cá nhân",
@@ -2477,16 +2478,16 @@
     "generalQ2": "Đây có phải ứng dụng của chính phủ không?",
     "generalA2": "Không. SafeNeighbor là tài nguyên độc lập, do cộng đồng vận hành. Chúng tôi không liên kết với bất kỳ cơ quan chính phủ hay lực lượng thực thi pháp luật nào. Cam kết của chúng tôi hoàn toàn dành cho quyền riêng tư và sự an toàn của người dùng.",
     "generalQ3": "Bản đồ báo cáo hoạt động như thế nào?",
-    "generalA3": "Khi người dùng phát hiện hoạt động của lực lượng chức năng, họ có thể ghim một báo cáo. Báo cáo này sẽ hiển thị cho những người dùng khác trong khu vực, giúp cư dân đưa ra quyết định sáng suốt về việc di chuyển và an toàn trong thời gian thực. Danh tính của bạn không bao giờ được gắn với bất kỳ báo cáo nào — không cần tài khoản, không ghi nhật ký IP, và không lưu trữ tọa độ GPS chính xác. Vị trí báo cáo được khái quát hóa đến phạm vi cấp khu phố và được mã hóa trước khi rời khỏi thiết bị của bạn, khiến việc truy nguyên báo cáo về người gửi là không thể.",
-    "privacyTitle": "Quyền Riêng Tư & Bảo Mật — Mô Hình \"Không Lưu Trữ Thông Tin\"",
+    "generalA3": "Khi người dùng nhìn thấy hoạt động cưỡng chế, họ có thể ghim một báo cáo. Báo cáo đó sau đó sẽ hiển thị cho những người dùng khác trong khu vực, cho phép cộng đồng đưa ra quyết định sáng suốt về việc di chuyển và an toàn của mình theo thời gian thực. Báo cáo không yêu cầu tài khoản, tên, email hay số điện thoại. Vị trí báo cáo được khái quát hóa trước khi lưu trữ, và các biện pháp kiểm soát phía máy chủ được dùng để giảm spam và lạm dụng. Siêu dữ liệu mạng vẫn có thể được xử lý cho các biện pháp bảo vệ vận hành như giới hạn tốc độ, nhưng không được gắn vào báo cáo công khai mà người dùng khác nhìn thấy.",
+    "privacyTitle": "Quyền riêng tư và bảo mật — SafeNeighbor bảo vệ điều gì",
     "privacyQ1": "Tôi có cần tạo tài khoản để sử dụng SafeNeighbor không?",
     "privacyA1": "Không. Chúng tôi không yêu cầu tên, email, số điện thoại hay đăng nhập mạng xã hội. Bạn có thể truy cập bản đồ và tất cả kịch bản pháp lý hoàn toàn ẩn danh.",
     "privacyQ2": "Các bạn bảo vệ vị trí của tôi như thế nào?",
     "privacyA2": "Chúng tôi không theo dõi bạn. Mặc dù ứng dụng sử dụng GPS trên thiết bị của bạn để hiển thị các báo cáo địa phương, nhưng dữ liệu đó được xử lý cục bộ trên điện thoại của bạn. Chúng tôi không lưu trữ lịch sử di chuyển của bạn trên máy chủ.",
-    "privacyQ3": "Mã hóa \"Không Lưu Trữ Thông Tin\" là gì?",
-    "privacyA3": "Điều đó có nghĩa là chúng tôi xây dựng hệ thống sao cho ngay cả chính chúng tôi cũng không thể xem chi tiết dữ liệu cá nhân của bạn. Các báo cáo được mã hóa trên thiết bị của bạn trước khi gửi đến cơ sở dữ liệu. Nếu chúng tôi bị trát đòi, chúng tôi sẽ không có dữ liệu cá nhân nào để giao nộp vì chúng tôi chưa bao giờ thu thập.",
+    "privacyQ3": "SafeNeighbor sử dụng mã hóa như thế nào?",
+    "privacyA3": "SafeNeighbor sử dụng hai mô hình riêng tư khác nhau. Bản ghi, bản sao lưu và các dữ liệu thiết bị nhạy cảm khác được bảo vệ bằng mã hóa cục bộ và các khóa do bạn kiểm soát. Trong khi đó, các báo cáo cộng đồng sử dụng mô hình bảo vệ quyền riêng tư và tối thiểu hóa dữ liệu: các định danh trực tiếp bị loại bỏ trước khi tải lên, vị trí được khái quát hóa, và không cần tài khoản, tên, email hay số điện thoại để sử dụng bản đồ.",
     "privacyQ4": "Bản ghi của tôi có an toàn không?",
-    "privacyA4": "Nếu bạn sử dụng nền tảng để ghi lại một sự việc, tệp được lưu trữ với mã hóa đầu cuối. Bạn giữ chìa khóa. Nếu bạn không chủ động chia sẻ, bên thứ ba không thể truy cập dữ liệu.",
+    "privacyA4": "Có. Nếu bạn sử dụng nền tảng để ghi lại một cuộc chạm trán, tệp sẽ được lưu trong kho cục bộ đã mã hóa của bạn và mọi bản sao lưu đều được mã hóa trước khi tải lên. Bạn giữ khóa. Nếu không có hành động rõ ràng từ bạn để chia sẻ, bản ghi sẽ không thể truy cập bởi bên thứ ba.",
     "legalTitle": "Pháp Lý & An Toàn",
     "legalQ1": "Sử dụng ứng dụng này có khiến tôi trở thành mục tiêu không?",
     "legalA1": "Thực hiện quyền hiến định và cập nhật thông tin là hợp pháp. Vì chúng tôi không thu thập thông tin nhận dạng, việc sử dụng ứng dụng không tạo ra dấu vết kỹ thuật số liên kết danh tính của bạn với hoạt động của bạn.",
@@ -2525,5 +2526,12 @@
     "noResults": "No cases found for this search.",
     "viewOpinion": "Read Full Opinion",
     "poweredBy": "Powered by"
+  },
+  "techSecurity": {
+    "zkaTitle": "Thiết kế tối thiểu hóa dữ liệu",
+    "zkaDesc": "Chúng tôi thiết kế ứng dụng để giữ dữ liệu nhạy cảm ở cục bộ khi có thể và lưu trữ ít thông tin định danh nhất có thể. Trên thực tế, điều đó có nghĩa là:",
+    "subpoenaTitle": "Tối thiểu hóa dữ liệu trong thực tế",
+    "subpoenaDesc": "Chiến lược pháp lý của chúng tôi cũng là một chiến lược kỹ thuật: giữ dữ liệu định danh và nội dung nhạy cảm ở mức tối thiểu. Chúng tôi không yêu cầu tài khoản người dùng cho bản đồ báo cáo, không gắn tên hay thông tin liên hệ vào các báo cáo công khai, và các bản ghi vẫn được mã hóa bằng các khóa nằm trong quyền kiểm soát của người dùng.",
+    "specsArchitectureValue": "Mã hóa phía máy khách cho dữ liệu thiết bị, báo cáo khái quát hóa, không cần tài khoản"
   }
 }

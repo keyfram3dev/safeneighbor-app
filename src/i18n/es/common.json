@@ -147,7 +147,7 @@
   "welcome": {
     "title": "Bienvenido a SafeNeighbor",
     "knowledgeTitle": "El Conocimiento es Protección",
-    "mainMessage": "SafeNeighbor le educa y empodera con el conocimiento para protegerse a usted y a su comunidad con educación sobre sus derechos, proporciona guiones para encuentros con ICE y reportes legales de la comunidad sobre encuentros con ICE y DHS. Esta aplicación fue construida con su seguridad como la máxima prioridad — sus datos permanecen en su dispositivo, encriptados por defecto, y nunca se comparten sin su consentimiento explícito.",
+    "mainMessage": "SafeNeighbor te educa y te brinda herramientas para protegerte a ti y a tu comunidad con información sobre tus derechos, guiones para encuentros con ICE y reportes legales colaborativos sobre encuentros con ICE y DHS. Esta aplicación fue creada con tu seguridad como máxima prioridad: las grabaciones y los datos de seguridad guardados se cifran en tu dispositivo, las guías siguen disponibles sin conexión y los reportes comunitarios solo comparten los detalles generalizados necesarios para alertar a las personas cercanas.",
     "communityMessage": "Creemos que las comunidades informadas son comunidades más seguras. Al conocer sus derechos y apoyarse mutuamente, podemos crear una red de ayuda mutua y protección.",
     "setupPin": "Configurar un PIN",
     "pinDescription": "Proteja sus grabaciones y datos configurando un PIN en Configuración de Seguridad. También puede configurar un <1>PIN Señuelo</1> — si alguna vez le obligan a desbloquear la aplicación, el PIN señuelo muestra una bóveda vacía sin grabaciones visibles.",
@@ -223,7 +223,8 @@
     "installApp": "Instalar App",
     "offlineSecure": "Uso sin conexión y seguro",
     "installHelp": "Ayuda de Instalación",
-    "installAlert": "Para instalar: toque el botón de compartir en su navegador y seleccione \"Agregar a Pantalla de Inicio\""
+    "installAlert": "Para instalar: toque el botón de compartir en su navegador y seleccione \"Agregar a Pantalla de Inicio\"",
+    "trustIntro": "SafeNeighbor está diseñado para seguir siendo útil cuando las cosas se ponen tensas: accesos rápidos, configuraciones predeterminadas centradas en la privacidad para datos sensibles, acceso sin conexión y reportes comunitarios que te mantienen informado sin requerir una cuenta."
   },
   "settings": {
     "title": "Configuración de Seguridad",
@@ -1643,7 +1644,7 @@
     "iUnderstand": "Entiendo",
     "privacyAndSecurity": "Privacidad y Seguridad",
     "privacyComesFirst": "Su Privacidad es Lo Primero",
-    "privacyComesFirstDesc": "SafeNeighbor está diseñado con la privacidad como su núcleo. Recopilamos la información mínima necesaria para ayudar a las comunidades a mantenerse informadas mientras protegemos la privacidad individual.",
+    "privacyComesFirstDesc": "SafeNeighbor está diseñado para minimizar la exposición. Evitamos las cuentas y los identificadores personales directos, ciframos localmente los datos sensibles del dispositivo y limitamos los reportes comunitarios a una ubicación generalizada y a los detalles necesarios para ayudar a las personas cercanas a mantenerse informadas.",
     "anonymousReportingTitle": "Reporte Anónimo",
     "anonymousReporting1": "• No se requiere cuenta ni inicio de sesión",
     "anonymousReporting2": "• No se recopila información personal",
@@ -2477,16 +2478,16 @@
     "generalQ2": "¿Es una aplicación del gobierno?",
     "generalA2": "No. SafeNeighbor es un recurso independiente impulsado por la comunidad. No estamos afiliados a ninguna agencia gubernamental ni cuerpo policial. Nuestra lealtad es exclusivamente con la privacidad y seguridad de nuestros usuarios.",
     "generalQ3": "¿Cómo funciona el mapa de reportes?",
-    "generalA3": "Cuando un usuario observa actividad de las autoridades, puede fijar un reporte. Este reporte se hace visible para otros usuarios en la zona, permitiendo que los vecinos tomen decisiones informadas sobre sus desplazamientos y seguridad en tiempo real. Tu identidad nunca se asocia a ningún reporte — no se requiere cuenta, no se registran direcciones IP y no se almacenan coordenadas GPS precisas. Las ubicaciones de los reportes se generalizan a un radio a nivel de vecindario y se cifran antes de salir de tu dispositivo, lo que hace imposible rastrear un reporte hasta la persona que lo envió.",
-    "privacyTitle": "Privacidad y Seguridad — El Modelo de \"Conocimiento Cero\"",
+    "generalA3": "Cuando una persona ve actividad de control, puede fijar un reporte. Ese reporte pasa a ser visible para otras personas en el área, lo que permite a la comunidad tomar decisiones informadas sobre sus traslados y su seguridad en tiempo real. Los reportes no requieren cuenta, nombre, correo electrónico ni número de teléfono. Las ubicaciones de los reportes se generalizan antes de almacenarse y se usan controles del lado del servidor para reducir el spam y el abuso. Aun así, ciertos metadatos de red pueden procesarse para protecciones operativas como el límite de frecuencia, pero no se adjuntan al reporte público que ven otras personas usuarias.",
+    "privacyTitle": "Privacidad y seguridad — Lo que protege SafeNeighbor",
     "privacyQ1": "¿Necesito crear una cuenta para usar SafeNeighbor?",
     "privacyA1": "No. No requerimos nombres, correos electrónicos, números de teléfono ni inicios de sesión de redes sociales. Puedes acceder al mapa y a todos los guiones legales de forma completamente anónima.",
     "privacyQ2": "¿Cómo protegen mi ubicación?",
     "privacyA2": "No te rastreamos. Aunque la aplicación usa el GPS de tu dispositivo para mostrarte reportes locales, esos datos se procesan localmente en tu teléfono. No almacenamos un historial de tus movimientos en nuestros servidores.",
-    "privacyQ3": "¿Qué es el cifrado de \"Conocimiento Cero\"?",
-    "privacyA3": "Significa que construimos el sistema de manera que ni siquiera nosotros podemos ver los detalles de tus datos privados. Los reportes se cifran en tu dispositivo antes de enviarse a nuestra base de datos. Si alguna vez recibiéramos una orden judicial, no tendríamos datos personales que entregar porque nunca los recopilamos.",
+    "privacyQ3": "¿Cómo usa SafeNeighbor el cifrado?",
+    "privacyA3": "SafeNeighbor utiliza dos modelos de privacidad diferentes. Las grabaciones, las copias de seguridad y otros datos sensibles del dispositivo están protegidos con cifrado local y con claves que tú controlas. En cambio, los reportes comunitarios usan un modelo que preserva la privacidad y minimiza los datos: se eliminan los identificadores directos antes de la carga, las ubicaciones se generalizan y no se requiere cuenta, nombre, correo electrónico ni número de teléfono para usar el mapa.",
     "privacyQ4": "¿Están seguras mis grabaciones?",
-    "privacyA4": "Si usas la plataforma para documentar un encuentro, el archivo se almacena con cifrado de extremo a extremo. Tú tienes la clave. Sin tu acción explícita para compartirlo, los datos permanecen inaccesibles para terceros.",
+    "privacyA4": "Sí. Si usas la plataforma para documentar un encuentro, el archivo se guarda en tu bóveda local cifrada y cualquier copia de seguridad se cifra antes de subirse. Tú tienes la clave. Sin una acción explícita de tu parte para compartirlo, la grabación permanece inaccesible para terceros.",
     "legalTitle": "Legal y Seguridad",
     "legalQ1": "¿Usar esta aplicación me convierte en un objetivo?",
     "legalA1": "Ejercer tus derechos constitucionales y mantenerte informado es legal. Como no recopilamos información identificativa, usar la aplicación no crea un rastro digital que vincule tu identidad con tu actividad.",
@@ -2525,5 +2526,12 @@
     "noResults": "No cases found for this search.",
     "viewOpinion": "Read Full Opinion",
     "poweredBy": "Powered by"
+  },
+  "techSecurity": {
+    "zkaTitle": "Diseño de minimización de datos",
+    "zkaDesc": "Diseñamos la aplicación para mantener los datos sensibles en el dispositivo cuando sea posible y almacenar la menor cantidad posible de información identificable. En la práctica, eso significa:",
+    "subpoenaTitle": "Minimización de datos en la práctica",
+    "subpoenaDesc": "Nuestra estrategia legal es técnica: conservar al mínimo los datos identificables y el contenido sensible. No exigimos cuentas de usuario para el mapa de reportes, no asociamos nombres ni datos de contacto con los reportes públicos y las grabaciones permanecen cifradas con claves que siguen bajo control del usuario.",
+    "specsArchitectureValue": "Cifrado del lado del cliente para los datos del dispositivo, reportes generalizados, sin necesidad de cuenta"
   }
 }

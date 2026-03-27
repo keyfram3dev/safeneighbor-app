@@ -147,7 +147,7 @@
   "welcome": {
     "title": "Yokwe Yuk Ñan SafeNeighbor",
     "knowledgeTitle": "Kajin Ej Anemkwōj",
-    "mainMessage": "SafeNeighbor ej kōm̧m̧an armej bwe ren kile im̧ kōjerbal kajin bwe ren anemkwōj kōj im̧ ami community ilo education ilo am rights, kōm̧m̧ane scripts ñan ICE encounters, im̧ legal crowd-sourced reporting eo ñan ICE im̧ DHS encounters. App in̄ em̧ōj an kōm̧m̧ane ilo am anemkwōj kaki highest priority—am data ej ilo am device wōt, encrypted by default, im̧ ejab katak mejatoto kwōj consent explicit.",
+    "mainMessage": "SafeNeighbor educates and empowers you with the knowledge to protect yourself and your community with education on your rights, provides scripts for ICE encounters, and legal crowd-sourced reporting of ICE and DHS encounters. This app was built with your safety as the highest priority: recordings and saved safety data are encrypted on-device, guides stay available offline, and community reports share only the generalized details needed to warn nearby users.",
     "communityMessage": "Kom̧ij kōnaan ewōr communities ro rej kile rej anemkwōj communities. Ilo kile ami rights im̧ kōm̧m̧an juon ñan juon, kom̧ij kōnaan kōm̧m̧ane network eo ñan mutual aid im̧ anemkwōj.",
     "setupPin": "Kōm̧m̧an Juon PIN",
     "pinDescription": "Anemkwōj ami recordings im̧ data ilo kōm̧m̧ane PIN ilo Security Settings. Kwōn kōnaan kōm̧m̧an <1>Decoy PIN</1> — ne armej ej force eok bwe kwōn unlock app, decoy PIN ej kōm̧m̧ane vault eo ejjelok recordings visible.",
@@ -223,7 +223,8 @@
     "installApp": "Install App",
     "offlineSecure": "Offline & anemkwōj kōjerbal",
     "installHelp": "Installation Armej",
-    "installAlert": "Bwe install: tapin̄ share button ilo am browser im̧ kōjerbal \"Add to Home Screen\""
+    "installAlert": "Bwe install: tapin̄ share button ilo am browser im̧ kōjerbal \"Add to Home Screen\"",
+    "trustIntro": "SafeNeighbor is built to stay useful when things are stressful: fast entry points, privacy-focused defaults for sensitive data, offline access, and community reports that help you stay aware without requiring an account."
   },
   "settings": {
     "title": "Security Settings",
@@ -1643,7 +1644,7 @@
     "iUnderstand": "Ijōj Understand",
     "privacyAndSecurity": "Privacy im Security",
     "privacyComesFirst": "Am Privacy Ej Katakin First",
-    "privacyComesFirstDesc": "SafeNeighbor ej designed ilo privacy ilo ne core. Jet collect minimum information necessary ñan help community ko stay informed ke protecting individual privacy.",
+    "privacyComesFirstDesc": "SafeNeighbor is designed to minimize exposure. We avoid accounts and direct personal identifiers, encrypt sensitive device data locally, and keep community reports limited to generalized location and the details needed to help nearby users stay informed.",
     "anonymousReportingTitle": "Anonymous Reporting",
     "anonymousReporting1": "• Ejjeḷọk account ilo login aikuj",
     "anonymousReporting2": "• Ejjeḷọk personal information collected",
@@ -2505,16 +2506,16 @@
     "generalQ2": "Ej ke ijo ṇe juon app an government?",
     "generalA2": "Jaab. SafeNeighbor ej juon resource eo independent, community eo ej lead e. Kōm̧ ejjeḷọk wōt relationship ippān wōn agency in government ak body in law enforcement. Loyalty eo am̧ ej ñan privacy im̧ anemkwōj an ri-kōjerbal ko am̧.",
     "generalQ3": "Ewi wāween reporting map eo?",
-    "generalA3": "Ñe juon ri-kōjerbal ej lo enforcement activity, emaroñ pin juon report. Report ṇe ej pād ñan ri-kōjerbal ro jet ilo area eo, im men in ej jipañ neighbors bwe ren kōm̧m̧ane informed decisions kōn travel im̧ anemkwōj eo aer ilo iien eo wōt. Identity eṃ ejjab attach ñan jabdewōt report — ejjelok account, ejjelok IP logging, im ejjelok precise GPS coordinates rej store. Report locations rej generalize ñan juon neighborhood-level radius im encrypt mokta jān rej leave device eṃ, im men in ej kōm̧m̧ane bwe ejjab maroñ trace juon report ñan armej eo ear submit e.",
-    "privacyTitle": "Privacy & Security — \"Zero-Knowledge\" Model",
+    "generalA3": "When a user sees enforcement activity, they can pin a report. This report is then visible to other users in the area, allowing neighbors to make informed decisions about their travel and safety in real-time. Reports do not require an account, name, email, or phone number. Report locations are generalized before storage, and server-side controls are used to reduce spam and abuse. Network metadata may still be processed for operational protections like rate limiting, but it is not attached to the public report that other users see.",
+    "privacyTitle": "Privacy & Security — What SafeNeighbor Protects",
     "privacyQ1": "Ij aikuj ke kōm̧m̧ane juon account ñan kōjerbal SafeNeighbor?",
     "privacyA1": "Jaab. Kōm̧ ej jab aikuj eṭa, email, nōṃba in phone, ak social media logins. Kwōmaroñ lo map eo im̧ aolep legal scripts ko anonymously.",
     "privacyQ2": "Ewi wāween aṃ kōjparok jikin eo aō?",
     "privacyA2": "Kōm̧ ej jab follow eok. Ñe app eo ej kōjerbal GPS eo an device eṃ ñan kōkḷap local reports, data ṇe ej jerbal locally ilo phone eṃ. Kōm̧ ej jab store juon history in movements aṃ ilo servers ko am̧.",
-    "privacyQ3": "Ta eo \"Zero-Knowledge\" encryption?",
-    "privacyA3": "Ej mean ṇe kōm̧ ar build system ṇe bwe ej jab m̧ōṇā ñan kōm̧ wōt bwe kōm̧in lo specifics in private data aṃ. Reports ko rej encrypted ilo device eṃ m̧okta jān aer bar jilkinl̗o̧k ñan database eo am̧. Ñe kōm̧ ar bok juon subpoena, kōm̧ ejjeḷọk wōt personal user data ñan letok bwe kōm̧ ar jab collect e jān m̧oktaṃ.",
+    "privacyQ3": "How does SafeNeighbor use encryption?",
+    "privacyA3": "SafeNeighbor uses two different privacy models. Recordings, backups, and other sensitive device data are protected with local encryption and keys you control. Community reports use a privacy-preserving, data-minimizing model instead: direct identifiers are stripped before upload, locations are generalized, and no account, name, email, or phone number is required to use the map.",
     "privacyQ4": "Recordings ko aō rej ke safe?",
-    "privacyA4": "Ñe kwōj kōjerbal platform eo ñan document juon encounter, file eo ej stored kōn end-to-end encryption. Eṃ wōt kwōj jokwe kōn key eo. Ejjeḷọk action aṃ ñan share e, data eo ej pād jab m̧ōṇā ñan third parties.",
+    "privacyA4": "Yes. If you use the platform to document an encounter, the file is stored in your encrypted local vault and any backup is encrypted before upload. You hold the key. Without your explicit action to share it, the recording remains inaccessible to third parties.",
     "legalTitle": "Legal & Anemkwōj",
     "legalQ1": "Ej ke kōjerbal app in kōm̧m̧ane bwe ij juon target?",
     "legalA1": "Kōjerbal constitutional rights ko aṃ im̧ pād informed ej legal. Kōnke kōm̧ ej jab collect identifying information, kōjerbal app eo ej jab kōm̧m̧ane juon digital paper trail eo ej link identity aṃ ñan activity aṃ.",
@@ -2553,5 +2554,12 @@
     "noResults": "No cases found for this search.",
     "viewOpinion": "Read Full Opinion",
     "poweredBy": "Powered by"
+  },
+  "techSecurity": {
+    "zkaTitle": "Data-Minimizing Design",
+    "zkaDesc": "We design the app to keep sensitive data local when possible and to store as little identifying information as possible. In practice, that means:",
+    "subpoenaTitle": "Data Minimization In Practice",
+    "subpoenaDesc": "Our legal strategy is a technical one: keep identifying data and sensitive content to a minimum. We do not require user accounts for the reporting map, we do not attach names or contact details to public reports, and recordings remain encrypted with keys that stay under user control.",
+    "specsArchitectureValue": "Client-side encryption for device data, generalized reports, no account required"
   }
 }

@@ -147,7 +147,7 @@
   "welcome": {
     "title": "Ütz Apetinäq Pa SafeNeighbor",
     "knowledgeTitle": "Ri Retamab'al Are Chajinem",
-    "mainMessage": "SafeNeighbor yeruk'üt xuquje' yeruchuq'a'b'ij chawe rik'in ri retamab'al richin yatchajij awïb' xuquje' ri atinamit ruma retamaxik chi kij ri taq awech'akul, yeruya' taq tzijob'äl richin taq mulaj k'ulwäch rik'in ICE, xuquje' yerukomonij tinamit chi kij taq mulaj k'ulwäch rik'in ICE xuquje' DHS. Re cholb'äl re' xnuk'ik rik'in ri achajinem achi' ri nimaläj rajowaxik—ri taq atzijol yekano' pa ri awokisaxel, ewan ruma ri', xuquje' majub'ey yetaq we man xaya' ta aq'ij.",
+    "mainMessage": "SafeNeighbor educates and empowers you with the knowledge to protect yourself and your community with education on your rights, provides scripts for ICE encounters, and legal crowd-sourced reporting of ICE and DHS encounters. This app was built with your safety as the highest priority: recordings and saved safety data are encrypted on-device, guides stay available offline, and community reports share only the generalized details needed to warn nearby users.",
     "communityMessage": "Kojkojo' chi ri tinamït yetaman yekojchajïx. Ruma retamaxik chi kij ri taq qech'akul xuquje' yojto'on yujun chik, yojtikïr yojnuk' jun k'amab'ey to'onem xuquje' chajinem.",
     "setupPin": "Tanuk'u' Jun PIN",
     "pinDescription": "Kechajïx ri taq atzijob'äl ruma ruyakem jun PIN pa Ruk'u'x Chajinem. Yatikïr ke ri' naya' jun <1>PIN Soch'el</1> — we k'o jun yerutz'ët chawe chi yajäq ri cholb'äl, ri PIN soch'el xeruk'üt jun cholb'äl chaqäl majun tzijob'äl.",
@@ -223,7 +223,8 @@
     "installApp": "Tayaka' ri Cholb'äl",
     "offlineSecure": "Yatz'aqatisäx xuquje' chajin",
     "installHelp": "To'ïk Pa Ruyakanem",
-    "installAlert": "Richin nayäk: chapöl ri rupitz' komonem pa rucholb'al okem xuquje' tacha'a' \"Taya' Pa Ruwi' Rutz'uyul Jay\""
+    "installAlert": "Richin nayäk: chapöl ri rupitz' komonem pa rucholb'al okem xuquje' tacha'a' \"Taya' Pa Ruwi' Rutz'uyul Jay\"",
+    "trustIntro": "SafeNeighbor is built to stay useful when things are stressful: fast entry points, privacy-focused defaults for sensitive data, offline access, and community reports that help you stay aware without requiring an account."
   },
   "settings": {
     "title": "Ruk'u'x Chajinem",
@@ -1687,7 +1688,7 @@
     "iUnderstand": "Xinch'ob'ow",
     "privacyAndSecurity": "Ichinanem xuquje' Jikomal",
     "privacyComesFirst": "Le Aichinanem Nab'e Nojib'äl",
-    "privacyComesFirstDesc": "SafeNeighbor xtz'uk ruk'in ichinanem pa rujolom. Xoqamolaj le jub'a' chi etamab'äl rajawaxik chi kito'ik le tinamït chi ketaman xuquje' chi kichajixik ichinanem ri winaqil.",
+    "privacyComesFirstDesc": "SafeNeighbor is designed to minimize exposure. We avoid accounts and direct personal identifiers, encrypt sensitive device data locally, and keep community reports limited to generalized location and the details needed to help nearby users stay informed.",
     "anonymousReportingTitle": "Rutzijoxik Man Nib'ij Ta B'i'aj",
     "anonymousReporting1": "• Man rajawaxik ta jun rub'i' okem o okem",
     "anonymousReporting2": "• Man nimolotäj ta etamab'äl ewan",
@@ -2549,16 +2550,16 @@
     "generalQ2": "¿La re wa' jun app richin ri gobierno?",
     "generalA2": "Manäq. SafeNeighbor ja jun independent resource ri rub'eyal ri tinamït. Man k'o ta qach'ob'oj rik'in jub'ey agencia in gobierno o cuerpo in ley. Ri qaloyb'al ronojel rik'in ri ewaxib'al im ruk'aslemal ri taq qakïl.",
     "generalQ3": "¿Jas nub'än ri mapa richin rutzijoxïk?",
-    "generalA3": "Are taq jun rikïl nril ri kisamaj ri ley, nuya' jun rutzijol. Ri rutzijol re' nilitäj kuma ri chik taq rikïl pa ri k'oleb'äl ri', re' nuto' ri taq qach'alal chi tikib'än ütz taq ch'ob'oj chi rij ri kib'e im kik'aslemal pa ri iien ri'. Ri ab'i man jun mul tajin nuk'üt pa jun rutzijol — man k'o ta cuenta, man k'o ta IP logging, im man k'o ta preciso GPS coordenadas eyakon. Ri k'oleb'äl re ri taq rutzijol nib'an generalizar pa jun neighborhood-level radius im encrypt nib'an chuwäch nelesäj pa ri amosab'äl, re' nub'än chi man tikilon ta jun rutzijol chi rij ri winäq ri xuyäj.",
-    "privacyTitle": "Ewaxib'al im Ruk'aslemal — Ri \"Zero-Knowledge\" Rub'eyal",
+    "generalA3": "When a user sees enforcement activity, they can pin a report. This report is then visible to other users in the area, allowing neighbors to make informed decisions about their travel and safety in real-time. Reports do not require an account, name, email, or phone number. Report locations are generalized before storage, and server-side controls are used to reduce spam and abuse. Network metadata may still be processed for operational protections like rate limiting, but it is not attached to the public report that other users see.",
+    "privacyTitle": "Privacy & Security — What SafeNeighbor Protects",
     "privacyQ1": "¿La rajawaxïk ninb'än jun cuenta richin ninkojo' SafeNeighbor?",
     "privacyA1": "Manäq. Man niqak'utuj ta ab'i', email, rajilab'al awoyonïk, o social media logins. Yatikïr nawïl ri mapa im ronojel ri taq legal scripts chi anónimo.",
     "privacyQ2": "¿Jas nib'an richin nichajïx ri nuk'oleb'äl?",
     "privacyA2": "Man niqaterene'j ta. Ri app nukojo' ri GPS richin ri ach'akul richin nukutu' taq local reports, po ri taq na'oj re' nisamäj pa ri awoyonib'äl. Man niqayäk ta jun rub'eyal ri ab'iaj pa ri qataqoqxa'.",
-    "privacyQ3": "¿Jas ri \"Zero-Knowledge\" encryption?",
-    "privacyA3": "Nub'ij chi xqab'anöx ri sistema chi man nitikïr ta niqïl ri taq ewaxib'al na'oj awichin. Ri taq rutzijol nikriptäx pa ri ach'akul chuwäch nib'e pa ri qadatabase. We niqak'ül jun subpoena, man k'o ta personal data niqaya' rumal man xqamöl ta chupam.",
+    "privacyQ3": "How does SafeNeighbor use encryption?",
+    "privacyA3": "SafeNeighbor uses two different privacy models. Recordings, backups, and other sensitive device data are protected with local encryption and keys you control. Community reports use a privacy-preserving, data-minimizing model instead: direct identifiers are stripped before upload, locations are generalized, and no account, name, email, or phone number is required to use the map.",
     "privacyQ4": "¿La jikïl ri taq nutz'ib'axïk?",
-    "privacyA4": "We nawokisaj ri platform richin natz'ib'aj jun molojri'ïl, ri yakb'äl niyäk rik'in end-to-end encryption. Rat at ajchoq'e ri llave. We man nab'än ta jun b'anoj richin nakomonij, ri taq na'oj man nitikïr ta nilitäj kuma terceros.",
+    "privacyA4": "Yes. If you use the platform to document an encounter, the file is stored in your encrypted local vault and any backup is encrypted before upload. You hold the key. Without your explicit action to share it, the recording remains inaccessible to third parties.",
     "legalTitle": "Legal im Ruk'aslemal",
     "legalQ1": "¿La ri nukojik re app nub'än chi in nib'an target?",
     "legalA1": "Ri nakojik ri taq aderecho constitucional im napäd informado ja legal. Rumal man niqamöl ta identifying information, ri nakojik ri app man nub'än ta jun digital paper trail ri nuxïm ri ab'i' rik'in ri ab'anoj.",
@@ -2597,5 +2598,12 @@
     "noResults": "No cases found for this search.",
     "viewOpinion": "Read Full Opinion",
     "poweredBy": "Powered by"
+  },
+  "techSecurity": {
+    "zkaTitle": "Data-Minimizing Design",
+    "zkaDesc": "We design the app to keep sensitive data local when possible and to store as little identifying information as possible. In practice, that means:",
+    "subpoenaTitle": "Data Minimization In Practice",
+    "subpoenaDesc": "Our legal strategy is a technical one: keep identifying data and sensitive content to a minimum. We do not require user accounts for the reporting map, we do not attach names or contact details to public reports, and recordings remain encrypted with keys that stay under user control.",
+    "specsArchitectureValue": "Client-side encryption for device data, generalized reports, no account required"
   }
 }

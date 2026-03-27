@@ -169,8 +169,8 @@ function NotificationSettings() {
       await addSavedLocation({ label: newLabel.trim(), lat, lng, radiusMiles: newRadius });
       await refreshLocations();
       resetAddForm();
-    } catch {
-      setAddError(t('notifications.locationFailed'));
+    } catch (error) {
+      setAddError(error?.message || t('notifications.locationFailed'));
     } finally {
       setAcquiring(false);
     }
@@ -185,21 +185,31 @@ function NotificationSettings() {
       await addSavedLocation({ label: newLabel.trim(), lat, lng, radiusMiles: newRadius });
       await refreshLocations();
       resetAddForm();
-    } catch {
-      setAddError(t('notifications.searchFailed'));
+    } catch (error) {
+      setAddError(error?.message || t('notifications.searchFailed'));
     } finally {
       setSearching(false);
     }
   };
 
   const handleRemove = async (id) => {
-    await removeSavedLocation(id);
-    await refreshLocations();
+    try {
+      setAddError('');
+      await removeSavedLocation(id);
+      await refreshLocations();
+    } catch (error) {
+      setAddError(error?.message || t('notifications.searchFailed'));
+    }
   };
 
   const handleRadiusChange = async (id, radiusMiles) => {
-    await updateSavedLocation(id, { radiusMiles });
-    await refreshLocations();
+    try {
+      setAddError('');
+      await updateSavedLocation(id, { radiusMiles });
+      await refreshLocations();
+    } catch (error) {
+      setAddError(error?.message || t('notifications.searchFailed'));
+    }
   };
 
   // ── Clear location data ────────────────────────────────────────────────────

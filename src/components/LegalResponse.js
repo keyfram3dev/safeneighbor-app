@@ -307,14 +307,18 @@ const LegalResponse = ({ isOpen, onClose, onOpenTrustedContacts, onOpenLegalDire
   // Save a hotline or org to Trusted Contacts
   const handleSaveOrg = useCallback(async (org) => {
     if (!org.phone || savedPhones.has(org.phone)) return;
-    await addTrustedContact({
-      name: org.name,
-      phone: org.phone,
-      relationship: 'Organization',
-      email: '',
-    });
-    setSaveVersion((v) => v + 1); // trigger re-render to re-read from localStorage
-  }, [savedPhones]);
+    try {
+      await addTrustedContact({
+        name: org.name,
+        phone: org.phone,
+        relationship: 'Organization',
+        email: '',
+      });
+      setSaveVersion((v) => v + 1); // trigger re-render to re-read from localStorage
+    } catch (error) {
+      alert(t('trustedContacts.saveContactFailed'));
+    }
+  }, [savedPhones, t]);
 
   const saveLabel = t('legalResponse.saveContact');
   const savedLabel = t('legalResponse.contactSaved');

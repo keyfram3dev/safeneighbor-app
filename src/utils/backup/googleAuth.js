@@ -5,6 +5,8 @@
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const TOKEN_STORAGE_KEY = 'safeneighbor_google_tokens';
 
+const getTokenStorage = () => sessionStorage;
+
 let tokenClient = null;
 
 /**
@@ -97,7 +99,8 @@ export const signIn = () => {
             email,
           };
 
-          localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
+          getTokenStorage().setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
           resolve(tokenData);
         },
         error_callback: (error) => {
@@ -122,6 +125,7 @@ export const signOut = () => {
       console.log('Google token revoked');
     });
   }
+  getTokenStorage().removeItem(TOKEN_STORAGE_KEY);
   localStorage.removeItem(TOKEN_STORAGE_KEY);
   tokenClient = null;
 };
@@ -183,7 +187,8 @@ const silentRefresh = () => {
             email: storedData?.email || '',
           };
 
-          localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
+          getTokenStorage().setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
           resolve(tokenData);
         },
         error_callback: (error) => {
@@ -222,8 +227,18 @@ export const getGoogleUserInfo = () => {
  */
 const getStoredToken = () => {
   try {
-    const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
+    const sessionValue = getTokenStorage().getItem(TOKEN_STORAGE_KEY);
+    if (sessionValue) {
+      return JSON.parse(sessionValue);
+    }
+
+    const legacyValue = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!legacyValue) return null;
+
+    const parsed = JSON.parse(legacyValue);
+    getTokenStorage().setItem(TOKEN_STORAGE_KEY, legacyValue);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    return parsed;
   } catch {
     return null;
   }
