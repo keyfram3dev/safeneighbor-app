@@ -42,7 +42,7 @@ import { readEncrypted, writeEncrypted } from '../utils/encryptedStorage';
 // LocalStorage key for backup settings
 const SETTINGS_KEY = 'safeneighbor_backup_settings';
 
-function BackupSettings({ onClose }) {
+function BackupSettings({ onClose, defaultTab }) {
   const { t } = useTranslation();
 
   // Configuration state
@@ -79,7 +79,7 @@ function BackupSettings({ onClose }) {
   const [showSetupGuide, setShowSetupGuide] = useState(false);
 
   // Provider tab state
-  const [activeProviderTab, setActiveProviderTab] = useState('r2');
+  const [activeProviderTab, setActiveProviderTab] = useState(defaultTab || 'r2');
 
   // Google Drive state
   const [googleSignedIn, setGoogleSignedIn] = useState(false);

@@ -106,6 +106,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
 
   // Backup state
   const [showBackupSettings, setShowBackupSettings] = useState(false);
+  const [backupSettingsTab, setBackupSettingsTab] = useState('r2');
   const [showBackupInfo, setShowBackupInfo] = useState(false);
 
   // Restore encrypted backup state
@@ -1073,30 +1074,40 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
 
         <div className="mt-5 flex flex-wrap gap-2.5">
           {isMetadataStripEnabled() && (
-            <div
-              className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-600/20 px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300"
+            <button
+              onClick={() => {
+                sessionStorage.setItem('faqScrollTarget', 'privacy');
+                onNavigate('faq');
+              }}
+              className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-600/20 px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300 transition-colors hover:bg-emerald-600/30 active:scale-95"
               title={t('record.metadataStrippingActive')}
             >
               <EyeSlash size={13} weight="bold" />
               {t('record.private')}
-            </div>
+            </button>
           )}
-          <div className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
-            pinEnabled
-              ? 'border-green-500/30 bg-green-600/20 text-green-300'
-              : 'border-amber-500/30 bg-amber-600/20 text-amber-300'
-          }`}>
+          <button
+            onClick={() => setShowPinSetup(true)}
+            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition-colors active:scale-95 ${
+              pinEnabled
+                ? 'border-green-500/30 bg-green-600/20 text-green-300 hover:bg-green-600/30'
+                : 'border-amber-500/30 bg-amber-600/20 text-amber-300 hover:bg-amber-600/30'
+            }`}
+          >
             <Lock size={13} weight="bold" />
-            {pinEnabled ? t('record.pinIO') : t('record.setPin')}
-          </div>
-          <div className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
-            savedEncryptionKey
-              ? 'border-blue-500/30 bg-blue-600/20 text-blue-300'
-              : 'border-slate-600/50 bg-slate-700/40 text-slate-300'
-          }`}>
+            PIN
+          </button>
+          <button
+            onClick={() => { setBackupSettingsTab('google_drive'); setShowBackupSettings(true); }}
+            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition-colors active:scale-95 ${
+              savedEncryptionKey
+                ? 'border-blue-500/30 bg-blue-600/20 text-blue-300 hover:bg-blue-600/30'
+                : 'border-slate-600/50 bg-slate-700/40 text-slate-300 hover:bg-slate-600/50'
+            }`}
+          >
             <Cloud size={13} weight="bold" />
             {savedEncryptionKey ? t('record.backupReady') : t('record.backup')}
-          </div>
+          </button>
         </div>
         {!pinEnabled && (
           <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-400/80">
@@ -1555,13 +1566,13 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
               </button>
               <button
                 onClick={() => { setActiveTab('decrypt'); stopCamera(); }}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
                   activeTab === 'decrypt'
-                    ? 'border-emerald-500/40 bg-emerald-600/20 text-emerald-300'
-                    : 'border-slate-600/50 bg-slate-700/40 text-slate-200 hover:bg-slate-700'
+                    ? 'border-emerald-400/60 bg-emerald-500/25 text-emerald-300'
+                    : 'border-emerald-500/50 bg-emerald-600/15 text-emerald-300 hover:bg-emerald-600/25 hover:border-emerald-400/60'
                 }`}
               >
-                <Lock size={15} weight="bold" />
+                <Key size={15} weight="bold" />
                 {t('record.tabDecrypt')}
               </button>
               <button
@@ -1980,7 +1991,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
 
       {/* Backup Settings Modal */}
       {showBackupSettings && (
-        <BackupSettings onClose={() => setShowBackupSettings(false)} />
+        <BackupSettings onClose={() => setShowBackupSettings(false)} defaultTab={backupSettingsTab} />
       )}
 
       {/* Backup Info Modal */}

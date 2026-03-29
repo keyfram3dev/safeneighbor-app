@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   CaretRight,
@@ -19,6 +19,21 @@ const FAQ = ({ onBack, onNavigate }) => {
     'legal-1', 'legal-2', 'legal-3',
     'philosophy-1',
   ]));
+
+  useEffect(() => {
+    const target = sessionStorage.getItem('faqScrollTarget');
+    if (target) {
+      sessionStorage.removeItem('faqScrollTarget');
+      setTimeout(() => {
+        const el = document.getElementById(`faq-section-${target}`);
+        if (!el) return;
+        const nav = document.querySelector('[data-shell-top-nav="true"]');
+        const offset = nav ? nav.getBoundingClientRect().height : 0;
+        const top = el.getBoundingClientRect().top + window.scrollY - offset - 8;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }, 150);
+    }
+  }, []);
 
   const toggleItem = (id) => {
     setExpandedItems((prev) => {
@@ -148,7 +163,7 @@ const FAQ = ({ onBack, onNavigate }) => {
         const allIds = sections.flatMap((s) => s.items.map((i) => i.id));
         const allExpanded = allIds.every((id) => expandedItems.has(id));
         return (
-          <div key={section.id} className="mb-8">
+          <div key={section.id} id={`faq-section-${section.id}`} className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${a.sectionTitle}`}>
                 <section.Icon size={16} weight="bold" />
