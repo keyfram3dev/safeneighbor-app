@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   House,
   User,
@@ -21,6 +22,7 @@ import {
   ClockCounterClockwise,
   CaretDown,
   Sparkle,
+  MapTrifoldIcon as MapTrifold,
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import Disclaimer from './Disclaimer';
@@ -169,9 +171,21 @@ const previewCardLabel = (count, t) => t('scenariosPage.mobilePreviewCount', {
   defaultValue: '{{count}} tools in this section',
 });
 
+const SCENARIOS_DESKTOP_QUOTES = [
+  { quoteKey: 'sharedQuotes.epictetus2', authorKey: 'sharedQuotes.epictetus2Author', theme: 'Freedom' },
+  { quoteKey: 'sharedQuotes.seneca3',    authorKey: 'sharedQuotes.seneca3Author',    theme: 'Courage' },
+  { quoteKey: 'sharedQuotes.aurelius3',  authorKey: 'sharedQuotes.aurelius3Author',  theme: 'Character' },
+  { quoteKey: 'sharedQuotes.frankl2',    authorKey: 'sharedQuotes.frankl2Author',    theme: 'Choice' },
+  { quoteKey: 'sharedQuotes.sartre1',    authorKey: 'sharedQuotes.sartre1Author',    theme: 'Agency' },
+  { quoteKey: 'sharedQuotes.camus1',     authorKey: 'sharedQuotes.camus1Author',     theme: 'Inner strength' },
+  { quoteKey: 'sharedQuotes.seneca2',    authorKey: 'sharedQuotes.seneca2Author',    theme: 'Courage' },
+  { quoteKey: 'sharedQuotes.frankl1',    authorKey: 'sharedQuotes.frankl1Author',    theme: 'Resilience' },
+];
+
 const Scenarios = ({ onSelectScenario, onNavigate }) => {
   const { t } = useTranslation();
   const scenariosQuote = useRotatingQuote('scenariosPage.franklQuote', 'scenariosPage.franklAuthor', 'scenarios');
+  const [scenarioQuoteIndex, setScenarioQuoteIndex] = useState(0);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [activeJump, setActiveJump] = useState('active-now');
   const [recentScenarioIds, setRecentScenarioIds] = useState(() => readRecentScenarioIds());
@@ -580,6 +594,13 @@ const Scenarios = ({ onSelectScenario, onNavigate }) => {
   }, []);
 
   useEffect(() => {
+    const id = setInterval(() => {
+      setScenarioQuoteIndex((i) => (i + 1) % SCENARIOS_DESKTOP_QUOTES.length);
+    }, 6000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     let timeoutId;
     let savedCardId = null;
 
@@ -762,9 +783,14 @@ const Scenarios = ({ onSelectScenario, onNavigate }) => {
           </div>
 
           <div className="scenario-fade-in" style={animationDelayStyle(0.1)}>
-            <h1 className="max-w-3xl text-3xl font-black tracking-tight text-white sm:text-[2.8rem]">
-              {t('scenariosPage.activeNowTitle', { defaultValue: 'Choose a Scenario' })}
-            </h1>
+            <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300 shadow-[0_0_28px_rgba(6,182,212,0.15)]">
+                <MapTrifold size={30} weight="bold" />
+              </div>
+              <h1 className="max-w-3xl text-3xl font-black tracking-tight text-white sm:text-[2.8rem]">
+                {t('scenariosPage.activeNowTitle', { defaultValue: 'Choose a Scenario' })}
+              </h1>
+            </div>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
               {t('scenariosPage.activeNowDesc', { defaultValue: 'Pick the guide that matches what is happening right now. The first four cards are the fastest paths for the most common encounters.' })}
             </p>
@@ -904,6 +930,67 @@ const Scenarios = ({ onSelectScenario, onNavigate }) => {
               />
             </div>
           ))}
+
+          {/* Quote block — fills the empty 6th slot on desktop */}
+          <div className="scenario-section-item hidden md:flex">
+            <div className="relative flex h-full min-h-[212px] w-full flex-col justify-between overflow-hidden rounded-[28px] border border-slate-800/70 bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.07),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.92))] px-5 py-4 shadow-[0_16px_34px_rgba(2,6,23,0.16)]">
+              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
+              <div className="pointer-events-none absolute -bottom-14 right-0 h-32 w-32 rounded-full bg-cyan-500/8 blur-3xl" />
+
+              <div className="relative flex items-start justify-between gap-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-200/60">
+                  Perspective
+                </p>
+                <span className="rounded-full border border-white/10 bg-slate-950/65 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">
+                  {scenarioQuoteIndex + 1}/{SCENARIOS_DESKTOP_QUOTES.length}
+                </span>
+              </div>
+
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={scenarioQuoteIndex}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.28, ease: 'easeOut' }}
+                  className="relative mt-3 flex-1"
+                >
+                  <p
+                    className="max-w-[28ch] text-[1.02rem] font-medium italic leading-[1.58] tracking-[0.003em] text-slate-400/72"
+                    style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", "Iowan Old Style", ui-serif, Georgia, serif' }}
+                  >
+                    {t(SCENARIOS_DESKTOP_QUOTES[scenarioQuoteIndex].quoteKey)}
+                  </p>
+                  <div className="mt-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500/85">
+                      {SCENARIOS_DESKTOP_QUOTES[scenarioQuoteIndex].theme}
+                    </p>
+                    <p className="mt-1 text-[12px] font-semibold tracking-[0.01em] text-slate-500">
+                      {t(SCENARIOS_DESKTOP_QUOTES[scenarioQuoteIndex].authorKey)}
+                    </p>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              <div className="relative mt-3 flex items-center justify-center">
+                <div className="flex items-center gap-2">
+                  {SCENARIOS_DESKTOP_QUOTES.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setScenarioQuoteIndex(idx)}
+                      className={`h-2.5 rounded-full transition-all ${
+                        idx === scenarioQuoteIndex
+                          ? 'w-6 bg-cyan-300/75'
+                          : 'w-2.5 bg-slate-600/80 hover:bg-slate-500'
+                      }`}
+                      aria-label={`Show quote ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

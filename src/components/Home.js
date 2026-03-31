@@ -15,6 +15,7 @@ import { getLastKnownLocation } from '../utils/locationShare';
 import { calculateDistance } from '../utils/geo';
 import { Door, MapPin, User, Megaphone, Leaf, VideoCamera, Car, Shield, Eye, Buildings, ClipboardTextIcon as ClipboardText, UsersThreeIcon as UsersThree, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit, PathIcon as Path, ScalesIcon as Scales, TimerIcon as Timer, IdentificationCardIcon as IdentificationCard, BookOpenTextIcon as BookOpenText, ShieldCheck } from '@phosphor-icons/react';
 
+const aniDelay = (s) => ({ animationDelay: `${s}s` });
 const LAST_HOME_ACTION_KEY = 'safeneighbor_home_last_action';
 const HOME_USAGE_KEY = 'safeneighbor_home_usage';
 const HOME_REVIEW_KEY = 'safeneighbor_home_review_markers';
@@ -951,7 +952,7 @@ const Home = ({
     : null;
 
   return (
-    <div className="max-w-4xl mx-auto pb-24 px-4 relative page-section-stagger">
+    <div className="max-w-4xl mx-auto pb-24 px-4 relative page-transition-in page-section-stagger">
       <div
         className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
         style={{
@@ -1009,26 +1010,26 @@ const Home = ({
             </AnimatePresence>
 
             <div className="relative">
-              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-blue-300/80">
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-blue-300/80 scenario-fade-in" style={aniDelay(0.08)}>
                 {t('home.heroEyebrow')}
               </p>
-              <div className="mb-4 flex flex-col items-center justify-center gap-3 text-center xl:flex-row xl:items-start xl:justify-start xl:text-left">
+              <div className="mb-4 flex flex-col items-center justify-center gap-3 text-center xl:flex-row xl:items-start xl:justify-start xl:text-left scenario-rise-in" style={aniDelay(0.14)}>
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 shadow-[0_0_28px_rgba(59,130,246,0.18)]">
                   <ShieldCheck size={30} weight="bold" className="text-blue-300" />
                 </div>
-                <h1 className="max-w-3xl text-center text-[2rem] font-black leading-tight tracking-tight text-white sm:text-[2.9rem] xl:text-left">
+                <h1 className="max-w-3xl text-center text-[2rem] font-black text-white sm:text-[2.9rem] xl:text-left">
                   {t('home.heroTitle')}
                 </h1>
               </div>
-              <p className="mx-auto max-w-2xl text-base leading-relaxed text-slate-300 xl:mx-0">
+              <p className="mx-auto max-w-2xl text-base leading-[1.6] text-slate-300 xl:mx-0 scenario-fade-in" style={aniDelay(0.22)}>
                 {t('home.heroSubtitle')}
               </p>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-400 xl:mx-0">
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-[1.6] text-slate-400 xl:mx-0 scenario-fade-in" style={aniDelay(0.27)}>
                 {t('home.heroSupport')}
               </p>
             </div>
 
-            <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start">
+            <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-fade-in" style={aniDelay(0.32)}>
               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 {t('home.reassuranceOffline')}
@@ -1043,7 +1044,7 @@ const Home = ({
               </span>
             </div>
 
-            <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start">
+            <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.38)}>
               <button
                 onClick={openEmergencyAction}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-white transition-all shadow-[0_12px_32px_rgba(127,29,29,0.35)] hover:from-red-500 hover:to-red-600 sm:w-auto"
@@ -1067,7 +1068,7 @@ const Home = ({
             </div>
           </motion.div>
 
-          <div className="mt-3 flex flex-col gap-3 xl:mt-0">
+          <div className="mt-3 flex flex-col gap-3 xl:mt-0 scenario-rise-in" style={aniDelay(0.20)}>
             <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
               <div className="flex items-start justify-between gap-3 sm:gap-4">
                 <div>

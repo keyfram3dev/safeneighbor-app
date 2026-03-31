@@ -131,9 +131,12 @@ function BackupSettings({ onClose, defaultTab }) {
     }
   };
 
-  const saveSettings = async ({ closeOnSuccess = true } = {}) => {
+  const saveSettings = async ({ closeOnSuccess = true, googleState } = {}) => {
     setIsSaving(true);
     try {
+      const resolvedGoogleSignedIn = googleState?.signedIn ?? googleSignedIn;
+      const resolvedGoogleEmail = googleState?.email ?? googleEmail;
+
       // Generate encryption key if not exists
       let keyString = encryptionKeyString;
       if (!keyString) {
@@ -145,14 +148,14 @@ function BackupSettings({ onClose, defaultTab }) {
       // Build active providers list
       const activeProviders = [];
       if (credentials.accessKeyId) activeProviders.push('r2');
-      if (googleSignedIn) activeProviders.push('google_drive');
+      if (resolvedGoogleSignedIn) activeProviders.push('google_drive');
 
       const settings = {
         isConfigured: true,
         autoBackup,
         activeProviders,
         credentials,
-        googleDrive: googleSignedIn ? { isConfigured: true, email: googleEmail } : { isConfigured: false },
+        googleDrive: resolvedGoogleSignedIn ? { isConfigured: true, email: resolvedGoogleEmail } : { isConfigured: false },
         encryptionKey: keyString,
       };
 
@@ -168,7 +171,7 @@ function BackupSettings({ onClose, defaultTab }) {
         const queue = getUploadQueue();
         const providerConfigs = {};
         if (credentials.accessKeyId) providerConfigs.r2 = credentials;
-        if (googleSignedIn) providerConfigs.google_drive = true;
+        if (resolvedGoogleSignedIn) providerConfigs.google_drive = true;
         await queue.initialize(key, providerConfigs);
       }
 
@@ -288,11 +291,18 @@ ${accessPackage.instructions}
   const handleGoogleSignIn = async () => {
     setIsGoogleConnecting(true);
     setGoogleConnectionStatus(null);
+    setDriveError('');
     try {
       const tokenData = await googleSignIn();
+      const email = tokenData.email || '';
       setGoogleSignedIn(true);
-      setGoogleEmail(tokenData.email || '');
-      setGoogleConnectionStatus('success');
+      setGoogleEmail(email);
+      await testDriveConnection({
+        googleState: {
+          signedIn: true,
+          email,
+        },
+      });
     } catch (error) {
       console.error('Google sign-in failed:', error);
       setGoogleConnectionStatus('error');
@@ -310,7 +320,7 @@ ${accessPackage.instructions}
 
   const [driveError, setDriveError] = useState('');
 
-  const testDriveConnection = async () => {
+  const testDriveConnection = async ({ googleState } = {}) => {
     setIsTestingDrive(true);
     setGoogleConnectionStatus(null);
     setDriveError('');
@@ -318,7 +328,7 @@ ${accessPackage.instructions}
       const client = createDriveClient();
       await client.testConnection();
       setGoogleConnectionStatus('success');
-      await saveSettings({ closeOnSuccess: false });
+      await saveSettings({ closeOnSuccess: false, googleState });
     } catch (error) {
       console.error('Drive connection test failed:', error);
       setGoogleConnectionStatus('error');

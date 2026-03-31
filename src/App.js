@@ -2538,7 +2538,7 @@ function App() {
           transition: 'padding-top 0.3s ease',
         }}
       >
-        <div key={currentPage} className={currentPage === 'scenarios' ? '' : 'page-transition-in'}>
+        <div key={currentPage} className={(['scenarios', 'reports', 'home', 'record'].includes(currentPage)) ? '' : 'page-transition-in'}>
           {renderPage()}
         </div>
       </main>

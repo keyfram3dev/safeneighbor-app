@@ -35,6 +35,7 @@ const PROXY_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_PROXY_PER_WINDOW = 15; // Max 15 proxy calls per minute per IP
 const REPORT_ACTION_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_REPORT_ACTIONS_PER_WINDOW = 20; // Max 20 verify/flag actions per window per IP
+const COARSE_COORDINATE_FACTOR = 740; // ~150m latitude resolution
 
 /**
  * Reusable rate limiter — checks/increments a Firestore rate limit doc
@@ -331,8 +332,8 @@ exports.submitReport = functions.https.onRequest((req, res) => {
           .replace(/(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '[phone removed]')
           .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[email removed]');
 
-        const roundedLat = Math.round(lat * 400) / 400;
-        const roundedLng = Math.round(lng * 400) / 400;
+        const roundedLat = Math.round(lat * COARSE_COORDINATE_FACTOR) / COARSE_COORDINATE_FACTOR;
+        const roundedLng = Math.round(lng * COARSE_COORDINATE_FACTOR) / COARSE_COORDINATE_FACTOR;
 
         const timestamp = new Date();
         timestamp.setMinutes(Math.floor(timestamp.getMinutes() / 15) * 15);

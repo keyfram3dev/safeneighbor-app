@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -17,6 +17,7 @@ import {
   orderBy,
   onSnapshot,
   getDocs,
+  limit,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { reverseGeocode } from './utils/locationShare';
@@ -117,6 +118,38 @@ const EXPIRATION_MS = 12 * 60 * 60 * 1000;
 const HEAT_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;  // 7 days for heat map
 const LEGAL_NOTICE_SHOWN_KEY = 'safeneighbor_legal_notice_shown';
 const THREE_MILES_IN_METERS = 4828.03;
+const REPORT_DESKTOP_QUOTES = [
+  {
+    quote: 'Stick to what is real.',
+    author: 'Epictetus',
+    note: 'Direct observation beats adrenaline and guesswork.',
+  },
+  {
+    quote: 'The palest ink is better than the best memory.',
+    author: 'Chinese Proverb',
+    note: 'Fast notes and timestamps protect details before they fade.',
+  },
+  {
+    quote: 'Truth is the only safe ground to stand upon.',
+    author: 'Elizabeth Cady Stanton',
+    note: 'Useful reports stay factual, even under pressure.',
+  },
+  {
+    quote: 'A problem well-stated is a problem half-solved.',
+    author: 'Charles Kettering',
+    note: 'Clear location, time, and counts help the community respond.',
+  },
+  {
+    quote: 'Justice is the first virtue of social institutions, as truth is of systems of thought.',
+    author: 'John Rawls',
+    note: 'Trust grows when reports are approximate, recent, and verifiable.',
+  },
+  {
+    quote: 'Everything we hear is an opinion, not a fact. Everything we see is a perspective, not the truth.',
+    author: 'Marcus Aurelius',
+    note: 'Say what you directly saw, and leave the rest out.',
+  },
+];
 const HEATMAP_KEY = 'safeneighbor_heatmap_enabled';
 const HEATMAP_CONFIG = {
   radius: 35,
@@ -358,6 +391,7 @@ const getStateAbbreviation = (state) => {
 const RATE_LIMIT_KEY = 'safeneighbor_report_rate_limit';
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const MAX_REPORTS_PER_WINDOW = 5;
+const REPORT_QUERY_LIMIT = 100;
 // Security: Duplicate detection settings
 const DUPLICATE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 const DUPLICATE_DISTANCE_KM = 0.5; // 500 meters
@@ -397,10 +431,10 @@ const recordSubmission = () => {
   localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(records));
 };
 
-// Security: Reduce coordinate precision to ~0.25km (250m) for privacy
-// Using factor of 400 gives 0.0025° steps ≈ 275m at equator
+// Security: Reduce coordinate precision to about 150m for privacy
+// Using factor of 740 gives 0.00135° steps ≈ 150m latitude resolution
 const fuzzyCoordinate = (coord) => {
-  return Math.round(coord * 400) / 400;
+  return Math.round(coord * 740) / 740;
 };
 
 // Security: Round timestamp to nearest 15 minutes for privacy
@@ -1272,6 +1306,19 @@ const ResourcesDisclaimerModal = ({ onClose }) => {
   );
 };
 
+const REPORT_SORT_OPTIONS = ['newest', 'oldest', 'nearest', 'farthest'];
+const aniDelay = (s) => ({ animationDelay: `${s}s` });
+
+const ReportsSectionHeader = ({ eyebrow, title, description, accent = 'text-blue-400' }) => (
+  <div className="mb-5">
+    <p className={`mb-2 text-[11px] font-black uppercase tracking-[0.14em] ${accent}`}>{eyebrow}</p>
+    <h2 className="text-3xl font-black text-white sm:text-[2.2rem]">{title}</h2>
+    <p className="mt-3 max-w-[48rem] text-sm leading-[1.6] text-slate-300 sm:text-[1rem]">
+      {description}
+    </p>
+  </div>
+);
+
 const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateToScenario, onNavigate }) => {
   const { t } = useTranslation();
   const [submitted, setSubmitted] = useState(false);
@@ -1371,11 +1418,11 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     return () => { document.body.style.overflow = ''; };
   }, [anyModalOpen]);
 
-  const scrollRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeftPos, setScrollLeftPos] = useState(0);
-  const [dragMoved, setDragMoved] = useState(false);
+  const mapSectionRef = useRef(null);
+  const mapPanelRef = useRef(null);
+  const formSectionRef = useRef(null);
+  const formPanelRef = useRef(null);
+  const feedSectionRef = useRef(null);
   
   const [formData, setFormData] = useState({
     location: '',
@@ -1390,8 +1437,53 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
   });
 
   const [reports, setReports] = useState([]);
+  const [desktopQuoteIndex, setDesktopQuoteIndex] = useState(0);
   const sessionReportsRef = useRef(new Map()); // Persist reports seen this session
   const prevReportIdsRef = useRef(new Set()); // Track seen report IDs for notifications
+  const activeDesktopQuote = REPORT_DESKTOP_QUOTES[desktopQuoteIndex];
+
+  const getTopChromeBottom = useCallback(() => {
+    const topNav = document.querySelector('[data-shell-top-nav="true"]');
+    const topBanners = Array.from(document.querySelectorAll('[data-shell-top-banner="true"]'));
+
+    const navBottom = topNav ? topNav.getBoundingClientRect().bottom : 0;
+    const bannerBottom = topBanners.reduce((maxBottom, banner) => {
+      const rect = banner.getBoundingClientRect();
+      if (rect.height <= 0 || rect.bottom <= 0) return maxBottom;
+      return Math.max(maxBottom, rect.bottom);
+    }, 0);
+
+    return Math.max(navBottom, bannerBottom);
+  }, []);
+
+  const scrollToElement = useCallback((element, { gap = 20, fallback = 108 } = {}) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (!element) return;
+        const rect = element.getBoundingClientRect();
+        const topPadding = Math.max(fallback, getTopChromeBottom() + gap);
+        const top = Math.max(window.scrollY + rect.top - topPadding, 0);
+        window.scrollTo({ top, behavior: 'smooth' });
+      });
+    });
+  }, [getTopChromeBottom]);
+
+  const scrollToSection = useCallback((ref, options) => {
+    scrollToElement(ref.current, options);
+  }, [scrollToElement]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setDesktopQuoteIndex((currentIndex) => (currentIndex + 1) % REPORT_DESKTOP_QUOTES.length);
+    }, 7200);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if (!submitted) return;
+    scrollToSection(feedSectionRef, { gap: 18, fallback: 104 });
+  }, [submitted, scrollToSection]);
 
   // calculateDistance imported from utils/geo.js
 
@@ -1752,7 +1844,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     })();
 
     const reportsRef = collection(db, 'iceReports');
-    const q = query(reportsRef, orderBy('timestamp', 'desc'));
+    const q = query(reportsRef, orderBy('timestamp', 'desc'), limit(REPORT_QUERY_LIMIT));
 
     // Sequence counter: ensures only the latest snapshot's result modifies state.
     // Concurrent processSnapshot calls (e.g. cache then server during reconnect)
@@ -2911,38 +3003,12 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
     }
   };
 
-  const onMouseDown = (e) => {
-    if (!scrollRef.current) return;
-    setIsDragging(true);
-    setDragMoved(false);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeftPos(scrollRef.current.scrollLeft);
-  };
-
-  const onMouseLeave = () => { setIsDragging(false); };
-  const onMouseUp = () => { setIsDragging(false); };
-  const onMouseMove = (e) => {
-    if (!isDragging || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2;
-    if (Math.abs(walk) > 5) setDragMoved(true);
-    scrollRef.current.scrollLeft = scrollLeftPos - walk;
-  };
-
-  const onWheel = (e) => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft += e.deltaY || e.deltaX;
-    }
-  };
-
   const handleFilterClick = (option) => {
-    if (dragMoved) return;
     setSortBy(option);
   };
 
   return (
-    <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white p-4 md:p-8">
+    <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white p-4 md:p-8 page-transition-in">
       <div className="max-w-7xl mx-auto space-y-8 page-section-stagger">
 
         {/* In-app browser warning banner */}
@@ -2958,497 +3024,891 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
           </div>
         )}
 
-        <section className="text-center relative pt-4 page-section-item">
-          <div className="flex justify-center mb-4">
-            <UsersThree size={48} weight="bold" className="text-blue-400" />
-          </div>
-          <h2 className="text-4xl font-black text-slate-100 mb-2 tracking-tight">{t('reports.communityReporting')}</h2>
-          <p className="text-slate-400 max-w-lg mx-auto font-medium leading-relaxed">{t('reports.communityReportingDesc')}</p>
-          <div className="flex justify-center mt-6 flex-wrap gap-3">
-            {/* Systems Status Pill */}
-            <div className={`flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-lg transition-all ${isOnline ? 'bg-green-900/30 text-green-400 border-green-800/60' : 'bg-amber-900/30 text-amber-400 border-amber-800/60'}`}>
-              <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_12px_#22c55e]' : 'bg-amber-500 shadow-[0_0_12px_#f59e0b]'}`}></span>
-              {isOnline ? t('reports.systemsOnline') : t('reports.offlineQueuing')}
+        <section className="relative overflow-hidden rounded-[32px] border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-950/95 to-slate-900/80 p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.95)] page-section-item">
+          <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/25 to-transparent" />
+          <div className="pointer-events-none absolute -top-20 right-0 h-52 w-52 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 left-0 h-52 w-52 rounded-full bg-red-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.08) 1px, transparent 1px)', backgroundSize: '24px 24px', maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.55), transparent 86%)' }} />
+
+          <div className="relative xl:grid xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] xl:items-stretch xl:gap-4">
+            <div className="xl:flex xl:h-full xl:flex-col">
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-red-300/80 scenario-fade-in" style={aniDelay(0.08)}>
+                {t('reports.communityReporting', { defaultValue: 'Community reporting' })}
+              </p>
+
+              <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.14)}>
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10 text-blue-300 shadow-[0_0_28px_rgba(59,130,246,0.18)]">
+                  <UsersThree size={30} weight="bold" />
+                </div>
+                <h1 className="max-w-3xl text-[2rem] font-black text-white sm:text-[2.75rem] xl:text-left">
+                  {t('reports.heroTitle', { defaultValue: "See what's going on and report activity" })}
+                </h1>
+              </div>
+
+              <p className="max-w-3xl text-base leading-[1.6] text-slate-300 sm:text-[1.05rem] scenario-fade-in" style={aniDelay(0.22)}>
+                {t('reports.heroIntro', { defaultValue: 'See nearby community reporting, share anonymous first-hand observations, and verify only what you directly witnessed.' })}
+              </p>
+              <p className="mt-3 max-w-2xl text-sm leading-[1.6] text-slate-400 scenario-fade-in" style={aniDelay(0.27)}>
+                {t('reports.heroSupport', { defaultValue: 'Reports expire after 12 hours, and location is generalized before reports are stored or shown.' })}
+              </p>
+
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-fade-in" style={aniDelay(0.32)}>
+                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] ${
+                  isOnline
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                    : 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+                }`}>
+                  <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  {isOnline ? t('reports.systemsOnline') : t('reports.offlineQueuing')}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-blue-200">
+                  <Timer size={13} weight="bold" />
+                  {t('reports.incidentsReported', { defaultValue: 'Incidents reported' })}: {reportStats.totalActive}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-red-200">
+                  <ShieldCheckIcon size={13} weight="bold" />
+                  {t('reports.verified', { defaultValue: 'Verified' })}: {reportStats.totalVerified}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/75 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-300">
+                  <LockKey size={13} weight="bold" />
+                  {t('reports.heroPrivacyChip', { defaultValue: 'Approximate location only' })}
+                </span>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.38)}>
+                <button
+                  type="button"
+                  onClick={() => scrollToSection(formSectionRef, { gap: 18, fallback: 104 })}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-white transition-all shadow-[0_12px_32px_rgba(127,29,29,0.35)] hover:from-red-500 hover:to-red-600 sm:w-auto"
+                >
+                  <MapPinSimpleArea size={18} weight="bold" />
+                  <span>{t('reports.heroPrimaryCta', { defaultValue: 'Report what you saw' })}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollToSection(mapPanelRef, { gap: 18, fallback: 104 })}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/70 px-6 py-3.5 text-sm font-bold text-white transition-all shadow-[0_10px_24px_rgba(15,23,42,0.28)] hover:bg-slate-800/80 sm:w-auto"
+                >
+                  <MapTrifold size={18} weight="bold" className="text-cyan-300" />
+                  <span>{t('reports.heroMapCta', { defaultValue: 'View activity map' })}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPrivacyModal(true)}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/60 px-6 py-3.5 text-sm font-bold text-slate-200 transition-all hover:bg-slate-800/80 sm:w-auto"
+                >
+                  <Shield size={18} weight="bold" className="text-blue-300" />
+                  <span>{t('reports.privacy')}</span>
+                </button>
+              </div>
+
+              <p className="mt-4 text-xs leading-[1.6] text-slate-500 scenario-fade-in" style={aniDelay(0.44)}>
+                {t('reports.heroNote', { defaultValue: 'Share first-hand observations, not rumors. Open the privacy and legal guidance before submitting if you need a quick refresher.' })}
+              </p>
+
+              <div className="mt-6 hidden flex-1 xl:flex scenario-fade-in" style={aniDelay(0.5)}>
+                <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[26px] border border-slate-800/60 bg-gradient-to-br from-slate-950/55 via-slate-950/28 to-slate-900/18 px-5 py-5 shadow-[inset_0_1px_0_rgba(148,163,184,0.04)]">
+                  <div className="pointer-events-none absolute -left-14 bottom-0 h-44 w-44 rounded-full bg-red-500/8 blur-3xl" />
+                  <div className="pointer-events-none absolute right-4 top-14 h-24 w-24 rounded-full border border-slate-800/70 bg-slate-950/30" />
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+                      {t('reports.heroQuoteEyebrow', { defaultValue: 'Truth and witness' })}
+                    </p>
+                    <span className="rounded-full border border-slate-800/70 bg-slate-950/40 px-2.5 py-1 text-[10px] font-bold tracking-[0.14em] text-slate-600">
+                      {desktopQuoteIndex + 1}/{REPORT_DESKTOP_QUOTES.length}
+                    </span>
+                  </div>
+
+                  <div className="relative mt-5 flex-1 px-1 py-1">
+                    <p className="max-w-[29ch] font-serif text-[1.45rem] italic leading-[1.6] tracking-[0.005em] text-slate-200/80">
+                      “{activeDesktopQuote.quote}”
+                    </p>
+                    <p className="mt-4 text-sm font-medium tracking-[0.01em] text-slate-400">
+                      {activeDesktopQuote.author}
+                    </p>
+                    <p className="mt-4 max-w-[32ch] text-sm leading-[1.6] text-slate-500">
+                      {activeDesktopQuote.note}
+                    </p>
+                    <div className="mt-5 grid gap-2 sm:grid-cols-3">
+                      {[
+                        {
+                          icon: Eye,
+                          label: t('reports.quoteRuleWitness', { defaultValue: 'Direct witness' }),
+                          value: t('reports.quoteRuleWitnessValue', { defaultValue: 'Only what you saw' }),
+                          tone: 'text-cyan-300',
+                        },
+                        {
+                          icon: MapPinSimpleArea,
+                          label: t('reports.quoteRuleApprox', { defaultValue: 'Approximate pin' }),
+                          value: t('reports.quoteRuleApproxValue', { defaultValue: 'Exact is not required' }),
+                          tone: 'text-red-300',
+                        },
+                        {
+                          icon: Timer,
+                          label: t('reports.quoteRuleRecent', { defaultValue: 'Short window' }),
+                          value: t('reports.quoteRuleRecentValue', { defaultValue: 'Reports expire in 12h' }),
+                          tone: 'text-amber-300',
+                        },
+                      ].map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <div key={item.label} className="rounded-2xl border border-slate-800/60 bg-slate-950/50 px-3 py-3">
+                            <div className="flex items-center gap-2">
+                              <Icon size={14} weight="bold" className={item.tone} />
+                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                                {item.label}
+                              </p>
+                            </div>
+                            <p className="mt-2 text-sm font-medium leading-[1.45] text-slate-300">
+                              {item.value}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-center gap-2">
+                    {REPORT_DESKTOP_QUOTES.map((quoteItem, quoteIndex) => (
+                      <button
+                        key={`${quoteItem.author}-${quoteIndex}`}
+                        type="button"
+                        onClick={() => setDesktopQuoteIndex(quoteIndex)}
+                        className={`h-2.5 rounded-full transition-all ${
+                          quoteIndex === desktopQuoteIndex ? 'w-8 bg-slate-500/65' : 'w-2.5 bg-slate-700/70 hover:bg-slate-600/80'
+                        }`}
+                        aria-label={t('reports.heroQuoteDot', {
+                          index: quoteIndex + 1,
+                          defaultValue: `Show quote ${quoteIndex + 1}`,
+                        })}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Incidents Reported Pill */}
-            <div className="flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-lg bg-blue-900/30 text-blue-400 border-blue-800/60">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_12px_#3b82f6]"></span>
-              {t('reports.incidentsReported')}: {reportStats.totalActive}
+            <div className="mt-4 grid gap-3 xl:mt-0 xl:grid-rows-[auto_1fr] scenario-rise-in" style={aniDelay(0.2)}>
+              <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white/65">
+                      {t('reports.heroWorkflowEyebrow', { defaultValue: 'How this works' })}
+                    </p>
+                    <h2 className="mt-1 text-lg font-black text-white sm:text-xl">
+                      {t('reports.heroWorkflowTitle', { defaultValue: 'Three clear jobs, one calmer surface' })}
+                    </h2>
+                    <p className="mt-2 max-w-[34ch] text-sm leading-[1.6] text-slate-300">
+                      {t('reports.heroWorkflowDesc', { defaultValue: 'Use the map to understand context, submit a factual anonymous report, then verify only what you directly witnessed.' })}
+                    </p>
+                  </div>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+                    <MapTrifold size={20} weight="bold" className="text-blue-300" />
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
+                  {[
+                    {
+                      id: 'map',
+                      label: t('reports.heroStepMap', { defaultValue: 'See nearby activity' }),
+                      status: t('reports.heroStepMapDesc', { defaultValue: 'Map recent reports and resources before acting.' }),
+                      icon: MapTrifold,
+                      tone: 'text-cyan-300',
+                      onClick: () => scrollToSection(feedSectionRef, { gap: 18, fallback: 104 }),
+                    },
+                    {
+                      id: 'submit',
+                      label: t('reports.heroStepSubmit', { defaultValue: 'Submit anonymously' }),
+                      status: t('reports.heroStepSubmitDesc', { defaultValue: 'Share approximate location, time, and direct observations.' }),
+                      icon: MapPinSimpleArea,
+                      tone: 'text-red-300',
+                      onClick: () => scrollToSection(formPanelRef, { gap: 18, fallback: 104 }),
+                    },
+                    { id: 'verify', label: t('reports.heroStepVerify', { defaultValue: 'Verify carefully' }), status: t('reports.heroStepVerifyDesc', { defaultValue: 'Confirm only first-hand reports so trust grows over time.' }), icon: ShieldCheckIcon, tone: 'text-emerald-300' },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    const isInteractive = typeof item.onClick === 'function';
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={item.onClick}
+                        disabled={!isInteractive}
+                        className={`flex items-start gap-3 rounded-xl border px-3 py-3 text-left transition-all ${
+                          isInteractive
+                            ? 'border-white/10 bg-slate-950/45 hover:border-white/20 hover:bg-slate-950/60 active:scale-[0.99]'
+                            : 'cursor-default border-white/10 bg-slate-950/45'
+                        }`}
+                      >
+                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-slate-900/70">
+                          <Icon size={17} weight="bold" className={item.tone} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-200">{item.label}</p>
+                            {isInteractive && (
+                              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                                {t('reports.jumpToSection', { defaultValue: 'Open' })}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-[13px] leading-[1.6] text-slate-400">{item.status}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800/80 bg-gradient-to-r from-slate-950/85 via-slate-950/70 to-slate-900/80 px-4 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.12)]">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                  {t('reports.heroTrustEyebrow', { defaultValue: 'Privacy behavior' })}
+                </p>
+                <p className="mt-2 max-w-[36ch] text-sm leading-[1.6] text-slate-300">
+                  {t('reports.heroTrustIntro', { defaultValue: 'This system is designed to reduce harm: approximate location, auto-expiration, anonymous submission, and community verification instead of identity-based trust.' })}
+                </p>
+                <div className="mt-4 grid gap-2">
+                  {[
+                    t('reports.heroTrust1', { defaultValue: 'Location is generalized before reports are stored or shown.' }),
+                    t('reports.heroTrust2', { defaultValue: 'Reports expire automatically so the feed stays recent.' }),
+                    t('reports.heroTrust3', { defaultValue: 'Verification depends on proximity and direct witness, not social status.' }),
+                  ].map((item) => (
+                    <div key={item} className="flex items-start gap-2 rounded-xl border border-white/10 bg-slate-950/45 px-3 py-3">
+                      <Check size={14} weight="bold" className="mt-0.5 shrink-0 text-emerald-300" />
+                      <p className="text-[13px] leading-[1.6] text-slate-300">{item}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPrivacyModal(true)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-blue-500/25 bg-blue-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-blue-100 transition-colors hover:bg-blue-500/15"
+                  >
+                    <Shield size={14} weight="bold" />
+                    {t('reports.privacy')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowLegalNotice(true)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-amber-100 transition-colors hover:bg-amber-500/15"
+                  >
+                    <Scales size={14} weight="bold" />
+                    {t('reports.guidelines')}
+                  </button>
+                </div>
+              </div>
             </div>
-
-            {/* Verified Pill */}
-            <div className="flex items-center gap-2.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-lg bg-red-900/30 text-red-400 border-red-800/60">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_12px_#ef4444]"></span>
-              {t('reports.verified')}: {reportStats.totalVerified}
-            </div>
-
-            {/* Privacy & Security Button */}
-            <button
-              onClick={() => setShowPrivacyModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600/80 to-blue-500/80 text-white text-[11px] font-black uppercase tracking-widest rounded-full border border-blue-400/30 hover:from-blue-500/80 hover:to-blue-400/80 transition-all shadow-lg hover:scale-105 active:scale-95"
-            >
-              <Shield size={14} weight="bold" />
-              {t('reports.privacy')}
-            </button>
-
-            {/* Legal Guidelines Button */}
-            <button
-              onClick={() => setShowLegalNotice(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600/80 to-amber-500/80 text-white text-[11px] font-black uppercase tracking-widest rounded-full border border-amber-400/30 hover:from-amber-500/80 hover:to-amber-400/80 transition-all shadow-lg hover:scale-105 active:scale-95"
-            >
-              <Scales size={14} weight="bold" />
-              {t('reports.guidelines')}
-            </button>
           </div>
         </section>
 
-        <div className="bg-slate-900 p-1 rounded-[2rem] border border-slate-800 shadow-2xl overflow-hidden relative page-section-item">
-          <div className="p-3 bg-slate-950/60 border-b border-slate-800/50 backdrop-blur-md space-y-2">
-            {/* Row 1: Title + Toggle buttons */}
-            <div className="flex justify-between items-center">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('reports.neighborhoodActivityMap')}</p>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleToggleHeatmap}
-                  className={`text-[10px] font-black flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all active:scale-95 whitespace-nowrap ${
-                    heatmapEnabled
-                      ? 'text-amber-300 bg-amber-950/60 border-amber-700/50 shadow-[0_0_10px_rgba(251,191,36,0.15)]'
-                      : 'text-slate-300 bg-slate-700/50 border-slate-500/50 hover:text-slate-200'
-                  }`}
-                >
-                  <Fire size={14} weight="bold" /> {t('reports.heatMap')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleToggleResources}
-                  className={`text-[10px] font-black flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all active:scale-95 ${
-                    resourcesEnabled
-                      ? 'text-green-300 bg-green-950/60 border-green-700/50 shadow-[0_0_10px_rgba(34,197,94,0.15)]'
-                      : 'text-slate-300 bg-slate-700/50 border-slate-500/50 hover:text-slate-200'
-                  }`}
-                >
-                  <Buildings size={14} weight="bold" />
-                  {resourcesLoading ? t('reports.loading') : resourcesError ? t('reports.resourcesError', 'Retry') : `${t('reports.resources')}${resourcesEnabled && resourcesData.length ? ` (${resourcesData.length})` : ''}`}
-                </button>
+        <section ref={mapSectionRef} className="page-section-item">
+          <ReportsSectionHeader
+            eyebrow={t('reports.mapEyebrow', { defaultValue: 'See nearby' })}
+            title={t('reports.mapTitle', { defaultValue: 'Activity map and community context' })}
+            description={t('reports.mapDesc', { defaultValue: 'Use the map to understand recent reports, nearby resources, and where the community still needs direct verification.' })}
+            accent="text-cyan-300"
+          />
+
+          <div
+            ref={mapPanelRef}
+            className="overflow-hidden rounded-[30px] border border-slate-800/80 bg-gradient-to-br from-slate-950/95 via-slate-950/90 to-slate-900/80 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.95)]"
+          >
+            <div className="border-b border-slate-800/70 bg-slate-950/55 p-4 sm:p-5">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                    {t('reports.neighborhoodActivityMap')}
+                  </p>
+                  <p className="mt-2 text-sm leading-[1.6] text-slate-300">
+                    {t('reports.mapToolbarSupport', { defaultValue: 'Toggle heat, resources, and your location as needed. Keep the map calm by turning on only the layers that help with the decision you are making right now.' })}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 xl:max-w-[28rem] xl:justify-end">
+                  <button
+                    type="button"
+                    onClick={handleToggleHeatmap}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
+                      heatmapEnabled
+                        ? 'border-amber-500/25 bg-amber-500/10 text-amber-200'
+                        : 'border-slate-700/70 bg-slate-900/80 text-slate-300 hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <Fire size={14} weight="bold" />
+                    {t('reports.heatMap')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleToggleResources}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
+                      resourcesEnabled
+                        ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+                        : 'border-slate-700/70 bg-slate-900/80 text-slate-300 hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <Buildings size={14} weight="bold" />
+                    {resourcesLoading ? t('reports.loading') : resourcesError ? t('reports.resourcesError', 'Retry') : `${t('reports.resources')}${resourcesEnabled && resourcesData.length ? ` (${resourcesData.length})` : ''}`}
+                  </button>
+                  {heatmapEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPins((prev) => !prev)}
+                      className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
+                        showPins
+                          ? 'border-violet-500/25 bg-violet-500/10 text-violet-200'
+                          : 'border-slate-700/70 bg-slate-900/80 text-slate-300 hover:bg-slate-800/80'
+                      }`}
+                    >
+                      {showPins ? <Eye size={14} weight="bold" /> : <EyeSlash size={14} weight="bold" />}
+                      {showPins ? t('reports.pins') : t('reports.pinsOff')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationPin((prev) => !prev)}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
+                      showLocationPin
+                        ? 'border-red-500/25 bg-red-500/10 text-red-200'
+                        : 'border-slate-700/70 bg-slate-900/80 text-slate-300 hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <MapPinSimple size={14} weight="bold" />
+                    {showLocationPin ? t('reports.myPin') : t('reports.myPinOff')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocation}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-900/80 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-300 transition-colors hover:bg-slate-800/80"
+                  >
+                    <MapPinSimple size={14} weight="bold" className="text-red-300" />
+                    {t('reports.recenterGps')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOverviewUS}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-900/80 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-300 transition-colors hover:bg-slate-800/80"
+                  >
+                    <MapTrifold size={14} weight="bold" className="text-cyan-300" />
+                    {t('reports.usView')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenCheckRoute?.()}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-900/80 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-300 transition-colors hover:bg-slate-800/80"
+                  >
+                    <Path size={14} weight="bold" className="text-blue-300" />
+                    {t('route.title')}
+                  </button>
+                </div>
               </div>
             </div>
-            {/* Row 2: Action buttons */}
-            <div className="flex justify-end items-stretch gap-1.5">
-              {heatmapEnabled && (
+
+            {mapLoadFailed && !mapLoaded ? (
+              <div className="flex h-72 w-full flex-col items-center justify-center gap-4 bg-slate-900/80 px-6 text-center md:h-96">
+                <MapTrifold size={48} weight="bold" className="text-slate-500" />
+                <div>
+                  <p className="text-sm font-bold text-slate-300">{t('reports.mapUnavailable')}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {isInAppWebView()
+                      ? t('reports.mapUnavailableInApp')
+                      : t('reports.mapUnavailableConnection')}
+                  </p>
+                </div>
                 <button
-                  type="button"
-                  onClick={() => setShowPins(prev => !prev)}
-                  className={`text-[10px] font-black flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all active:scale-95 ${
-                    showPins
-                      ? 'text-slate-300 bg-slate-700/50 border-slate-500/50 hover:text-slate-200'
-                      : 'text-violet-300 bg-violet-950/60 border-violet-700/50 shadow-[0_0_10px_rgba(139,92,246,0.15)]'
-                  }`}
+                  onClick={() => window.location.reload()}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white transition-all active:scale-95 hover:bg-blue-500"
                 >
-                  {showPins ? <Eye size={14} weight="bold" /> : <EyeSlash size={14} weight="bold" />}
-                  {showPins ? t('reports.pins') : t('reports.pinsOff')}
+                  {t('reports.reloadPage')}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowLocationPin(prev => !prev)}
-                className={`text-[10px] font-black flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all active:scale-95 ${
-                  showLocationPin
-                    ? 'text-red-300 bg-red-950/60 border-red-700/50 shadow-[0_0_10px_rgba(239,68,68,0.15)]'
-                    : 'text-slate-300 bg-slate-700/50 border-slate-500/50 hover:text-slate-200'
-                }`}
-              >
-                <MapPinSimple size={14} weight="bold" />
-                {showLocationPin ? t('reports.myPin') : t('reports.myPinOff')}
-              </button>
-              <button
-                type="button"
-                onClick={handleUseCurrentLocation}
-                className="text-[10px] font-black text-red-400 hover:text-red-300 flex items-center gap-1.5 bg-red-950/40 px-3 py-1.5 rounded-lg border border-red-900/30 transition-all hover:scale-105 active:scale-95"
-              >
-                <MapPinSimple size={14} weight="bold" /> {t('reports.recenterGps')}
-              </button>
-              <button
-                type="button"
-                onClick={handleOverviewUS}
-                className="text-[10px] font-black text-sky-400 hover:text-sky-300 flex items-center gap-1.5 bg-sky-950/40 px-3 py-1.5 rounded-lg border border-sky-900/30 transition-all hover:scale-105 active:scale-95"
-              >
-                <MapTrifold size={14} weight="bold" /> {t('reports.usView')}
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenCheckRoute?.()}
-                className="text-[10px] font-black text-blue-400 hover:text-blue-300 flex items-center gap-1.5 bg-blue-950/40 px-3 py-1.5 rounded-lg border border-blue-900/30 transition-all hover:scale-105 active:scale-95"
-              >
-                <Path size={14} weight="bold" /> {t('route.title')}
-              </button>
-            </div>
-          </div>
-          {mapLoadFailed && !mapLoaded ? (
-            <div className="h-72 md:h-96 w-full bg-slate-900/80 border border-slate-700/50 rounded-xl flex flex-col items-center justify-center gap-4 px-6 text-center">
-              <MapTrifold size={48} weight="bold" className="text-slate-500" />
+              </div>
+            ) : (
+              <div id="report-map" className="h-72 w-full z-0 md:h-96" />
+            )}
+
+            <div className="space-y-4 border-t border-slate-800/70 bg-slate-950/40 p-4 sm:p-5">
               <div>
-                <p className="text-slate-300 font-bold text-sm">{t('reports.mapUnavailable')}</p>
-                <p className="text-slate-500 text-xs mt-1">
-                  {isInAppWebView()
-                    ? t('reports.mapUnavailableInApp')
-                    : t('reports.mapUnavailableConnection')}
+                <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                  {t('reports.hotspots', { count: dynamicHubs.length })}
                 </p>
+                <div className="flex flex-wrap gap-2.5">
+                  {dynamicHubs.map((hub) => {
+                    const isActive = activeHubId === hub.name;
+                    let baseStyle = '';
+                    let activeStyle = '';
+
+                    if (hub.type === 'verified') {
+                      baseStyle = 'border-red-800/60 bg-red-950/70 text-red-200 hover:bg-red-900/70';
+                      activeStyle = 'border-red-500/40 bg-red-500/15 text-white';
+                    } else if (hub.type === 'reported') {
+                      baseStyle = 'border-amber-800/60 bg-amber-950/70 text-amber-200 hover:bg-amber-900/70';
+                      activeStyle = 'border-amber-500/40 bg-amber-500/15 text-white';
+                    } else {
+                      baseStyle = 'border-slate-700/70 bg-slate-900 text-slate-300 hover:bg-slate-800';
+                      activeStyle = 'border-slate-500/60 bg-slate-700/80 text-white';
+                    }
+
+                    return (
+                      <button
+                        key={`${hub.name}-${hub.lat}`}
+                        type="button"
+                        onClick={() => handleHubSelect(hub)}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] transition-all ${
+                          isActive ? activeStyle : baseStyle
+                        }`}
+                      >
+                        {hub.type === 'verified' && <ShieldCheckIcon size={12} weight="bold" />}
+                        <span>{hub.name}</span>
+                        {hub.type === 'verified' && hub.verifierCount > 0 && (
+                          <span className="opacity-75">({hub.verifierCount})</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <button
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all active:scale-95"
-              >
-                {t('reports.reloadPage')}
-              </button>
+
+              {resourcesEnabled && resourcesData.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                    {t('reports.nearbyResources', { count: resourcesData.length })}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const counts = { church: 0, hospital: 0, school: 0, consulate: 0 };
+                      resourcesData.forEach((r) => { if (counts[r.category] !== undefined) counts[r.category]++; });
+                      return Object.entries(counts)
+                        .filter(([, count]) => count > 0)
+                        .map(([cat, count]) => {
+                          const style = RESOURCE_STYLES[cat];
+                          return (
+                            <span
+                              key={cat}
+                              className="rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em]"
+                              style={{ backgroundColor: `${style.bg}66`, borderColor: style.border, color: style.border }}
+                            >
+                              {count} {t(`reports.resourceLabel_${cat}`, { count })}
+                            </span>
+                          );
+                        });
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <div id="report-map" className="h-72 md:h-96 w-full z-0"></div>
-          )}
-          <div className="p-5 bg-slate-950/40 flex flex-wrap gap-2.5">
-             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-full mb-1">{t('reports.hotspots', { count: dynamicHubs.length })}:</span>
-             {dynamicHubs.map(hub => {
-               // Visual distinction based on hotspot type
-               const isActive = activeHubId === hub.name;
-               let baseStyle = '';
-               let activeStyle = '';
-
-               if (hub.type === 'verified') {
-                 // Verified reports: red theme
-                 baseStyle = 'bg-red-950/80 border-red-800 text-red-300 hover:bg-red-900 hover:text-red-200';
-                 activeStyle = 'bg-red-600 border-red-400 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]';
-               } else if (hub.type === 'reported') {
-                 // Unverified reports: amber theme
-                 baseStyle = 'bg-amber-950/80 border-amber-800 text-amber-300 hover:bg-amber-900 hover:text-amber-200';
-                 activeStyle = 'bg-amber-600 border-amber-400 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]';
-               } else {
-                 // City hubs: slate/gray theme
-                 baseStyle = 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200';
-                 activeStyle = 'bg-slate-600 border-slate-400 text-white shadow-[0_0_15px_rgba(100,116,139,0.5)]';
-               }
-
-               return (
-                 <button
-                   key={`${hub.name}-${hub.lat}`}
-                   type="button"
-                   onClick={() => handleHubSelect(hub)}
-                   className={`text-[10px] border px-3.5 py-1.5 rounded-full transition-all font-black uppercase tracking-tighter hover:scale-105 active:scale-95 ${
-                     isActive ? `${activeStyle} scale-105` : baseStyle
-                   }`}
-                 >
-                   {hub.type === 'verified' && <ShieldCheckIcon size={12} weight="bold" className="inline me-1" />}
-                   {hub.name}
-                   {hub.type === 'verified' && hub.verifierCount > 0 && (
-                     <span className="ms-1 opacity-80">({hub.verifierCount})</span>
-                   )}
-                 </button>
-               );
-             })}
           </div>
+        </section>
 
-          {/* Resource category summary */}
-          {resourcesEnabled && resourcesData.length > 0 && (
-            <div className="px-5 pb-4 flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-full mb-1">{t('reports.nearbyResources', { count: resourcesData.length })}:</span>
-              {(() => {
-                const counts = { church: 0, hospital: 0, school: 0, consulate: 0 };
-                resourcesData.forEach(r => { if (counts[r.category] !== undefined) counts[r.category]++; });
-                return Object.entries(counts).filter(([, c]) => c > 0).map(([cat, count]) => {
-                  const style = RESOURCE_STYLES[cat];
-                  return (
-                    <span key={cat} className="text-[10px] border px-3 py-1 rounded-full font-bold uppercase tracking-tight" style={{ backgroundColor: `${style.bg}80`, borderColor: style.border, color: style.border }}>
-                      {count} {t(`reports.resourceLabel_${cat}`, { count })}
-                    </span>
-                  );
-                });
-              })()}
-            </div>
-          )}
-        </div>
+        <section ref={formSectionRef} className="relative page-section-item">
+          <ReportsSectionHeader
+            eyebrow={t('reports.formEyebrow', { defaultValue: 'Report now' })}
+            title={t('reports.formTitle', { defaultValue: 'Share what you directly observed' })}
+            description={t('reports.formDesc', { defaultValue: 'Keep it factual. Start with time and approximate location, then describe only what you saw or heard yourself. The form below is organized to help you submit quickly under stress.' })}
+            accent="text-red-300"
+          />
 
-        <div className="relative page-section-item">
           {submitted ? (
-            <div className="bg-green-900/20 border-2 border-green-800/60 p-10 rounded-[2.5rem] text-center shadow-2xl animate-in zoom-in-95">
-              <div className="flex justify-center mb-6">
-                <ShieldCheckIcon size={72} weight="bold" className="text-green-400" />
+            <div
+              ref={formPanelRef}
+              className="rounded-[32px] border border-emerald-700/50 bg-gradient-to-br from-emerald-950/35 via-slate-950/90 to-slate-900/90 p-8 text-center shadow-[0_24px_80px_-48px_rgba(16,185,129,0.35)] animate-in zoom-in-95"
+            >
+              <div className="mb-5 flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10">
+                  <ShieldCheckIcon size={34} weight="bold" className="text-emerald-300" />
+                </div>
               </div>
-              <h3 className="text-3xl font-black text-green-400 mb-3">{t('reports.reportTransmitted')}</h3>
-              <p className="text-slate-300 mb-8 font-medium">{t('reports.reportTransmittedDesc')}</p>
-              <button onClick={() => setSubmitted(false)} className="bg-green-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-wide">{t('reports.logNewIncident')}</button>
+              <h3 className="text-3xl font-black text-emerald-300">{t('reports.reportTransmitted')}</h3>
+              <p className="mx-auto mt-3 max-w-2xl text-sm leading-[1.6] text-slate-300 sm:text-base">{t('reports.reportTransmittedDesc')}</p>
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => setSubmitted(false)}
+                  className="rounded-2xl bg-emerald-600 px-8 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-white transition-all hover:bg-emerald-500 active:scale-95"
+                >
+                  {t('reports.logNewIncident')}
+                </button>
+              </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="bg-slate-900 px-4 py-5 sm:p-8 md:p-10 rounded-2xl sm:rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-5 sm:space-y-8 overflow-hidden">
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight border-b border-slate-800 pb-4">{t('reports.incidentReportForm')}</h3>
-
-              <div className="space-y-3 overflow-hidden">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{t('reports.eventDate')}</label>
-                  <input type="date" required className="w-full box-border bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 sm:p-4 text-white text-sm text-center focus:border-red-600 outline-none transition-all" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
+            <form
+              ref={formPanelRef}
+              onSubmit={handleSubmit}
+              className="overflow-hidden rounded-[32px] border border-slate-800/80 bg-gradient-to-br from-slate-950/95 via-slate-950/90 to-slate-900/85 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.95)] sm:p-6 lg:p-8"
+            >
+              <div className="mb-6 flex flex-col gap-3 border-b border-slate-800/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{t('reports.incidentReportForm')}</p>
+                  <p className="mt-2 max-w-2xl text-sm leading-[1.6] text-slate-300">
+                    {t('reports.formHeaderSupport', { defaultValue: 'Everything below is designed for anonymous, approximate reporting. Keep your notes factual and avoid including personal identities unless absolutely necessary.' })}
+                  </p>
                 </div>
                 <button
                   type="button"
-                  onClick={handleUseCurrentLocation}
-                  className="w-full bg-slate-950 border border-slate-800 hover:border-red-600/50 px-3 py-2.5 sm:p-4 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95 text-[11px] font-black uppercase tracking-widest text-white shadow-lg"
+                  onClick={() => setShowPrivacyModal(true)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-900/80 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-300 transition-colors hover:bg-slate-800/80"
                 >
-                  <MapPinSimpleArea size={20} weight="bold" /> {t('reports.useMyLocation')}
+                  <Shield size={14} weight="bold" className="text-blue-300" />
+                  {t('reports.howWeProtectPrivacy')}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleTogglePicker}
-                  className={`w-full border px-3 py-2.5 sm:p-4 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95 text-[11px] font-black uppercase tracking-widest shadow-lg ${showInlinePicker ? 'bg-red-700 border-red-500 text-white' : 'bg-slate-950 border-slate-800 text-white hover:border-red-600/50'}`}
-                >
-                  <MapTrifold size={20} weight="bold" /> {t('reports.chooseLocationWithin3Miles')}
-                </button>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ms-1">{t('reports.timeNoted')}</label>
-                  <input type="time" required className="w-full box-border bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 sm:p-4 text-white text-sm text-center focus:border-red-600 outline-none transition-all" value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} />
-                </div>
+              </div>
 
-                {showInlinePicker && (
-                  <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
-                    <div className="bg-slate-950 p-1 rounded-3xl border border-slate-800 overflow-hidden relative shadow-2xl">
-                      <div id="inline-precision-map" className="h-64 w-full z-10"></div>
-                      <div className="absolute top-4 end-4 z-20 bg-slate-900/90 px-3 py-1.5 rounded-full border border-slate-800 text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                         {t('reports.dragPinToPrecision')}
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.06fr)_minmax(280px,0.94fr)]">
+                <div className="space-y-5">
+                  <div className="rounded-[26px] border border-slate-800/80 bg-slate-950/55 p-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                      {t('reports.formWhenWhereEyebrow', { defaultValue: 'When and where' })}
+                    </p>
+                    <h3 className="mt-2 text-lg font-black text-white">
+                      {t('reports.formWhenWhereTitle', { defaultValue: 'Pin the moment first' })}
+                    </h3>
+                    <p className="mt-2 max-w-[38rem] text-sm leading-[1.6] text-slate-300">
+                      {t('reports.formWhenWhereDesc', { defaultValue: 'Choose the time, then use GPS or place an approximate pin within the area you observed. Exact precision is not required here.' })}
+                    </p>
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="ms-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{t('reports.eventDate')}</label>
+                        <input type="date" required className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-center text-sm text-white outline-none transition-all focus:border-red-600" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="ms-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{t('reports.timeNoted')}</label>
+                        <input type="time" required className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-center text-sm text-white outline-none transition-all focus:border-red-600" value={formData.time} onChange={(e) => setFormData({ ...formData, time: e.target.value })} />
                       </div>
                     </div>
-                    {pickerError && (
-                      <div className="bg-red-950/40 text-red-400 p-3 rounded-xl border border-red-900/30 text-[10px] font-black text-center uppercase tracking-widest">
-                        ⚠️ {pickerError}
-                      </div>
-                    )}
-                    {!pickerError && (
-                      <div className="text-center">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                          {t('reports.selected')}: <span className="text-blue-400">{formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}</span>
-                        </p>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={handleUseCurrentLocation}
+                        className="inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-white transition-all hover:border-red-600/50 active:scale-95"
+                      >
+                        <MapPinSimpleArea size={18} weight="bold" />
+                        {t('reports.useMyLocation')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleTogglePicker}
+                        className={`inline-flex w-full items-center justify-center gap-3 rounded-2xl border px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] transition-all active:scale-95 ${
+                          showInlinePicker
+                            ? 'border-red-500 bg-red-600 text-white'
+                            : 'border-slate-800 bg-slate-950 text-white hover:border-red-600/50'
+                        }`}
+                      >
+                        <MapTrifold size={18} weight="bold" />
+                        {t('reports.chooseLocationWithin3Miles')}
+                      </button>
+                    </div>
+
+                    {showInlinePicker && (
+                      <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div className="relative overflow-hidden rounded-[24px] border border-slate-800 bg-slate-950 p-1 shadow-2xl">
+                          <div id="inline-precision-map" className="h-64 w-full z-10"></div>
+                          <div className="absolute end-4 top-4 z-20 rounded-full border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-300">
+                            {t('reports.dragPinToPrecision')}
+                          </div>
+                        </div>
+                        {pickerError ? (
+                          <div className="rounded-xl border border-red-900/30 bg-red-950/40 p-3 text-center text-[11px] font-bold text-red-400">
+                            {pickerError}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                            {t('reports.selected')}: <span className="text-blue-400">{formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
 
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{t('reports.observations')}</label>
-                <textarea required rows={4} placeholder={t('reports.describeActivity')} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none resize-none transition-all" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-3 text-center">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('reports.agentsLabel')}</label>
-                  <input type="number" placeholder="0" min="0" className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none font-black text-center text-xl" value={formData.agents} onChange={(e) => setFormData({...formData, agents: e.target.value})} />
+                  <div className="rounded-[26px] border border-slate-800/80 bg-slate-950/55 p-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                      {t('reports.formObservedEyebrow', { defaultValue: 'What you observed' })}
+                    </p>
+                    <h3 className="mt-2 text-lg font-black text-white">
+                      {t('reports.formObservedTitle', { defaultValue: 'Stick to direct facts' })}
+                    </h3>
+                    <p className="mt-2 max-w-[38rem] text-sm leading-[1.6] text-slate-300">
+                      {t('reports.formObservedDesc', { defaultValue: 'Describe actions, direction of travel, clothing, vehicles, or other concrete details. Skip rumors, guesses, and names unless you directly confirmed them.' })}
+                    </p>
+                    <div className="mt-4 space-y-2">
+                      <label className="ms-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{t('reports.observations')}</label>
+                      <textarea required rows={6} placeholder={t('reports.describeActivity')} className="w-full resize-none rounded-[24px] border border-slate-800 bg-slate-950 px-4 py-4 text-white outline-none transition-all focus:border-red-600" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-3 text-center">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('reports.vehiclesLabel')}</label>
-                  <input type="number" placeholder="0" min="0" className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-white focus:border-red-600 outline-none font-black text-center text-xl" value={formData.vehicles} onChange={(e) => setFormData({...formData, vehicles: e.target.value})} />
+
+                <div className="space-y-5">
+                  <div className="rounded-[26px] border border-slate-800/80 bg-slate-950/55 p-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                      {t('reports.formCountsEyebrow', { defaultValue: 'Quick count' })}
+                    </p>
+                    <h3 className="mt-2 text-lg font-black text-white">
+                      {t('reports.formCountsTitle', { defaultValue: 'Add the clearest numbers you have' })}
+                    </h3>
+                    <p className="mt-2 text-sm leading-[1.6] text-slate-300">
+                      {t('reports.formCountsDesc', { defaultValue: 'Approximate counts are okay. Use zero if you did not see any agents or vehicles.' })}
+                    </p>
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div className="space-y-2 text-center">
+                        <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{t('reports.agentsLabel')}</label>
+                        <input type="number" placeholder="0" min="0" className="w-full rounded-[24px] border border-slate-800 bg-slate-950 px-4 py-4 text-center text-xl font-black text-white outline-none transition-all focus:border-red-600" value={formData.agents} onChange={(e) => setFormData({ ...formData, agents: e.target.value })} />
+                      </div>
+                      <div className="space-y-2 text-center">
+                        <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{t('reports.vehiclesLabel')}</label>
+                        <input type="number" placeholder="0" min="0" className="w-full rounded-[24px] border border-slate-800 bg-slate-950 px-4 py-4 text-center text-xl font-black text-white outline-none transition-all focus:border-red-600" value={formData.vehicles} onChange={(e) => setFormData({ ...formData, vehicles: e.target.value })} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[26px] border border-slate-800/80 bg-gradient-to-br from-slate-900/90 to-slate-950/90 p-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                      {t('reports.formSendEyebrow', { defaultValue: 'Before you send' })}
+                    </p>
+                    <h3 className="mt-2 text-lg font-black text-white">
+                      {t('reports.formSendTitle', { defaultValue: 'Send anonymously and leave details behind' })}
+                    </h3>
+                    <div className="mt-4 space-y-2">
+                      {[
+                        t('reports.formSendCheck1', { defaultValue: 'Location is generalized before it is stored or displayed.' }),
+                        t('reports.formSendCheck2', { defaultValue: 'Reports expire automatically so the feed stays recent.' }),
+                        t('reports.formSendCheck3', { defaultValue: 'Community verification depends on being nearby, not identity.' }),
+                      ].map((item) => (
+                        <div key={item} className="flex items-start gap-2 rounded-xl border border-white/10 bg-slate-950/45 px-3 py-3">
+                          <Check size={14} weight="bold" className="mt-0.5 shrink-0 text-emerald-300" />
+                          <p className="text-[13px] leading-[1.6] text-slate-300">{item}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[24px] px-6 py-4 text-sm font-black uppercase tracking-[0.12em] text-white transition-all ${
+                        isSubmitting
+                          ? 'cursor-not-allowed bg-slate-700'
+                          : isOnline
+                            ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600'
+                            : 'bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600'
+                      }`}
+                    >
+                      <Shield size={18} weight="bold" />
+                      {isSubmitting ? t('reports.transmitting') : isOnline ? t('reports.transmitReportAnonymously') : t('reports.secureOfflineSync')}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowLegalNotice(true)}
+                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-slate-300 transition-colors hover:bg-slate-800/80"
+                    >
+                      <Scales size={14} weight="bold" className="text-amber-300" />
+                      {t('reports.guidelines')}
+                    </button>
+                  </div>
                 </div>
               </div>
-              
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`w-full ${isSubmitting ? 'bg-slate-700 cursor-not-allowed' : isOnline ? 'bg-red-700' : 'bg-amber-700'} text-white py-6 rounded-3xl font-black text-2xl shadow-2xl hover:brightness-110 uppercase tracking-widest transition-all ${isSubmitting ? '' : 'active:scale-95'}`}
-              >
-                {isSubmitting ? t('reports.transmitting') : isOnline ? t('reports.transmitReportAnonymously') : t('reports.secureOfflineSync')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPrivacyModal(true)}
-                className="w-full text-center text-xs text-slate-500 hover:text-slate-300 mt-3 transition-colors"
-              >
-                <Shield size={12} weight="bold" className="inline me-1 -mt-0.5" />
-                {t('reports.howWeProtectPrivacy')}
-              </button>
             </form>
           )}
-        </div>
+        </section>
 
-        <div className="space-y-8 pt-6 page-section-item">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 overflow-visible relative">
-            <h3 className="text-2xl font-black text-slate-100 flex items-center gap-3 uppercase tracking-tight shrink-0">
-              <span className="text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">🕒</span> {t('reports.localActivityFeed')}
-            </h3>
-            
-            <div className="flex-1 flex items-center bg-slate-900/60 rounded-2xl border border-slate-800 relative overflow-hidden h-[60px] shadow-lg">
-              <div className="shrink-0 h-full flex items-center bg-[#0d1526] pe-4 border-e border-slate-800/80 z-20 py-2.5 relative shadow-[10px_0_15px_rgba(0,0,0,0.5)]">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 whitespace-nowrap">{t('reports.filter')}:</span>
-              </div>
-              
-              <div 
-                ref={scrollRef}
-                onMouseDown={onMouseDown}
-                onMouseLeave={onMouseLeave}
-                onMouseUp={onMouseUp}
-                onMouseMove={onMouseMove}
-                onWheel={onWheel}
-                className={`flex-1 h-full overflow-x-auto no-scrollbar flex items-center px-4 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} z-10`}
-                style={{ scrollBehavior: isDragging ? 'auto' : 'smooth' }}
-              >
-                <div className="flex gap-2 items-center">
-                  {(['newest', 'oldest', 'nearest', 'farthest']).map((option) => (
-                    <button 
-                      key={option} 
-                      onClick={() => handleFilterClick(option)} 
-                      disabled={(option === 'nearest' || option === 'farthest') && !userCoords} 
-                      className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${sortBy === option ? 'bg-red-700 text-white border-red-500 shadow-lg' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-200 disabled:opacity-20'}`}
-                    >
-                      {t(`reports.filter_${option}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        <section ref={feedSectionRef} className="space-y-6 pt-4 page-section-item">
+          <ReportsSectionHeader
+            eyebrow={t('reports.feedEyebrow', { defaultValue: 'Recent reports' })}
+            title={t('reports.feedTitle', { defaultValue: 'Review local activity and help verify it' })}
+            description={t('reports.feedDesc', { defaultValue: 'This feed is for recent, approximate reports. Use it to understand context, focus the map, and verify only what you directly witnessed nearby.' })}
+            accent="text-amber-300"
+          />
+
+          <div className="flex flex-col gap-4 rounded-[28px] border border-slate-800/80 bg-slate-950/55 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{t('reports.localActivityFeed')}</p>
+              <p className="mt-2 text-sm leading-[1.6] text-slate-300">
+                {t('reports.feedToolbarSupport', { defaultValue: 'Choose how to sort reports, then open the ones that matter most for the moment you are navigating.' })}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {REPORT_SORT_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => handleFilterClick(option)}
+                  disabled={(option === 'nearest' || option === 'farthest') && !userCoords}
+                  className={`rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] transition-all ${
+                    sortBy === option
+                      ? 'border-red-500/40 bg-red-500/12 text-white'
+                      : 'border-slate-700/70 bg-slate-900/80 text-slate-300 hover:bg-slate-800/80 disabled:opacity-30'
+                  }`}
+                >
+                  {t(`reports.filter_${option}`)}
+                </button>
+              ))}
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 gap-6">
-            {/* Show empty state in duress mode to hide user's report activity */}
+
+          <div className="grid grid-cols-1 gap-5">
             {isDuressMode ? (
-              <div className="p-8 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
+              <div className="rounded-[28px] border border-slate-800 bg-slate-900/40 p-8 text-center text-slate-500">
                 {t('reports.noActivityYet')}
               </div>
             ) : sortedReports.map((report) => {
-              const isPending = pendingReports.some(pr => pr.id === report.id);
+              const isPending = pendingReports.some((pr) => pr.id === report.id);
               const distance = userCoords && report.lat && report.lng ? calculateDistance(userCoords.lat, userCoords.lng, report.lat, report.lng).toFixed(1) : null;
               const displayTime = new Date(report.timestamp || '').toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+              const verifierCount = report.verifiers?.length || 0;
+              const reportIsVerified = isPending ? false : isReportVerified(report);
+              const verifierId = getOrCreateVerifierId();
+              const userHasVerified = hasUserVerified(report, verifierId);
+              const flagCount = report.flaggers?.length || 0;
+              const userHasFlagged = report.flaggers?.some((f) => f.id === verifierId);
+              const isUnderReview = flagCount >= 4;
+
               return (
-                <button
+                <div
                   key={report.id}
                   id={`report-card-${report.id}`}
-                  onClick={() => handleFeedItemClick(report)}
-                  className={`group relative flex flex-col p-8 rounded-[2rem] border transition-all duration-300 min-h-[260px] text-start shadow-2xl ${isPending ? 'bg-slate-900/40 border-dashed border-amber-800/40 border-2' : 'bg-slate-900/60 border-slate-800 hover:border-red-600/50'}`}
+                  className={`overflow-hidden rounded-[30px] border p-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.95)] transition-all ${
+                    isPending
+                      ? 'border-amber-800/40 border-dashed bg-slate-900/50'
+                      : 'border-slate-800/80 bg-gradient-to-br from-slate-950/92 via-slate-950/86 to-slate-900/80 hover:border-red-500/30'
+                  }`}
                 >
-                  <div className="absolute end-6 top-6 flex flex-col items-end gap-2.5">
-                    <span className="text-[10px] font-black text-red-500 group-hover:brightness-125 transition-colors uppercase tracking-[0.1em]">{t('reports.focusMap')}</span>
-                    {distance && (
-                      <span className="bg-[#1e293b] px-3 py-1.5 rounded-lg text-[10px] font-black text-blue-400 border border-slate-700 shadow-lg">
-                        {t('reports.milesAway', { distance })}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="pe-32 mb-6">
-                    <h4 className="font-black text-white text-2xl leading-tight mb-1 tracking-tight">
-                      {report.location}{report.state ? `, ${getStateAbbreviation(report.state)}` : ''}
-                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest ms-2">({t('reports.approx')})</span>
-                    </h4>
-                    <p className="text-[10px] font-bold text-slate-500 mb-2">
-                      {report.lat?.toFixed(4)}, {report.lng?.toFixed(4)}
-                    </p>
-                    <div className="flex gap-3 items-center">
-                      <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.15em]">{displayTime}</p>
-                      {isPending && <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest animate-pulse">{t('reports.syncing')}</span>}
-                    </div>
-                  </div>
-
-                  <p className={`mb-6 leading-relaxed font-bold flex-grow text-[15px] ${isPending ? 'text-slate-500 italic' : 'text-slate-200'}`}>
-                    {report.description}
-                  </p>
-
-                  <div className="mt-auto pt-6 flex flex-col gap-6 border-t border-slate-800/50">
-                    <div className="flex gap-4">
-                      <div className="bg-slate-950/80 px-5 py-2.5 rounded-2xl border border-slate-800 flex items-center gap-3 text-xs shadow-inner">
-                        <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">{t('reports.agentsLabel')}</span>
-                        <span className="text-red-500 font-black text-xl leading-none">{report.agents || 0}</span>
-                      </div>
-                      <div className="bg-slate-950/80 px-5 py-2.5 rounded-2xl border border-slate-800 flex items-center gap-3 text-xs shadow-inner">
-                        <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">{t('reports.vehiclesLabel')}</span>
-                        <span className="text-red-500 font-black text-xl leading-none">{report.vehicles || 0}</span>
-                      </div>
-                    </div>
-
-                    {/* Verify + Flag row — combined, center-aligned */}
-                    {(() => {
-                      const verifierCount = report.verifiers?.length || 0;
-                      const reportIsVerified = isReportVerified(report);
-                      const verifierId = getOrCreateVerifierId();
-                      const userHasVerified = hasUserVerified(report, verifierId);
-                      const flagCount = report.flaggers?.length || 0;
-                      const userHasFlagged = report.flaggers?.some(f => f.id === verifierId);
-                      const isUnderReview = flagCount >= 4;
-
-                      if (isPending) return null;
-
-                      return (
-                        <div className="flex flex-col items-center gap-2">
-                          {verifierCount > 0 && !reportIsVerified && (
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                              {t('reports.verificationsProgress', { count: verifierCount, threshold: VERIFICATION_THRESHOLD })}
+                  <button
+                    type="button"
+                    onClick={() => handleFeedItemClick(report)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="max-w-3xl">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-slate-700/70 bg-slate-900/80 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                            {displayTime}
+                          </span>
+                          {distance && (
+                            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-blue-200">
+                              {t('reports.milesAway', { distance })}
                             </span>
                           )}
-                          <div className="flex items-center justify-center gap-3">
-                            {/* Verify side */}
-                            {reportIsVerified ? (
-                              <div className="flex items-center gap-2 bg-red-950/40 text-red-500 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider border border-red-900/40 shadow-xl shadow-red-950/20">
-                                <ShieldCheckIcon size={14} weight="bold" className="shrink-0" />
-                                <span>{t('reports.verifiedBadge')}</span>
-                                <span className="bg-red-900/60 px-2 py-0.5 rounded-full text-[9px]">{verifierCount}</span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={(e) => handleToggleVerify(e, report.id || '')}
-                                disabled={userHasVerified}
-                                className={`px-7 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all shadow-xl active:scale-95 ${
-                                  userHasVerified
-                                    ? 'bg-slate-800/40 text-slate-600 border-slate-800 cursor-not-allowed'
-                                    : 'bg-slate-800/60 hover:bg-red-950/40 text-slate-400 hover:text-red-400 border-slate-700 hover:border-red-900'
-                                }`}
-                              >
-                                {userHasVerified ? t('reports.youVerified') : t('reports.vouchForReport')}
-                              </button>
-                            )}
+                          {isPending && (
+                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-200">
+                              {t('reports.syncing')}
+                            </span>
+                          )}
+                          {reportIsVerified && (
+                            <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-red-200">
+                              {t('reports.verifiedBadge')}
+                            </span>
+                          )}
+                        </div>
 
-                            {/* Divider */}
-                            <div className="w-px h-6 bg-slate-700/50 shrink-0" />
+                        <h3 className="mt-4 text-[1.55rem] font-black text-white">
+                          {report.location}{report.state ? `, ${getStateAbbreviation(report.state)}` : ''}
+                        </h3>
+                        <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                          {t('reports.approx')} • {report.lat?.toFixed(4)}, {report.lng?.toFixed(4)}
+                        </p>
+                        <p className={`mt-4 max-w-[72ch] text-[15px] leading-[1.6] ${isPending ? 'italic text-slate-500' : 'text-slate-200'}`}>
+                          {report.description}
+                        </p>
+                      </div>
 
-                            {/* Flag side */}
-                            {isUnderReview ? (
-                              <div className="flex items-center gap-1.5 text-amber-500 bg-amber-950/30 border border-amber-900/40 px-3 py-3 rounded-2xl">
-                                <FlagBannerIcon size={11} weight="bold" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">{t('reports.underReview')}</span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleFlagReport(report.id); }}
-                                disabled={userHasFlagged}
-                                className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all px-4 py-3 rounded-2xl border active:scale-95 ${
-                                  userHasFlagged
-                                    ? 'text-slate-600 border-slate-800 bg-slate-800/30 cursor-default'
-                                    : 'text-slate-500 border-slate-700 bg-slate-800/60 hover:text-amber-400 hover:border-amber-900/60'
-                                }`}
-                              >
-                                <FlagBannerIcon size={11} weight={userHasFlagged ? 'fill' : 'bold'} />
-                                {userHasFlagged ? t('reports.alreadyFlagged') : t('reports.flagReport')}
-                                {flagCount > 0 && !userHasFlagged && (
-                                  <span className="text-slate-600 font-normal normal-case tracking-normal ml-0.5">({flagCount}/4)</span>
-                                )}
-                              </button>
-                            )}
-                          </div>
-                          {onNavigateToScenario && (
+                      <div className="flex shrink-0 flex-row gap-2 lg:flex-col lg:items-end">
+                        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300">
+                          {t('reports.focusMap')}
+                        </span>
+                        {!isPending && verifierCount > 0 && !reportIsVerified && (
+                          <span className="rounded-full border border-slate-700/70 bg-slate-900/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                            {t('reports.verificationsProgress', { count: verifierCount, threshold: VERIFICATION_THRESHOLD })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+
+                  <div className="mt-5 flex flex-col gap-4 border-t border-slate-800/70 pt-4">
+                    <div className="flex flex-wrap gap-2.5">
+                      <div className="inline-flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/75 px-4 py-2.5">
+                        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{t('reports.agentsLabel')}</span>
+                        <span className="text-lg font-black tracking-tight text-red-300">{report.agents || 0}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/75 px-4 py-2.5">
+                        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{t('reports.vehiclesLabel')}</span>
+                        <span className="text-lg font-black tracking-tight text-red-300">{report.vehicles || 0}</span>
+                      </div>
+                    </div>
+
+                    {!isPending && (
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex flex-wrap gap-2">
+                          {reportIsVerified ? (
+                            <div className="inline-flex items-center gap-2 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-red-200">
+                              <ShieldCheckIcon size={14} weight="bold" />
+                              <span>{t('reports.verifiedBadge')}</span>
+                              <span className="rounded-full bg-red-900/50 px-2 py-0.5 text-[10px]">{verifierCount}</span>
+                            </div>
+                          ) : (
                             <button
-                              onClick={(e) => { e.stopPropagation(); onNavigateToScenario({ id: 'community-witnessing' }); }}
-                              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-teal-400 border border-teal-800/50 bg-teal-950/30 hover:bg-teal-900/40 px-4 py-2.5 rounded-2xl transition-all active:scale-95"
+                              onClick={(e) => handleToggleVerify(e, report.id || '')}
+                              disabled={userHasVerified}
+                              className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-all active:scale-95 ${
+                                userHasVerified
+                                  ? 'cursor-not-allowed border-slate-800 bg-slate-900/40 text-slate-600'
+                                  : 'border-slate-700/70 bg-slate-900/80 text-slate-300 hover:border-red-500/30 hover:bg-red-500/10 hover:text-white'
+                              }`}
                             >
-                              <Eye size={12} weight="bold" />
-                              {t('reports.witnessedThis')}
+                              <ShieldCheckIcon size={14} weight="bold" />
+                              {userHasVerified ? t('reports.youVerified') : t('reports.vouchForReport')}
+                            </button>
+                          )}
+
+                          {isUnderReview ? (
+                            <div className="inline-flex items-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-200">
+                              <FlagBannerIcon size={13} weight="bold" />
+                              {t('reports.underReview')}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleFlagReport(report.id)}
+                              disabled={userHasFlagged}
+                              className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-all active:scale-95 ${
+                                userHasFlagged
+                                  ? 'cursor-default border-slate-800 bg-slate-900/40 text-slate-600'
+                                  : 'border-slate-700/70 bg-slate-900/80 text-slate-300 hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-200'
+                              }`}
+                            >
+                              <FlagBannerIcon size={13} weight={userHasFlagged ? 'fill' : 'bold'} />
+                              {userHasFlagged ? t('reports.alreadyFlagged') : t('reports.flagReport')}
+                              {flagCount > 0 && !userHasFlagged && (
+                                <span className="text-slate-500 normal-case tracking-normal">({flagCount}/4)</span>
+                              )}
                             </button>
                           )}
                         </div>
-                      );
-                    })()}
+
+                        {onNavigateToScenario && (
+                          <button
+                            onClick={() => onNavigateToScenario({ id: 'community-witnessing' })}
+                            className="inline-flex items-center gap-2 self-start rounded-2xl border border-teal-500/20 bg-teal-500/10 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-teal-200 transition-colors hover:bg-teal-500/15"
+                          >
+                            <Eye size={13} weight="bold" />
+                            {t('reports.witnessedThis')}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </button>
+                </div>
               );
             })}
+
             {!isDuressMode && sortedReports.length === 0 && (
-              <div className="py-24 text-center border-4 border-dashed border-slate-900 rounded-[3rem]">
-                 <div className="text-5xl mb-4 opacity-20 grayscale">🕒</div>
-                 <p className="text-slate-600 font-black uppercase tracking-[0.2em]">{t('reports.noActivityLast12Hours')}</p>
+              <div className="rounded-[32px] border border-dashed border-slate-800 bg-slate-950/35 py-20 text-center">
+                <div className="mb-4 text-5xl opacity-20 grayscale">🕒</div>
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                  {t('reports.noActivityLast12Hours')}
+                </p>
+                <p className="mx-auto mt-3 max-w-xl text-sm leading-[1.6] text-slate-400">
+                  {t('reports.feedEmptySupport', { defaultValue: 'Recent reports will appear here for a limited time. Use the form above if you directly witnessed something the community should know about.' })}
+                </p>
               </div>
             )}
           </div>
-        </div>
+        </section>
       </div>
 
       {/* FAQ Link */}

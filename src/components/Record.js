@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { VideoCamera, Microphone, UploadSimple, Stop, Trash, FolderOpen, Camera, DownloadSimple, Warning, Cloud, CloudSlash, Shield, Lock, LockOpen, EyeSlash, CameraRotate, Question, X, CheckCircle, CloudArrowUp, Key, ClipboardText, Eye } from '@phosphor-icons/react';
 import { saveRecording, getAllRecordings, deleteRecording, clearAllRecordings, markForBackup, getDecryptedRecording } from '../utils/localStorageDB';
 import BackupSettings from './BackupSettings';
@@ -23,8 +23,56 @@ import {
   wrapMasterKeyWithPin, unwrapMasterKeyWithPin, clearCachedKey
 } from '../utils/crypto';
 import { pulseHaptic } from '../utils/haptics';
+import { readEncrypted, writeEncrypted } from '../utils/encryptedStorage';
 
+const aniDelay = (s) => ({ animationDelay: `${s}s` });
 const SETTINGS_KEY = 'safeneighbor_backup_settings';
+const WORKFLOW_GUIDE_DISMISSED_KEY = 'safeneighbor_record_workflow_dismissed';
+const WITNESS_CHECKLIST_COUNT = 8;
+const MOBILE_SCROLL_TOP_PADDING = 104;
+const MOBILE_SCROLL_BOTTOM_PADDING = 126;
+const RECORD_DESKTOP_QUOTES = [
+  {
+    quote: 'Stick to what is real.',
+    author: 'Epictetus',
+    theme: 'Stoic grounding',
+  },
+  {
+    quote: 'The palest ink is better than the best memory.',
+    author: 'Chinese Proverb',
+    theme: 'Clarity and diligence',
+  },
+  {
+    quote: 'Truth is the only safe ground to stand upon.',
+    author: 'Elizabeth Cady Stanton',
+    theme: 'Logical guardian',
+  },
+  {
+    quote: 'A problem well-stated is a problem half-solved.',
+    author: 'Charles Kettering',
+    theme: 'Clear observation',
+  },
+  {
+    quote: 'Luck is what happens when preparation meets opportunity.',
+    author: 'Seneca',
+    theme: 'Preparedness',
+  },
+  {
+    quote: 'He who is brave is free.',
+    author: 'Seneca',
+    theme: 'Protector',
+  },
+  {
+    quote: 'Everything we hear is an opinion, not a fact. Everything we see is a perspective, not the truth.',
+    author: 'Marcus Aurelius',
+    theme: 'Objective record',
+  },
+  {
+    quote: 'A man who is prepared has his battle half fought.',
+    author: 'Miguel de Cervantes',
+    theme: 'Preparedness',
+  },
+];
 
 /**
  * Initialize the upload queue from saved settings (if not already initialized)
@@ -35,10 +83,8 @@ const initQueueFromSettings = async () => {
   if (queue.getActiveProviders().length > 0) return queue;
 
   try {
-    const saved = localStorage.getItem(SETTINGS_KEY);
-    if (!saved) return null;
-
-    const settings = JSON.parse(saved);
+    const settings = await readEncrypted(SETTINGS_KEY, null);
+    if (!settings) return null;
     if (!settings.isConfigured || !settings.encryptionKey) return null;
 
     const key = await importKey(settings.encryptionKey);
@@ -56,9 +102,6 @@ const initQueueFromSettings = async () => {
   }
 };
 
-// Track if workflow guide has been shown this page load (resets on refresh, persists across navigations)
-let workflowGuideShownThisLoad = false;
-
 // Detect mobile device (for Web Share API vs download)
 const isMobileDevice = () => {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
@@ -67,9 +110,9 @@ const isMobileDevice = () => {
 
 const RecordSectionHeader = ({ eyebrow, title, description, accent = 'text-blue-400' }) => (
   <div className="mb-4">
-    <p className={`mb-2 text-xs font-bold uppercase tracking-[0.22em] ${accent}`}>{eyebrow}</p>
-    <h2 className="text-xl font-black tracking-wide text-white">{title}</h2>
-    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">{description}</p>
+    <p className={`mb-2 text-[11px] font-black uppercase tracking-[0.18em] ${accent}`}>{eyebrow}</p>
+    <h2 className="text-xl font-black tracking-tight text-white sm:text-[1.65rem]">{title}</h2>
+    <p className="mt-2 max-w-[42rem] text-sm leading-[1.62] text-slate-300">{description}</p>
   </div>
 );
 
@@ -79,6 +122,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
   const [activeTab, setActiveTab] = useState('video');
   const [witnessMode, setWitnessMode] = useState(false);
   const [showWitnessReminder, setShowWitnessReminder] = useState(false);
+  const [desktopQuoteIndex, setDesktopQuoteIndex] = useState(0);
 
   // Video state
   const [cameraActive, setCameraActive] = useState(false);
@@ -98,11 +142,13 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
   
   // Vault state
   const [vaultRecordings, setVaultRecordings] = useState([]);
+  const [vaultLoaded, setVaultLoaded] = useState(false);
   const [selectedVaultItem, setSelectedVaultItem] = useState(null);
 
   // Purge state
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
+  const [purgeAcknowledged, setPurgeAcknowledged] = useState(false);
 
   // Backup state
   const [showBackupSettings, setShowBackupSettings] = useState(false);
@@ -117,14 +163,18 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
   // PIN setup state
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [pinEnabled, setPinEnabled] = useState(isPinEnabled());
+  const [hideRecommendationCard, setHideRecommendationCard] = useState(false);
+  const [backupSettings, setBackupSettings] = useState(null);
 
   // Workflow guide modal
   const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
   const [isWorkflowGuideClosing, setIsWorkflowGuideClosing] = useState(false);
+  const [witnessChecklist, setWitnessChecklist] = useState(() => Array.from({ length: WITNESS_CHECKLIST_COUNT }, () => false));
 
   // PIN gate state — Record section requires PIN when key wrapping is active
   const [recordUnlocked, setRecordUnlocked] = useState(false);
   const [needsPin, setNeedsPin] = useState(false);
+  const activeDesktopQuote = RECORD_DESKTOP_QUOTES[desktopQuoteIndex];
 
   // Lock body scroll when any modal is open
   const anyModalOpen = showPurgeConfirm || showBackupSettings || showBackupInfo || showWorkflowGuide || showPinSetup;
@@ -132,6 +182,14 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
     document.body.style.overflow = anyModalOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [anyModalOpen]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setDesktopQuoteIndex((currentIndex) => (currentIndex + 1) % RECORD_DESKTOP_QUOTES.length);
+    }, 7000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   // Refs
   const videoRef = useRef(null);    // Live camera preview
@@ -146,10 +204,102 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
   const animationRef = useRef(null);
   const audioStreamRef = useRef(null);
   const workflowGuideCloseTimerRef = useRef(null);
+  const videoCaptureRef = useRef(null);
+  const audioCaptureRef = useRef(null);
+  const importCaptureRef = useRef(null);
+  const decryptSectionRef = useRef(null);
+  const vaultSectionRef = useRef(null);
+  const vaultRowRefs = useRef({});
+  const videoDurationRef = useRef(0);
+  const audioDurationRef = useRef(0);
+
+  const getTopChromeBottom = useCallback(() => {
+    const topNav = document.querySelector('[data-shell-top-nav="true"]');
+    const topBanners = Array.from(document.querySelectorAll('[data-shell-top-banner="true"]'));
+
+    const navBottom = topNav ? topNav.getBoundingClientRect().bottom : 0;
+    const bannerBottom = topBanners.reduce((maxBottom, banner) => {
+      const rect = banner.getBoundingClientRect();
+      if (rect.height <= 0 || rect.bottom <= 0) return maxBottom;
+      return Math.max(maxBottom, rect.bottom);
+    }, 0);
+
+    return Math.max(navBottom, bannerBottom);
+  }, []);
+
+  const getShellAwareTopPadding = useCallback((gap = 18, fallback = MOBILE_SCROLL_TOP_PADDING) => (
+    Math.max(fallback, getTopChromeBottom() + gap)
+  ), [getTopChromeBottom]);
+
+  const getVideoPreviewTopPadding = useCallback(() => (
+    getShellAwareTopPadding(12, 102)
+  ), [getShellAwareTopPadding]);
+
+  const getAudioPreviewTopPadding = useCallback(() => (
+    getShellAwareTopPadding(12, 102)
+  ), [getShellAwareTopPadding]);
+
+  const getScrollTopForElement = useCallback((element, {
+    topPadding = MOBILE_SCROLL_TOP_PADDING,
+    bottomPadding = MOBILE_SCROLL_BOTTOM_PADDING,
+    preferCenterIfFits = false,
+  } = {}) => {
+    if (!element) return null;
+
+    const rect = element.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const availableHeight = Math.max(viewportHeight - topPadding - bottomPadding, 0);
+    const elementTop = window.scrollY + rect.top;
+
+    if (preferCenterIfFits && rect.height > 0 && rect.height <= availableHeight) {
+      const centeredOffset = topPadding + ((availableHeight - rect.height) / 2);
+      return Math.max(elementTop - centeredOffset, 0);
+    }
+
+    return Math.max(elementTop - topPadding, 0);
+  }, []);
+
+  const scrollToCaptureRef = useCallback((ref, options = {}) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const element = ref.current;
+        if (!element) return;
+
+        const top = getScrollTopForElement(element, options);
+        if (top === null) return;
+        window.scrollTo({ top, behavior: 'smooth' });
+      });
+    });
+  }, [getScrollTopForElement]);
+
+  const scrollToElement = useCallback((element, options = {}) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (!element) return;
+
+        const top = getScrollTopForElement(element, options);
+        if (top === null) return;
+        window.scrollTo({ top, behavior: 'smooth' });
+      });
+    });
+  }, [getScrollTopForElement]);
+
+  const loadBackupSettings = useCallback(async () => {
+    try {
+      const settings = await readEncrypted(SETTINGS_KEY, null);
+      setBackupSettings(settings || null);
+      return settings || null;
+    } catch (error) {
+      console.error('Failed to load backup settings in Record:', error);
+      setBackupSettings(null);
+      return null;
+    }
+  }, []);
 
   // Helper to load vault and init backup queue
   const loadVaultAndInit = async () => {
     await loadVault();
+    await loadBackupSettings();
     await initQueueFromSettings();
   };
 
@@ -232,14 +382,30 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
     return () => window.removeEventListener('openBackupSettings', handler);
   }, []);
 
-  // Show workflow guide on first Record visit per page load (resets on refresh, not on navigation)
   useEffect(() => {
-    if (recordUnlocked && !isDuressMode && !workflowGuideShownThisLoad) {
+    if (!recordUnlocked) return;
+    loadBackupSettings();
+  }, [recordUnlocked, showBackupSettings, loadBackupSettings]);
+
+  const persistWorkflowGuideDismissal = useCallback(() => {
+    try {
+      localStorage.setItem(WORKFLOW_GUIDE_DISMISSED_KEY, 'true');
+    } catch (error) {
+      console.warn('Failed to persist Record workflow guide dismissal', error);
+    }
+  }, []);
+
+  // Show the workflow guide only on true first-use states: no vault items yet
+  // and no prior persistent dismissal on this device.
+  useEffect(() => {
+    if (!recordUnlocked || isDuressMode || !vaultLoaded || showWorkflowGuide) return;
+
+    const wasDismissed = localStorage.getItem(WORKFLOW_GUIDE_DISMISSED_KEY) === 'true';
+    if (vaultRecordings.length === 0 && !wasDismissed) {
       setIsWorkflowGuideClosing(false);
       setShowWorkflowGuide(true);
-      workflowGuideShownThisLoad = true;
     }
-  }, [recordUnlocked, isDuressMode]);
+  }, [recordUnlocked, isDuressMode, vaultLoaded, vaultRecordings.length, showWorkflowGuide]);
 
   useEffect(() => {
     return () => {
@@ -255,12 +421,13 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       event.preventDefault();
     }
     if (isWorkflowGuideClosing) return;
+    persistWorkflowGuideDismissal();
     setIsWorkflowGuideClosing(true);
     workflowGuideCloseTimerRef.current = window.setTimeout(() => {
       setShowWorkflowGuide(false);
       setIsWorkflowGuideClosing(false);
     }, 150);
-  }, [isWorkflowGuideClosing]);
+  }, [isWorkflowGuideClosing, persistWorkflowGuideDismissal]);
 
   const recordingNotificationRef = useRef(null);
 
@@ -339,6 +506,8 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       setVaultRecordings(recordings || []);
     } catch (err) {
       console.error('Vault load error:', err);
+    } finally {
+      setVaultLoaded(true);
     }
   };
 
@@ -545,6 +714,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       // WebKit recommended pattern: always concatenate chunks into a new Blob
       // using recorder.mimeType (the actual format chosen by the browser)
       const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/mp4' });
+      const finalDuration = videoDurationRef.current;
 
       const blobUrl = URL.createObjectURL(blob);
       setRecordedBlob(blob);
@@ -554,14 +724,21 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       // Defer thumbnail so the playback video can establish its media session first
       setTimeout(async () => {
         const thumbnail = await generateThumbnail(blob);
-        await saveToVault(blob, duration, 'video', thumbnail, 'recorded', witnessMode ? 'witness-report' : 'default');
+        await saveToVault(blob, finalDuration, 'video', thumbnail, 'recorded', witnessMode ? 'witness-report' : 'default');
       }, 500);
     };
     recorder.start(1000); // 1-second timeslice (WebKit recommended pattern)
     mediaRecorderRef.current = recorder;
     setIsRecording(true);
     setDuration(0);
-    timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+    videoDurationRef.current = 0;
+    timerRef.current = setInterval(() => {
+      setDuration((currentDuration) => {
+        const nextDuration = currentDuration + 1;
+        videoDurationRef.current = nextDuration;
+        return nextDuration;
+      });
+    }, 1000);
     acquireWakeLock();
   };
 
@@ -576,6 +753,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
     setRecordedUrl(null); // unmounts playback element
     setRecordedBlob(null);
     setDuration(0);
+    videoDurationRef.current = 0;
     setUsedNativeCamera(false);
     await startCamera();
     setTimeout(() => {
@@ -596,6 +774,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
     setRecordedUrl(null); // unmounts playback element
     setRecordedBlob(null);
     setDuration(0);
+    videoDurationRef.current = 0;
     setUsedNativeCamera(false);
   };
 
@@ -642,6 +821,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
         
         // WebKit recommended pattern: always concatenate chunks with recorder.mimeType
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/mp4' });
+        const finalAudioDuration = audioDurationRef.current;
         setAudioUrl(URL.createObjectURL(blob));
         setIsRecordingAudio(false);
 
@@ -655,7 +835,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           audioContextRef.current = null;
         }
 
-        await saveToVault(blob, audioDuration, 'audio', null, 'recorded', witnessMode ? 'witness-report' : 'default');
+        await saveToVault(blob, finalAudioDuration, 'audio', null, 'recorded', witnessMode ? 'witness-report' : 'default');
       };
 
       recorder.start(1000); // 1-second timeslice (WebKit recommended pattern)
@@ -664,7 +844,14 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       showRecordingNotification();
       setIsRecordingAudio(true);
       setAudioDuration(0);
-      timerRef.current = setInterval(() => setAudioDuration(d => d + 1), 1000);
+      audioDurationRef.current = 0;
+      timerRef.current = setInterval(() => {
+        setAudioDuration((currentDuration) => {
+          const nextDuration = currentDuration + 1;
+          audioDurationRef.current = nextDuration;
+          return nextDuration;
+        });
+      }, 1000);
       acquireWakeLock();
     } catch (err) {
       setError(`Mic error: ${err.message}`);
@@ -681,6 +868,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioUrl(null);
     setAudioDuration(0);
+    audioDurationRef.current = 0;
     setTimeout(() => {
       startAudioRecording();
     }, 300);
@@ -698,6 +886,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioUrl(null);
     setAudioDuration(0);
+    audioDurationRef.current = 0;
     setAudioLevels(new Array(64).fill(0));
   };
 
@@ -731,13 +920,13 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       });
 
       const saved = await saveRecording(processedData);
+      persistWorkflowGuideDismissal();
       await loadVault();
 
       // Auto-backup: if enabled, mark recording for backup and queue it
       try {
-        const settingsJson = localStorage.getItem(SETTINGS_KEY);
-        if (settingsJson) {
-          const settings = JSON.parse(settingsJson);
+        const settings = backupSettings || await readEncrypted(SETTINGS_KEY, null);
+        if (settings) {
           if (settings.isConfigured && settings.autoBackup && settings.activeProviders?.length > 0) {
             await markForBackup(saved.id, true);
             await loadVault();
@@ -805,8 +994,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       // For non-restored recordings, encrypt with the BACKUP key and download as .enc
       // This ensures .enc files are compatible with the DECRYPT tab and cloud backups
       if (rec.source !== 'restored') {
-        const settingsJson = localStorage.getItem(SETTINGS_KEY);
-        const settings = settingsJson ? JSON.parse(settingsJson) : null;
+        const settings = backupSettings || await readEncrypted(SETTINGS_KEY, null);
         if (!settings?.encryptionKey) {
           setError(t('record.noEncKeyForBackup'));
           return;
@@ -893,23 +1081,13 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
     }
   };
 
-  // Check if a backup encryption key is saved
-  const getSavedEncryptionKey = () => {
-    try {
-      const saved = localStorage.getItem(SETTINGS_KEY);
-      if (!saved) return null;
-      const settings = JSON.parse(saved);
-      return settings.encryptionKey || null;
-    } catch { return null; }
-  };
-
   // RESTORE ENCRYPTED BACKUP
   const restoreEncryptedFile = async (file) => {
     setIsRestoring(true);
     setError(null);
     try {
       // Try saved key first, then manual input
-      const savedKey = getSavedEncryptionKey();
+      const savedKey = backupSettings?.encryptionKey || null;
       const keyString = savedKey || decryptKeyInput.trim();
 
       if (!keyString) {
@@ -920,11 +1098,17 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       // If using manual key, save it to backup settings for future use
       if (!savedKey && keyString) {
         try {
-          const existing = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-          existing.encryptionKey = keyString;
-          localStorage.setItem(SETTINGS_KEY, JSON.stringify(existing));
+          const existing = (backupSettings || await readEncrypted(SETTINGS_KEY, {})) || {};
+          const nextSettings = { ...existing, encryptionKey: keyString };
+          const didPersistKey = await writeEncrypted(SETTINGS_KEY, nextSettings);
+          if (!didPersistKey) {
+            console.warn('Unable to persist backup decryption key; keeping it in memory for this session.');
+          }
+          setBackupSettings(nextSettings);
           setDecryptKeySource('manual');
-        } catch (e) { /* continue even if save fails */ }
+        } catch (persistError) {
+          console.warn('Failed to persist manual decryption key:', persistError);
+        }
       } else {
         setDecryptKeySource('saved');
       }
@@ -979,9 +1163,263 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
 
   const fmt = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
   const fmtB = (b) => !b ? '0 B' : b < 1024 ? b+' B' : b < 1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
-  const savedEncryptionKey = getSavedEncryptionKey();
+  const savedEncryptionKey = backupSettings?.encryptionKey || null;
+  const backupReady = Boolean(backupSettings?.isConfigured && backupSettings?.activeProviders?.length);
   const backedUpCount = vaultRecordings.filter((rec) => rec.backedUp).length;
   const pendingBackupCount = vaultRecordings.filter((rec) => rec.markedForBackup && !rec.backedUp).length;
+  const privacyEnabled = isMetadataStripEnabled();
+  const latestRecording = vaultRecordings[0] || null;
+  const setupItems = [
+    {
+      id: 'privacy',
+      label: t('record.readinessPrivacyLabel', { defaultValue: 'Private capture' }),
+      status: privacyEnabled
+        ? t('record.readinessOn', { defaultValue: 'On' })
+        : t('record.readinessReview', { defaultValue: 'Review' }),
+      ready: privacyEnabled,
+      onClick: () => {
+        sessionStorage.setItem('faqScrollTarget', 'privacy');
+        onNavigate('faq');
+      },
+    },
+    {
+      id: 'pin',
+      label: 'PIN',
+      status: pinEnabled
+        ? t('record.readinessOn', { defaultValue: 'On' })
+        : t('record.readinessNeeded', { defaultValue: 'Needed' }),
+      ready: pinEnabled,
+      onClick: () => setShowPinSetup(true),
+    },
+    {
+      id: 'backup',
+      label: t('record.backup'),
+      status: backupReady
+        ? t('record.readinessOn', { defaultValue: 'On' })
+        : t('record.readinessNeeded', { defaultValue: 'Needed' }),
+      ready: backupReady,
+      onClick: () => {
+        setBackupSettingsTab('google_drive');
+        setShowBackupSettings(true);
+      },
+    },
+  ];
+  const setupReadyCount = setupItems.filter((item) => item.ready).length;
+  const setupProgressPercent = Math.round((setupReadyCount / setupItems.length) * 100);
+  const quickCaptureDisabled = isRecording || isRecordingAudio || isRestoring || isPurging;
+  const witnessChecklistItems = Array.from({ length: WITNESS_CHECKLIST_COUNT }, (_, index) => t(`communityWitnessing.doc${index + 1}`));
+  const witnessChecklistCompleteCount = witnessChecklist.filter(Boolean).length;
+  const showPrimaryRecommendation = !hideRecommendationCard && setupReadyCount < setupItems.length;
+  const showReadinessSection = setupReadyCount < setupItems.length;
+
+  useEffect(() => {
+    if (setupReadyCount === setupItems.length) {
+      setHideRecommendationCard(true);
+      return;
+    }
+
+    if (!pinEnabled) {
+      setHideRecommendationCard(false);
+    }
+  }, [pinEnabled, setupItems.length, setupReadyCount]);
+
+  const handleOpenVideoCapture = async ({ scrollTarget = 'preview' } = {}) => {
+    if (quickCaptureDisabled) return;
+    setError(null);
+    setActiveTab('video');
+    scrollToCaptureRef(videoCaptureRef, {
+      topPadding: scrollTarget === 'preview'
+        ? getVideoPreviewTopPadding()
+        : getShellAwareTopPadding(14, MOBILE_SCROLL_TOP_PADDING),
+      bottomPadding: 116,
+    });
+    if (recordedUrl) {
+      await recordMore();
+      return;
+    }
+    if (cameraActive) {
+      if (!isRecording) startVideoRecording();
+      return;
+    }
+    await startCamera();
+    window.setTimeout(() => {
+      if (streamRef.current && !isRecording) {
+        startVideoRecording();
+      }
+    }, 320);
+  };
+
+  const handleOpenAudioCapture = async () => {
+    if (quickCaptureDisabled) return;
+    setError(null);
+    stopCamera();
+    setActiveTab('audio');
+    scrollToCaptureRef(audioCaptureRef, {
+      topPadding: getAudioPreviewTopPadding(),
+      bottomPadding: 116,
+    });
+    if (audioUrl) {
+      await recordMoreAudio();
+      window.setTimeout(() => {
+        scrollToCaptureRef(audioCaptureRef, {
+          topPadding: getAudioPreviewTopPadding(),
+          bottomPadding: 116,
+        });
+      }, 220);
+      return;
+    }
+    if (!isRecordingAudio) {
+      await startAudioRecording();
+      window.setTimeout(() => {
+        scrollToCaptureRef(audioCaptureRef, {
+          topPadding: getAudioPreviewTopPadding(),
+          bottomPadding: 116,
+        });
+      }, 220);
+    }
+  };
+
+  const handleOpenImport = () => {
+    if (quickCaptureDisabled) return;
+    stopCamera();
+    setActiveTab('import');
+    scrollToCaptureRef(importCaptureRef, {
+      topPadding: getShellAwareTopPadding(16, 118),
+      bottomPadding: 118,
+    });
+  };
+
+  const handleOpenDecrypt = () => {
+    if (quickCaptureDisabled) return;
+    stopCamera();
+    setActiveTab('decrypt');
+    scrollToCaptureRef(decryptSectionRef, {
+      topPadding: getShellAwareTopPadding(16, 118),
+      bottomPadding: 118,
+    });
+  };
+
+  const handleWitnessModeToggle = useCallback(() => {
+    if (witnessMode) {
+      setWitnessMode(false);
+      setShowWitnessReminder(false);
+      setWitnessChecklist(Array.from({ length: WITNESS_CHECKLIST_COUNT }, () => false));
+      return;
+    }
+
+    setWitnessMode(true);
+    setShowWitnessReminder(true);
+    setActiveTab('video');
+    scrollToCaptureRef(videoCaptureRef, {
+      topPadding: getVideoPreviewTopPadding(),
+      bottomPadding: 116,
+    });
+  }, [getVideoPreviewTopPadding, scrollToCaptureRef, witnessMode]);
+
+  const handleWitnessChecklistToggle = useCallback((index) => {
+    setWitnessChecklist((current) => current.map((checked, itemIndex) => (
+      itemIndex === index ? !checked : checked
+    )));
+  }, []);
+
+  const handlePinSetupSuccess = useCallback(() => {
+    const nextPinEnabled = isPinEnabled();
+    setPinEnabled(nextPinEnabled);
+    setShowPinSetup(false);
+
+    if (nextPinEnabled) {
+      setHideRecommendationCard(true);
+    }
+  }, []);
+
+  let primaryRecommendation = {
+    eyebrow: t('record.recReadyEyebrow', { defaultValue: 'Ready now' }),
+    title: t('record.recReadyTitle', { defaultValue: 'Your capture tools are ready' }),
+    description: t('record.recReadyDesc', { defaultValue: 'Record first, then decide what to keep, back up, or decrypt when the moment is over.' }),
+    ctaLabel: t('record.recReadyCta', { defaultValue: 'Start video' }),
+    onClick: handleOpenVideoCapture,
+    accentClasses: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15',
+    iconWrap: 'border-emerald-400/20 bg-emerald-500/10',
+    iconColor: 'text-emerald-300',
+    meta: t('record.recReadyMeta', { defaultValue: 'Capture stores locally first' }),
+  };
+
+  if (!pinEnabled) {
+    primaryRecommendation = {
+      eyebrow: t('record.recPinEyebrow', { defaultValue: 'Security first' }),
+      title: t('record.recPinTitle', { defaultValue: 'Set a PIN before you rely on this' }),
+      description: t('record.recPinDesc', { defaultValue: 'A PIN helps keep recordings locked if someone gets access to your phone while you are under stress.' }),
+      ctaLabel: t('record.recPinCta', { defaultValue: 'Set PIN' }),
+      onClick: () => setShowPinSetup(true),
+      accentClasses: 'border-amber-400/25 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15',
+      iconWrap: 'border-amber-400/20 bg-amber-500/10',
+      iconColor: 'text-amber-300',
+      meta: t('record.recPinMeta', { defaultValue: 'Recommended before first use' }),
+    };
+  } else if (!backupReady) {
+    primaryRecommendation = {
+      eyebrow: t('record.recBackupEyebrow', { defaultValue: 'Backup next' }),
+      title: t('record.recBackupTitle', { defaultValue: 'Turn on encrypted backup' }),
+      description: t('record.recBackupDesc', { defaultValue: 'Your recordings stay on-device by default. Add encrypted backup so you are not relying on one phone.' }),
+      ctaLabel: t('record.recBackupCta', { defaultValue: 'Set up backup' }),
+      onClick: () => {
+        setBackupSettingsTab('google_drive');
+        setShowBackupSettings(true);
+      },
+      accentClasses: 'border-blue-400/25 bg-blue-500/10 text-blue-200 hover:bg-blue-500/15',
+      iconWrap: 'border-blue-400/20 bg-blue-500/10',
+      iconColor: 'text-blue-300',
+      meta: t('record.recBackupMeta', { defaultValue: 'Local-first, cloud when you choose it' }),
+    };
+  } else if (pendingBackupCount > 0) {
+    primaryRecommendation = {
+      eyebrow: t('record.recPendingEyebrow', { defaultValue: 'Follow up' }),
+      title: t('record.recPendingTitle', { count: pendingBackupCount, defaultValue: pendingBackupCount === 1 ? '1 item waiting for backup' : `${pendingBackupCount} items waiting for backup` }),
+      description: t('record.recPendingDesc', { defaultValue: 'You already marked evidence for backup. Open backup settings to confirm providers and keep things moving.' }),
+      ctaLabel: t('record.recPendingCta', { defaultValue: 'Review backup' }),
+      onClick: () => {
+        setBackupSettingsTab('google_drive');
+        setShowBackupSettings(true);
+      },
+      accentClasses: 'border-cyan-400/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15',
+      iconWrap: 'border-cyan-400/20 bg-cyan-500/10',
+      iconColor: 'text-cyan-300',
+      meta: t('record.recPendingMeta', { defaultValue: 'Pending items stay encrypted locally' }),
+    };
+  } else if (vaultRecordings.length === 0) {
+    primaryRecommendation = {
+      eyebrow: t('record.recPracticeEyebrow', { defaultValue: 'First run' }),
+      title: t('record.recPracticeTitle', { defaultValue: 'Do one dry run before you need this' }),
+      description: t('record.recPracticeDesc', { defaultValue: 'A short test recording helps you confirm permissions, storage, and backup while things are calm.' }),
+      ctaLabel: t('record.recPracticeCta', { defaultValue: 'Open guide' }),
+      onClick: () => setShowWorkflowGuide(true),
+      accentClasses: 'border-red-400/25 bg-red-500/10 text-red-100 hover:bg-red-500/15',
+      iconWrap: 'border-red-400/20 bg-red-500/10',
+      iconColor: 'text-red-300',
+      meta: t('record.recPracticeMeta', { defaultValue: 'Best done before an emergency' }),
+    };
+  }
+
+  const scrollToVault = async ({ recording = null, preferPending = false } = {}) => {
+    const targetRecording = recording || (preferPending
+      ? vaultRecordings.find((item) => item.markedForBackup && !item.backedUp)
+      : null);
+
+    if (targetRecording) {
+      await selectVaultItem(targetRecording);
+      scrollToElement(vaultRowRefs.current[targetRecording.id] || vaultSectionRef.current, {
+        topPadding: getShellAwareTopPadding(10, 92),
+        bottomPadding: 144,
+        preferCenterIfFits: true,
+      });
+      return;
+    }
+
+    scrollToElement(vaultSectionRef.current, {
+      topPadding: getShellAwareTopPadding(10, 92),
+      bottomPadding: 144,
+    });
+  };
 
   // BACKUP handler
   const handleToggleBackup = async (id, currentState) => {
@@ -1023,6 +1461,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       setAudioUrl(null);
       setVaultRecordings([]);
       setSelectedVaultItem(null);
+      setPurgeAcknowledged(false);
       setShowPurgeConfirm(false);
     } catch (err) {
       console.error('Purge error:', err);
@@ -1056,66 +1495,301 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-24 pt-3 page-section-stagger">
-      <div className="mb-8 rounded-[28px] border border-slate-800/80 bg-gradient-to-br from-slate-950/90 via-slate-950/75 to-slate-900/70 p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.95)] page-section-item">
-        <div className="max-w-3xl">
-          <div className="flex items-center gap-3">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 text-red-300 shadow-[0_0_0_1px_rgba(248,113,113,0.08)]">
-              <VideoCamera size={26} weight="bold" />
-            </div>
-            <h1 className="text-3xl font-black tracking-wide text-white sm:text-[2.3rem]">
-              {t('record.title')}
-            </h1>
-          </div>
-          <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-[1.05rem]">
-            {t('record.subtitle')}
-          </p>
-        </div>
+    <div className="mx-auto max-w-5xl px-4 pb-24 pt-3 page-transition-in page-section-stagger">
+      <div
+        className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+        }}
+      />
 
-        <div className="mt-5 flex flex-wrap gap-2.5">
-          {isMetadataStripEnabled() && (
-            <button
-              onClick={() => {
-                sessionStorage.setItem('faqScrollTarget', 'privacy');
-                onNavigate('faq');
-              }}
-              className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-600/20 px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300 transition-colors hover:bg-emerald-600/30 active:scale-95"
-              title={t('record.metadataStrippingActive')}
-            >
-              <EyeSlash size={13} weight="bold" />
-              {t('record.private')}
-            </button>
-          )}
-          <button
-            onClick={() => setShowPinSetup(true)}
-            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition-colors active:scale-95 ${
-              pinEnabled
-                ? 'border-green-500/30 bg-green-600/20 text-green-300 hover:bg-green-600/30'
-                : 'border-amber-500/30 bg-amber-600/20 text-amber-300 hover:bg-amber-600/30'
-            }`}
-          >
-            <Lock size={13} weight="bold" />
-            PIN
-          </button>
-          <button
-            onClick={() => { setBackupSettingsTab('google_drive'); setShowBackupSettings(true); }}
-            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition-colors active:scale-95 ${
-              savedEncryptionKey
-                ? 'border-blue-500/30 bg-blue-600/20 text-blue-300 hover:bg-blue-600/30'
-                : 'border-slate-600/50 bg-slate-700/40 text-slate-300 hover:bg-slate-600/50'
-            }`}
-          >
-            <Cloud size={13} weight="bold" />
-            {savedEncryptionKey ? t('record.backupReady') : t('record.backup')}
-          </button>
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-950/95 to-slate-900/80 p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.95)] page-section-item">
+        <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-red-400/35 to-transparent" />
+        <div className="pointer-events-none absolute -top-20 right-0 h-52 w-52 rounded-full bg-red-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-0 h-52 w-52 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.08) 1px, transparent 1px)', backgroundSize: '24px 24px', maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.55), transparent 86%)' }} />
+
+        <div className="relative xl:grid xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] xl:items-start xl:gap-4">
+          <div>
+            <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-red-300/80 scenario-fade-in" style={aniDelay(0.06)}>
+              {t('record.captureNowEyebrow')}
+            </p>
+
+            <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.18)}>
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 text-red-300 shadow-[0_0_28px_rgba(239,68,68,0.18)]">
+                <VideoCamera size={30} weight="bold" />
+              </div>
+              <h1 className="max-w-3xl text-[2rem] font-black text-white sm:text-[2.75rem] xl:text-left">
+                {t('record.title')}
+              </h1>
+            </div>
+
+            <p className="max-w-3xl text-base leading-[1.6] text-slate-300 sm:text-[1.05rem] scenario-fade-in" style={aniDelay(0.32)}>
+              {t('record.subtitle')}
+            </p>
+            <p className="mt-3 max-w-2xl text-sm leading-[1.6] text-slate-400 scenario-fade-in" style={aniDelay(0.44)}>
+              {t('record.heroSupport', { defaultValue: 'Capture first. Organize, protect, and back up after the moment passes. Record keeps evidence local by default and lets you decide what leaves the device.' })}
+            </p>
+
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-fade-in" style={aniDelay(0.56)}>
+              {privacyEnabled && (
+                <button
+                  onClick={() => {
+                    sessionStorage.setItem('faqScrollTarget', 'privacy');
+                    onNavigate('faq');
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300 transition-colors hover:bg-emerald-500/15"
+                  title={t('record.metadataStrippingActive')}
+                >
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <EyeSlash size={13} weight="bold" />
+                  {t('record.private')}
+                </button>
+              )}
+              <button
+                onClick={() => setShowPinSetup(true)}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] transition-colors ${
+                  pinEnabled
+                    ? 'border-green-500/20 bg-green-500/10 text-green-300 hover:bg-green-500/15'
+                    : 'border-amber-500/20 bg-amber-500/10 text-amber-300 hover:bg-amber-500/15'
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full ${pinEnabled ? 'bg-green-400' : 'bg-amber-400'}`} />
+                <Lock size={13} weight="bold" />
+                PIN
+              </button>
+              <button
+                onClick={() => { setBackupSettingsTab('google_drive'); setShowBackupSettings(true); }}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] transition-colors ${
+                  backupReady
+                    ? 'border-blue-500/20 bg-blue-500/10 text-blue-300 hover:bg-blue-500/15'
+                    : 'border-slate-600/50 bg-slate-700/40 text-slate-300 hover:bg-slate-600/50'
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full ${backupReady ? 'bg-blue-400' : 'bg-slate-400'}`} />
+                <Cloud size={13} weight="bold" />
+                {backupReady ? t('record.backupReady') : t('record.backup')}
+              </button>
+              <button
+                onClick={() => setShowWorkflowGuide(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-200 transition-colors hover:bg-cyan-500/15"
+              >
+                <span className="h-2 w-2 rounded-full bg-cyan-300" />
+                <Question size={13} weight="bold" />
+                {t('record.howRecordingWorks')}
+              </button>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.68)}>
+              <button
+                onClick={() => handleOpenVideoCapture({ scrollTarget: 'preview' })}
+                disabled={quickCaptureDisabled}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-white transition-all shadow-[0_12px_32px_rgba(127,29,29,0.35)] hover:from-red-500 hover:to-red-600 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                <VideoCamera size={18} weight="bold" />
+                <span>{t('record.startVideoRecording')}</span>
+              </button>
+              <button
+                onClick={handleOpenAudioCapture}
+                disabled={quickCaptureDisabled}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/70 px-6 py-3.5 text-sm font-bold text-white transition-all shadow-[0_10px_24px_rgba(15,23,42,0.28)] hover:bg-slate-800/80 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                <Microphone size={18} weight="bold" className="text-blue-300" />
+                <span>{t('record.startAudioRecording')}</span>
+              </button>
+              <button
+                onClick={handleOpenImport}
+                disabled={quickCaptureDisabled}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/60 px-6 py-3.5 text-sm font-bold text-slate-200 transition-all hover:bg-slate-800/80 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                <UploadSimple size={18} weight="bold" className="text-cyan-300" />
+                <span>{t('record.tabImport')}</span>
+              </button>
+            </div>
+
+            {!pinEnabled && (
+              <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-amber-400/80 xl:justify-start">
+                <Lock size={12} weight="bold" />
+                {t('record.pinWarning')}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 xl:mt-0 xl:h-full scenario-rise-in" style={aniDelay(0.46)}>
+            {showPrimaryRecommendation && (
+              <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/65">
+                      {primaryRecommendation.eyebrow}
+                    </p>
+                    <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-xl">
+                      {primaryRecommendation.title}
+                    </h2>
+                    <p className="mt-2 max-w-[34ch] text-sm leading-[1.62] text-slate-300">
+                      {primaryRecommendation.description}
+                    </p>
+                  </div>
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${primaryRecommendation.iconWrap}`}>
+                    <Shield size={20} weight="bold" className={primaryRecommendation.iconColor} />
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <span className="rounded-full border border-white/10 bg-slate-900/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white/75">
+                    {primaryRecommendation.meta}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={primaryRecommendation.onClick}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all ${primaryRecommendation.accentClasses}`}
+                  >
+                    {primaryRecommendation.ctaLabel}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <AnimatePresence initial={false}>
+              {showReadinessSection && (
+                <motion.div
+                  key="record-readiness"
+                  initial={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  transition={{ duration: 0.32, ease: 'easeOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/[0.07] via-slate-950/90 to-slate-900/90 px-4 py-4 text-left shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-300">
+                          {t('record.readinessEyebrow', { defaultValue: 'Recording readiness' })}
+                        </p>
+                        <p className="mt-1 max-w-[34ch] text-sm leading-[1.62] text-slate-300">
+                          {t('record.readinessSupportText', { defaultValue: 'Finish the basics once so this screen is calmer when you are under pressure.' })}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-white/80">
+                        {setupReadyCount}/{setupItems.length}
+                      </span>
+                    </div>
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between gap-3 text-[11px] font-bold uppercase tracking-[0.14em]">
+                        <span className="text-white/85">
+                          {t('record.readinessProgressLabel', { ready: setupReadyCount, total: setupItems.length, defaultValue: `${setupReadyCount}/${setupItems.length} essentials complete` })}
+                        </span>
+                        <span className="text-amber-300">
+                          {t('record.readinessLeft', { count: setupItems.length - setupReadyCount, defaultValue: setupItems.length - setupReadyCount === 1 ? '1 item left' : `${setupItems.length - setupReadyCount} items left` })}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-900/80">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 transition-all duration-500"
+                          style={{ width: `${setupProgressPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                      {setupItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={item.onClick}
+                          className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/45 px-3 py-3 text-left transition-all hover:border-white/20 hover:bg-slate-950/60"
+                        >
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-300">
+                              {item.label}
+                            </p>
+                            <p className={`mt-1 text-xs font-black uppercase tracking-[0.14em] ${item.ready ? 'text-emerald-300' : 'text-amber-300'}`}>
+                              {item.status}
+                            </p>
+                          </div>
+                          <CheckCircle size={16} weight="bold" className={item.ready ? 'text-emerald-300' : 'text-slate-500'} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="rounded-2xl border border-slate-800/80 bg-gradient-to-r from-slate-950/85 via-slate-950/70 to-slate-900/80 px-4 py-3 shadow-[0_14px_30px_rgba(2,6,23,0.12)] sm:py-3.5">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                {t('record.storageTrustEyebrow', { defaultValue: 'Storage behavior' })}
+              </p>
+              <p className="mt-1 max-w-[44ch] text-[13px] leading-[1.62] text-slate-300 sm:text-sm">
+                {t('record.storageTrustIntro', { defaultValue: 'Recordings save to your encrypted local vault first. Backup only happens when you set it up or mark items for cloud protection.' })}
+              </p>
+            </div>
+
+            <div className="hidden flex-1 xl:flex">
+              <div className="relative flex h-full min-h-[212px] w-full flex-col justify-between overflow-hidden rounded-[28px] border border-slate-800/70 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.08),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.92))] px-5 py-4 shadow-[0_16px_34px_rgba(2,6,23,0.16)]">
+                <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
+                <div className="pointer-events-none absolute -bottom-14 right-0 h-32 w-32 rounded-full bg-cyan-500/8 blur-3xl" />
+
+                <div className="relative flex items-start justify-between gap-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-200/60">
+                    {t('record.desktopQuoteEyebrow', { defaultValue: 'Quote library' })}
+                  </p>
+                  <span className="rounded-full border border-white/10 bg-slate-950/65 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">
+                    {desktopQuoteIndex + 1}/{RECORD_DESKTOP_QUOTES.length}
+                  </span>
+                </div>
+
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={`${activeDesktopQuote.author}-${desktopQuoteIndex}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.28, ease: 'easeOut' }}
+                    className="relative mt-3 flex-1"
+                  >
+                    <p
+                      className="max-w-[28ch] text-[1.02rem] font-medium italic leading-[1.58] tracking-[0.003em] text-slate-400/72"
+                      style={{
+                        fontFamily: '"Palatino Linotype", "Book Antiqua", "Iowan Old Style", ui-serif, Georgia, serif',
+                      }}
+                    >
+                      “{activeDesktopQuote.quote}”
+                    </p>
+
+                    <div className="mt-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500/85">
+                        {activeDesktopQuote.theme}
+                      </p>
+                      <p className="mt-1 text-[12px] font-semibold tracking-[0.01em] text-slate-500">
+                        {activeDesktopQuote.author}
+                      </p>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+
+                <div className="relative mt-3 flex items-center justify-center">
+                  <div className="flex items-center gap-2">
+                    {RECORD_DESKTOP_QUOTES.map((quoteItem, quoteIndex) => (
+                      <button
+                        key={`${quoteItem.author}-${quoteIndex}`}
+                        type="button"
+                        onClick={() => setDesktopQuoteIndex(quoteIndex)}
+                        className={`h-2.5 rounded-full transition-all ${
+                          quoteIndex === desktopQuoteIndex
+                            ? 'w-6 bg-cyan-300/75'
+                            : 'w-2.5 bg-slate-600/80 hover:bg-slate-500'
+                        }`}
+                        aria-label={t('record.desktopQuoteJump', {
+                          index: quoteIndex + 1,
+                          defaultValue: `Show quote ${quoteIndex + 1}`,
+                        })}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        {!pinEnabled && (
-          <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-400/80">
-            <Lock size={12} weight="bold" />
-            {t('record.pinWarning')}
-          </p>
-        )}
-      </div>
+      </section>
 
       {error && (
         <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm flex justify-between page-section-item">
@@ -1124,23 +1798,156 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
         </div>
       )}
 
-      <section className="mb-8 page-section-item">
+      <section className="mt-8 mb-8 page-section-item sm:mt-10">
         <RecordSectionHeader
           eyebrow={t('record.captureNowEyebrow')}
           title={t('record.captureNowTitle')}
           description={t('record.captureNowDesc')}
           accent="text-red-400"
         />
-        <div className="mb-5 grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/75 to-slate-900/45 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.captureStorageLabel')}</p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-200">{t('record.captureStorageValue')}</p>
+        <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+          <div className="rounded-[24px] border border-red-500/20 bg-gradient-to-br from-red-500/[0.10] via-slate-950/90 to-slate-900/85 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-red-300">
+                  {t('record.capturePrimaryEyebrow', { defaultValue: 'Start here' })}
+                </p>
+                <h3 className="mt-1 text-lg font-black tracking-tight text-white">
+                  {t('record.capturePrimaryTitle', { defaultValue: 'Choose the fastest safe capture path' })}
+                </h3>
+                <p className="mt-2 max-w-[38ch] text-sm leading-[1.62] text-slate-300">
+                  {t('record.capturePrimaryDesc', { defaultValue: 'Video is best when you need a full visual record. Audio is lower profile. Import keeps outside clips in the same protected vault.' })}
+                </p>
+              </div>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10">
+                <VideoCamera size={22} weight="bold" className="text-red-300" />
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <button
+                type="button"
+                onClick={() => handleOpenVideoCapture({ scrollTarget: 'preview' })}
+                disabled={quickCaptureDisabled}
+                className="rounded-2xl border border-red-500/30 bg-red-500/12 px-4 py-4 text-left transition-all hover:bg-red-500/16 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <VideoCamera size={20} weight="bold" className="text-red-300" />
+                <p className="mt-3 text-[15px] font-black leading-snug tracking-[0.01em] text-white">
+                  {t('record.captureVideoLabel', { defaultValue: 'Video now' })}
+                </p>
+                <p className="mt-1 text-[13px] leading-[1.55] text-slate-300">
+                  {t('record.captureVideoSupport', { defaultValue: 'Best for documenting people, vehicles, and context.' })}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenAudioCapture}
+                disabled={quickCaptureDisabled}
+                className="rounded-2xl border border-blue-500/25 bg-blue-500/[0.08] px-4 py-4 text-left transition-all hover:bg-blue-500/[0.12] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Microphone size={20} weight="bold" className="text-blue-300" />
+                <p className="mt-3 text-[15px] font-black leading-snug tracking-[0.01em] text-white">
+                  {t('record.captureAudioLabel', { defaultValue: 'Audio only' })}
+                </p>
+                <p className="mt-1 text-[13px] leading-[1.55] text-slate-300">
+                  {t('record.captureAudioSupport', { defaultValue: 'Use when you need a lower-profile recording option.' })}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenImport}
+                disabled={quickCaptureDisabled}
+                className="rounded-2xl border border-cyan-500/25 bg-cyan-500/[0.08] px-4 py-4 text-left transition-all hover:bg-cyan-500/[0.12] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <UploadSimple size={20} weight="bold" className="text-cyan-300" />
+                <p className="mt-3 text-[15px] font-black leading-snug tracking-[0.01em] text-white">
+                  {t('record.captureImportLabel', { defaultValue: 'Import clip' })}
+                </p>
+                <p className="mt-1 text-[13px] leading-[1.55] text-slate-300">
+                  {t('record.captureImportSupport', { defaultValue: 'Bring in media you already captured elsewhere.' })}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenDecrypt}
+                disabled={quickCaptureDisabled}
+                className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.08] px-4 py-4 text-left transition-all hover:bg-emerald-500/[0.12] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Key size={20} weight="bold" className="text-emerald-300" />
+                <p className="mt-3 text-[15px] font-black leading-snug tracking-[0.01em] text-white">
+                  {t('record.tabDecrypt')}
+                </p>
+                <p className="mt-1 text-[13px] leading-[1.55] text-slate-300">
+                  {t('record.captureDecryptSupport', { defaultValue: 'Coming back to open an encrypted clip from another device? Tap decrypt.' })}
+                </p>
+              </button>
+            </div>
           </div>
-          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/75 to-slate-900/45 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.captureBackupLabel')}</p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-200">
-              {savedEncryptionKey ? t('record.captureBackupReady') : t('record.captureBackupSetup')}
-            </p>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <button
+              type="button"
+              onClick={() => scrollToVault()}
+              className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/75 to-slate-900/45 px-4 py-3 text-left transition-colors hover:border-slate-500/70 hover:bg-slate-900/70"
+            >
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{t('record.captureStorageLabel')}</p>
+              <p className="mt-2 text-[13px] leading-[1.58] text-slate-200 sm:text-sm">{t('record.captureStorageValue')}</p>
+            </button>
+            <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/75 to-slate-900/45 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{t('record.captureBackupLabel')}</p>
+              <p className="mt-2 text-[13px] leading-[1.58] text-slate-200 sm:text-sm">
+                {backupReady ? t('record.captureBackupReady') : t('record.captureBackupSetup')}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/75 to-slate-900/45 px-4 py-3 sm:col-span-2 lg:col-span-1">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    {t('record.captureWitnessLabel', { defaultValue: 'Witness mode' })}
+                  </p>
+                  <p className="mt-2 text-[13px] leading-[1.58] text-slate-200 sm:text-sm">
+                    {witnessMode
+                      ? t('record.captureWitnessActive', { defaultValue: 'Witness guidance is on. The checklist stays pinned near capture so you can document for someone else more clearly.' })
+                      : t('record.captureWitnessValue', { defaultValue: 'Use witness mode when you are documenting for someone else. It keeps the reminder checklist close to the camera controls.' })}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleWitnessModeToggle}
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${
+                    witnessMode
+                      ? 'border-teal-500/40 bg-teal-500/12 text-teal-200 hover:bg-teal-500/18'
+                      : 'border-slate-600/60 bg-slate-900/70 text-slate-200 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <Eye size={13} weight="bold" />
+                  {witnessMode
+                    ? t('record.witnessModeOn', { defaultValue: 'On' })
+                    : t('record.witnessModeOff', { defaultValue: 'Turn on' })}
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleWitnessModeToggle}
+                  className="inline-flex items-center gap-2 rounded-xl border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-teal-100 transition-colors hover:bg-teal-500/15"
+                >
+                  <Eye size={14} weight="bold" />
+                  {witnessMode
+                    ? t('record.witnessModeReady', { defaultValue: 'Witness guide active' })
+                    : t('record.witnessModeStart', { defaultValue: 'Prepare witness capture' })}
+                </button>
+                {witnessMode && (
+                  <button
+                    type="button"
+                    onClick={handleOpenAudioCapture}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-600/60 bg-slate-900/70 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-200 transition-colors hover:bg-slate-800/80"
+                  >
+                    <Microphone size={14} weight="bold" />
+                    {t('record.witnessAudioOption', { defaultValue: 'Use audio instead' })}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1152,7 +1959,22 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); if (tab.id !== 'video') stopCamera(); }}
+            onClick={() => {
+              if (tab.id === 'video') {
+                setActiveTab('video');
+                scrollToCaptureRef(videoCaptureRef, {
+                  topPadding: getVideoPreviewTopPadding(),
+                  bottomPadding: 116,
+                });
+                return;
+              }
+
+              stopCamera();
+              setActiveTab(tab.id);
+              scrollToCaptureRef(tab.id === 'audio' ? audioCaptureRef : importCaptureRef, tab.id === 'audio'
+                ? { topPadding: getAudioPreviewTopPadding(), bottomPadding: 116 }
+                : { topPadding: getShellAwareTopPadding(16, 118), bottomPadding: 118 });
+            }}
             className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold uppercase tracking-[0.16em] transition-colors backdrop-blur-sm ${
               activeTab === tab.id
                 ? 'bg-blue-600 text-white border border-blue-500/50'
@@ -1170,13 +1992,14 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           aria-label={t('record.howRecordingWorks')}
         >
           <Question size={16} weight="bold" />
+          <span className="hidden sm:inline">{t('record.howRecordingWorks')}</span>
         </button>
         </div>
 
         {/* VIDEO TAB */}
         {activeTab === 'video' && (
         <div className="space-y-4">
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-slate-700/50">
+          <div ref={videoCaptureRef} className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-slate-700/50">
             <div className="relative aspect-video bg-black flex items-center justify-center">
               {/* Live camera preview — always in DOM so startCamera() can set srcObject.
                   Hidden via CSS (not unmounted) when not active. */}
@@ -1322,47 +2145,35 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
             </div>
 
             <div className="p-4">
-              {/* Witness Mode toggle */}
               {!isRecording && !recordedUrl && (
-                <div className="mb-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-slate-950/45 px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <Eye size={14} weight="bold" className={witnessMode ? 'text-teal-300' : 'text-slate-500'} />
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/80">
+                        {t('record.witnessMode')}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {witnessMode
+                          ? t('record.witnessModeLive', { defaultValue: 'Saved as a witness report with the guidance checklist active.' })
+                          : t('record.witnessModeHint', { defaultValue: 'Turn this on before recording when you are documenting for someone else.' })}
+                      </p>
+                    </div>
+                  </div>
                   <button
-                    onClick={() => {
-                      const next = !witnessMode;
-                      setWitnessMode(next);
-                      if (next) setShowWitnessReminder(true);
-                    }}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all active:scale-95 ${
+                    type="button"
+                    onClick={handleWitnessModeToggle}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] transition-colors ${
                       witnessMode
-                        ? 'bg-teal-900/40 border-teal-600/50 text-teal-300'
-                        : 'bg-slate-800/60 border-slate-700/50 text-slate-500 hover:text-slate-300'
+                        ? 'border-teal-500/40 bg-teal-500/12 text-teal-100 hover:bg-teal-500/18'
+                        : 'border-slate-600/60 bg-slate-900/70 text-slate-200 hover:bg-slate-800/80'
                     }`}
                   >
-                    <Eye size={14} weight="bold" />
-                    {t('record.witnessMode')}
+                    <Eye size={12} weight="bold" />
+                    {witnessMode
+                      ? t('record.turnOff', { defaultValue: 'Turn off' })
+                      : t('record.turnOn', { defaultValue: 'Turn on' })}
                   </button>
-                </div>
-              )}
-
-              {/* Witness reminder checklist */}
-              {showWitnessReminder && witnessMode && !isRecording && (
-                <div className="bg-teal-950/40 border border-teal-700/40 rounded-xl p-4 mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-teal-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-                      <Eye size={14} weight="bold" />
-                      {t('record.witnessReminderTitle')}
-                    </span>
-                    <button onClick={() => setShowWitnessReminder(false)} className="text-slate-500 hover:text-white">
-                      <X size={14} weight="bold" />
-                    </button>
-                  </div>
-                  <ul className="text-slate-300 text-xs space-y-1">
-                    {[1,2,3,4,5,6,7,8].map(i => (
-                      <li key={i} className="flex items-start gap-2">
-                        <div className="w-1 h-1 rounded-full bg-teal-500 flex-shrink-0 mt-1.5" />
-                        {t(`communityWitnessing.doc${i}`)}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               )}
 
@@ -1391,12 +2202,70 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
             </div>
           </div>
 
+          {witnessMode && showWitnessReminder && (
+            <div className="rounded-[24px] border border-teal-500/25 bg-gradient-to-br from-teal-500/[0.10] via-slate-950/92 to-slate-900/90 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-teal-300">
+                    {t('record.witnessReminderTitle')}
+                  </p>
+                  <h3 className="mt-1 text-lg font-black tracking-tight text-white">
+                    {t('record.witnessGuideTitle', { defaultValue: 'Document what happened to someone else' })}
+                  </h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
+                    {t('record.witnessGuideDesc', { defaultValue: 'Stay at a safe distance, narrate only what you can directly observe, and use this checklist so the recording is useful later.' })}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-slate-950/70 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-teal-100">
+                    <CheckCircle size={12} weight="bold" />
+                    {t('record.witnessProgress', { defaultValue: `${witnessChecklistCompleteCount}/${WITNESS_CHECKLIST_COUNT} captured` })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleWitnessModeToggle}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-600/60 bg-slate-900/70 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-slate-200 transition-colors hover:bg-slate-800/80"
+                  >
+                    <X size={12} weight="bold" />
+                    {t('record.turnOff', { defaultValue: 'Turn off' })}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-2 lg:grid-cols-2">
+                {witnessChecklistItems.map((item, index) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => handleWitnessChecklistToggle(index)}
+                    className={`flex items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-colors ${
+                      witnessChecklist[index]
+                        ? 'border-teal-500/35 bg-teal-500/10 text-teal-50'
+                        : 'border-white/10 bg-slate-950/45 text-slate-200 hover:border-teal-500/20 hover:bg-slate-950/60'
+                    }`}
+                  >
+                    <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                      witnessChecklist[index]
+                        ? 'border-teal-300 bg-teal-400/20 text-teal-100'
+                        : 'border-slate-500 text-transparent'
+                    }`}>
+                      <CheckCircle size={12} weight="bold" />
+                    </span>
+                    <span className={`text-sm leading-relaxed ${witnessChecklist[index] ? 'line-through text-slate-300/90' : ''}`}>
+                      {item}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
         )}
 
         {/* AUDIO TAB */}
         {activeTab === 'audio' && (
-        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6">
+        <div ref={audioCaptureRef} className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6">
           {/* High fidelity visualizer */}
           <div className="h-40 flex items-center justify-center gap-[2px] mb-4 bg-slate-800 rounded-lg p-4 overflow-hidden">
             {audioLevels.map((level, i) => {
@@ -1470,7 +2339,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
         {activeTab === 'import' && (
         <div className="space-y-4">
           {/* Import from Photos */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50 text-center">
+          <div ref={importCaptureRef} className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50 text-center">
             <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <FolderOpen size={32} weight="bold" className="text-blue-400" />
             </div>
@@ -1521,87 +2390,159 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           accent="text-blue-400"
         />
 
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
-          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.vault')}</p>
-            <p className="mt-3 text-3xl font-black text-white">{isDuressMode ? 0 : vaultRecordings.length}</p>
-            <p className="mt-2 text-sm text-slate-400">{t('record.manageVaultDesc', { count: backedUpCount, pending: pendingBackupCount })}</p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.manageSecurityTitle')}</p>
-            <p className="mt-3 text-sm leading-relaxed text-slate-300">{t('record.manageSecurityDesc')}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(0,0.82fr)] mb-6">
+          <div className="rounded-[26px] border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{t('record.vault')}</p>
+                <button
+                  type="button"
+                  onClick={() => scrollToVault()}
+                  className="mt-3 block text-left text-3xl font-black leading-none tracking-[-0.03em] text-white transition-colors hover:text-blue-300"
+                >
+                  {isDuressMode ? 0 : vaultRecordings.length}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollToVault()}
+                  className="mt-5 block max-w-[28ch] text-left text-[13px] leading-[1.6] text-slate-400 transition-colors hover:text-slate-200 sm:text-sm"
+                >
+                  {t('record.manageVaultDesc', { count: backedUpCount, pending: pendingBackupCount })}
+                </button>
+              </div>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
+                <FolderOpen size={22} weight="bold" className="text-blue-300" />
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <button
-                onClick={() => setShowPinSetup(true)}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                  pinEnabled
-                    ? 'border-green-500/30 bg-green-600/20 text-green-300 hover:bg-green-600/30'
-                    : 'border-amber-500/30 bg-amber-600/20 text-amber-300 hover:bg-amber-600/30'
-                }`}
+                type="button"
+                onClick={() => latestRecording && scrollToVault({ recording: latestRecording })}
+                className="rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-slate-950/60"
               >
-                <Lock size={15} weight="bold" />
-                {pinEnabled ? t('record.pinIO') : t('record.setPin')}
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  {t('record.manageLatestLabel', { defaultValue: 'Latest capture' })}
+                </p>
+                <p className="mt-2 text-[15px] font-semibold leading-snug text-white">
+                  {latestRecording ? latestRecording.title : t('record.manageLatestEmpty', { defaultValue: 'Nothing saved yet' })}
+                </p>
+                <p className="mt-1 text-[13px] leading-[1.55] text-slate-400">
+                  {latestRecording
+                    ? `${fmt(latestRecording.duration)} • ${fmtB(latestRecording.size)}`
+                    : t('record.manageLatestSupport', { defaultValue: 'Your first recording will show up here once it is saved.' })}
+                </p>
               </button>
+              <div className="rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  {t('record.manageBackedLabel', { defaultValue: 'Backed up' })}
+                </p>
+                <p className="mt-2 text-[15px] font-semibold leading-snug text-white">
+                  {backedUpCount} {backedUpCount === 1 ? t('record.item', { defaultValue: 'item' }) : t('record.items')}
+                </p>
+                <p className="mt-1 text-[13px] leading-[1.55] text-slate-400">
+                  {backupReady
+                    ? t('record.manageBackedSupport', { defaultValue: 'Encrypted copies exist for the items you have already backed up.' })
+                    : t('record.manageBackedLocked', { defaultValue: 'Backups stay unavailable until you finish backup setup.' })}
+                </p>
+              </div>
               <button
-                onClick={() => setShowWorkflowGuide(true)}
-                className="flex items-center gap-2 rounded-lg border border-slate-600/50 bg-slate-700/40 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-700"
+                type="button"
+                onClick={() => scrollToVault({ preferPending: true })}
+                className="rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-slate-950/60"
               >
-                <Question size={15} weight="bold" />
-                {t('record.howRecordingWorks')}
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  {t('record.managePendingLabel', { defaultValue: 'Needs attention' })}
+                </p>
+                <p className="mt-2 text-[15px] font-semibold leading-snug text-white">
+                  {pendingBackupCount === 0
+                    ? t('record.managePendingClear', { defaultValue: 'Nothing waiting' })
+                    : t('record.managePendingCount', { count: pendingBackupCount, defaultValue: pendingBackupCount === 1 ? '1 pending backup' : `${pendingBackupCount} pending backups` })}
+                </p>
+                <p className="mt-1 text-[13px] leading-[1.55] text-slate-400">
+                  {pendingBackupCount === 0
+                    ? t('record.managePendingSupport', { defaultValue: 'Mark important items for backup whenever you want cloud protection.' })
+                    : t('record.managePendingWarning', { defaultValue: 'These items are still only on this device until backup finishes.' })}
+                </p>
               </button>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{t('record.manageBackupTitle')}</p>
-            <p className="mt-3 text-sm leading-relaxed text-slate-300">{savedEncryptionKey ? t('record.manageBackupReadyDesc') : t('record.manageBackupSetupDesc')}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowBackupSettings(true)}
-                className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600/20 px-3 py-2 text-sm text-blue-300 transition-colors hover:bg-blue-600/30"
-              >
-                <Shield size={15} weight="bold" />
-                {t('record.backup')}
-              </button>
-              <button
-                onClick={() => { setActiveTab('decrypt'); stopCamera(); }}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
-                  activeTab === 'decrypt'
-                    ? 'border-emerald-400/60 bg-emerald-500/25 text-emerald-300'
-                    : 'border-emerald-500/50 bg-emerald-600/15 text-emerald-300 hover:bg-emerald-600/25 hover:border-emerald-400/60'
-                }`}
-              >
-                <Key size={15} weight="bold" />
-                {t('record.tabDecrypt')}
-              </button>
-              <button
-                onClick={() => setShowBackupInfo(true)}
-                className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-600/20 px-3 py-2 text-sm text-cyan-300 transition-colors hover:bg-cyan-600/30"
-              >
-                <Question size={15} weight="bold" />
-                {t('record.whyBackup')}
-              </button>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+            <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{t('record.manageSecurityTitle')}</p>
+              <p className="mt-3 max-w-[34ch] text-sm leading-[1.62] text-slate-300">{t('record.manageSecurityDesc')}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowPinSetup(true)}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[0.95rem] font-semibold transition-colors ${
+                    pinEnabled
+                      ? 'border-green-500/30 bg-green-600/20 text-green-300 hover:bg-green-600/30'
+                      : 'border-amber-500/30 bg-amber-600/20 text-amber-300 hover:bg-amber-600/30'
+                  }`}
+                >
+                  <Lock size={15} weight="bold" />
+                  {pinEnabled ? t('record.pinIO') : t('record.setPin')}
+                </button>
+                <button
+                  onClick={() => setShowWorkflowGuide(true)}
+                  className="flex items-center gap-2 rounded-lg border border-slate-600/50 bg-slate-700/40 px-3 py-2 text-[0.95rem] font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+                >
+                  <Question size={15} weight="bold" />
+                  {t('record.howRecordingWorks')}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{t('record.manageBackupTitle')}</p>
+              <p className="mt-3 max-w-[34ch] text-sm leading-[1.62] text-slate-300">{backupReady ? t('record.manageBackupReadyDesc') : t('record.manageBackupSetupDesc')}</p>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setShowBackupSettings(true)}
+                  className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-600/20 px-2 py-2 text-[0.9rem] font-semibold tracking-[0.01em] text-blue-300 transition-colors hover:bg-blue-600/30 sm:gap-2 sm:px-3"
+                >
+                  <Shield size={15} weight="bold" className="shrink-0" />
+                  <span className="truncate">{t('record.backup')}</span>
+                </button>
+                <button
+                  onClick={handleOpenDecrypt}
+                  className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[0.9rem] font-semibold tracking-[0.01em] transition-colors sm:gap-2 sm:px-3 ${
+                    activeTab === 'decrypt'
+                      ? 'border-emerald-400/60 bg-emerald-500/25 text-emerald-300'
+                      : 'border-emerald-500/50 bg-emerald-600/15 text-emerald-300 hover:bg-emerald-600/25 hover:border-emerald-400/60'
+                  }`}
+                >
+                  <Key size={15} weight="bold" className="shrink-0" />
+                  <span className="truncate">{t('record.tabDecrypt')}</span>
+                </button>
+                <button
+                  onClick={() => setShowBackupInfo(true)}
+                  className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-600/20 px-2 py-2 text-[0.9rem] font-semibold tracking-[0.01em] text-cyan-300 transition-colors hover:bg-cyan-600/30 sm:gap-2 sm:px-3"
+                >
+                  <Question size={15} weight="bold" className="shrink-0" />
+                  <span className="truncate">{t('record.whyBackup')}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
       {/* DECRYPT TAB */}
       {activeTab === 'decrypt' && (
-        <div className="space-y-4">
+        <div ref={decryptSectionRef} className="space-y-4">
           {/* Key Status Card */}
-          <div className={`rounded-2xl p-4 border ${getSavedEncryptionKey()
+          <div className={`rounded-2xl p-4 border ${savedEncryptionKey
             ? 'bg-emerald-900/20 border-emerald-500/30'
             : 'bg-amber-900/20 border-amber-500/30'
           }`}>
             <div className="flex items-start gap-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                getSavedEncryptionKey() ? 'bg-emerald-900/50' : 'bg-amber-900/50'
+                savedEncryptionKey ? 'bg-emerald-900/50' : 'bg-amber-900/50'
               }`}>
-                <Key size={20} weight="bold" className={getSavedEncryptionKey() ? 'text-emerald-400' : 'text-amber-400'} />
+                <Key size={20} weight="bold" className={savedEncryptionKey ? 'text-emerald-400' : 'text-amber-400'} />
               </div>
               <div className="flex-1 min-w-0">
-                {getSavedEncryptionKey() ? (
+                {savedEncryptionKey ? (
                   <>
                     <p className="text-emerald-400 font-bold text-sm">{t('record.encKeysSaved')}</p>
                     <p className="text-slate-400 text-xs mt-1">{t('record.encKeysSavedDesc')}</p>
@@ -1618,7 +2559,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
             </div>
 
             {/* Manual key input — always visible when no saved key, collapsible when key exists */}
-            {!getSavedEncryptionKey() && (
+            {!savedEncryptionKey && (
               <div className="mt-3">
                 <label className="text-slate-400 text-xs font-bold uppercase tracking-widest block mb-1.5">
                   {t('record.pasteEncKey')}
@@ -1650,7 +2591,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
               {t('record.decryptDesc')}
             </p>
             <label className={`bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg inline-flex items-center gap-2 cursor-pointer transition-all active:scale-95 ${
-              isRestoring || (!getSavedEncryptionKey() && !decryptKeyInput.trim()) ? 'opacity-50 pointer-events-none' : ''
+              isRestoring || (!savedEncryptionKey && !decryptKeyInput.trim()) ? 'opacity-50 pointer-events-none' : ''
             }`}>
               <Shield size={18} weight="bold" />
               {isRestoring ? t('record.decrypting') : t('record.selectEncFile')}
@@ -1658,7 +2599,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
                 type="file"
                 accept=".enc"
                 className="hidden"
-                disabled={isRestoring || (!getSavedEncryptionKey() && !decryptKeyInput.trim())}
+                disabled={isRestoring || (!savedEncryptionKey && !decryptKeyInput.trim())}
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -1668,7 +2609,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
                 }}
               />
             </label>
-            {!getSavedEncryptionKey() && !decryptKeyInput.trim() && (
+            {!savedEncryptionKey && !decryptKeyInput.trim() && (
               <p className="text-amber-400/70 text-xs mt-3">
                 {t('record.pasteKeyHint')}
               </p>
@@ -1760,29 +2701,35 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       )}
 
       {/* VAULT */}
-      <div className="mt-6 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl border border-slate-700/50">
+      <div ref={vaultSectionRef} className="mt-6 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl border border-slate-700/50">
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
           <h3 className="font-bold text-white flex items-center gap-2"><FolderOpen size={18} weight="bold" /> {t('record.vault')}</h3>
-          <span className="text-slate-400 text-sm">{isDuressMode ? 0 : vaultRecordings.length} {t('record.items')}</span>
+          <button
+            type="button"
+            onClick={() => scrollToVault()}
+            className="text-sm text-slate-400 transition-colors hover:text-slate-200"
+          >
+            {isDuressMode ? 0 : vaultRecordings.length} {t('record.items')}
+          </button>
         </div>
 
       {/* Purge Confirmation Modal */}
       {showPurgeConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 safe-modal-frame">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            onClick={() => setShowPurgeConfirm(false)}
+            onClick={() => { setPurgeAcknowledged(false); setShowPurgeConfirm(false); }}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="bg-slate-800 border border-red-600 rounded-xl p-6 max-w-sm w-full relative"
+            className="safe-modal-panel bg-slate-800 border border-red-600 rounded-xl p-6 max-w-sm w-full relative"
           >
             <div className="text-center">
               <div className="w-16 h-16 bg-red-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1792,16 +2739,32 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
               <p className="text-slate-400 text-sm mb-4">
                 {t('record.purgeConfirmDesc', { count: vaultRecordings.length })}
               </p>
+              <button
+                type="button"
+                onClick={() => setPurgeAcknowledged((current) => !current)}
+                className={`mb-4 flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+                  purgeAcknowledged
+                    ? 'border-red-500/40 bg-red-500/10 text-red-100'
+                    : 'border-slate-700 bg-slate-900/60 text-slate-300 hover:bg-slate-900/80'
+                }`}
+              >
+                <span className={`flex h-5 w-5 items-center justify-center rounded border ${purgeAcknowledged ? 'border-red-400 bg-red-500/20 text-red-200' : 'border-slate-500 text-transparent'}`}>
+                  <CheckCircle size={13} weight="bold" />
+                </span>
+                <span className="text-sm leading-relaxed">
+                  {t('record.purgeAcknowledge', { defaultValue: 'I understand this deletes every local recording on this device.' })}
+                </span>
+              </button>
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowPurgeConfirm(false)}
+                  onClick={() => { setPurgeAcknowledged(false); setShowPurgeConfirm(false); }}
                   className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition-colors"
                 >
                   {t('record.cancel')}
                 </button>
                 <button
                   onClick={handlePurgeAllData}
-                  disabled={isPurging}
+                  disabled={isPurging || !purgeAcknowledged}
                   className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2 rounded-lg transition-colors"
                 >
                   {isPurging ? t('record.purging') : t('record.deleteAll')}
@@ -1815,29 +2778,73 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
         <div className="divide-y divide-slate-700">
           {/* Show empty state in duress mode to hide real recordings */}
           {(isDuressMode || vaultRecordings.length === 0) ? (
-            <div className="p-6 text-center text-slate-500">{t('record.noRecordings')}</div>
+            <div className="p-6">
+              <div className="rounded-2xl border border-dashed border-slate-700/70 bg-slate-950/35 px-5 py-10 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-700/70 bg-slate-900/80">
+                  <FolderOpen size={24} weight="bold" className="text-slate-400" />
+                </div>
+                <p className="mt-4 text-base font-bold text-white">{t('record.noRecordings')}</p>
+                <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-400">
+                  {t('record.vaultEmptySupport', { defaultValue: 'New recordings, audio captures, and imported clips will appear here. Keep only what matters and mark important items for backup when you are ready.' })}
+                </p>
+                {!isDuressMode && (
+                  <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={handleOpenVideoCapture}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-bold text-red-100 transition-colors hover:bg-red-500/15"
+                    >
+                      <VideoCamera size={16} weight="bold" />
+                      {t('record.startVideoRecording')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenImport}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-2.5 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-800/80"
+                    >
+                      <UploadSimple size={16} weight="bold" />
+                      {t('record.tabImport')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             vaultRecordings.map(rec => (
-              <div key={rec.id}>
-                {/* Recording row */}
-                <div onClick={() => selectVaultItem(rec)} className={`p-3 flex items-center gap-3 hover:bg-slate-700/30 cursor-pointer transition-colors ${selectedVaultItem?.id === rec.id ? 'bg-blue-900/20 border-s-2 border-blue-500' : ''}`}>
-                  <div className="w-16 h-10 rounded overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center">
-                    {rec.thumbnail ? <img src={rec.thumbnail} alt="" className="w-full h-full object-cover" /> : rec.type === 'video' ? <VideoCamera size={16} weight="bold" className="text-red-400" /> : <Microphone size={16} weight="bold" className="text-blue-400" />}
-                  </div>
-                  {rec.source === 'restored'
-                    ? <LockOpen size={14} weight="bold" className="text-emerald-400 shrink-0" title={t('record.decryptedFromBackupTooltip')} />
-                    : rec.backedUp
-                      ? <Lock size={14} weight="bold" className="text-emerald-400 shrink-0" title={t('record.encryptedBackupExists')} />
-                      : <Lock size={14} weight="bold" className="text-amber-400 shrink-0" title={t('record.encryptedLocallyNotBacked')} />
+              <div
+                key={rec.id}
+                ref={(element) => {
+                  if (element) {
+                    vaultRowRefs.current[rec.id] = element;
+                  } else {
+                    delete vaultRowRefs.current[rec.id];
                   }
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm truncate">
-                      {rec.title}
-                      {rec.source === 'restored' && <span className="ms-1.5 text-emerald-400 text-[10px] font-bold uppercase">{t('record.decrypted')}</span>}
-                    </p>
-                    <p className="text-slate-500 text-xs">{fmt(rec.duration)} • {fmtB(rec.size)}{rec.source === 'imported' ? ` • ${t('record.imported')}` : ''}</p>
-                  </div>
-                  {/* Backup status button */}
+                }}
+              >
+                {/* Recording row */}
+                <div className={`p-3 flex items-center gap-3 transition-colors ${selectedVaultItem?.id === rec.id ? 'bg-blue-900/20 border-s-2 border-blue-500' : 'hover:bg-slate-700/30'}`}>
+                  <button
+                    type="button"
+                    onClick={() => selectVaultItem(rec)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <div className="w-16 h-10 rounded overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center">
+                      {rec.thumbnail ? <img src={rec.thumbnail} alt="" className="w-full h-full object-cover" /> : rec.type === 'video' ? <VideoCamera size={16} weight="bold" className="text-red-400" /> : <Microphone size={16} weight="bold" className="text-blue-400" />}
+                    </div>
+                    {rec.source === 'restored'
+                      ? <LockOpen size={14} weight="bold" className="text-emerald-400 shrink-0" title={t('record.decryptedFromBackupTooltip')} />
+                      : rec.backedUp
+                        ? <Lock size={14} weight="bold" className="text-emerald-400 shrink-0" title={t('record.encryptedBackupExists')} />
+                        : <Lock size={14} weight="bold" className="text-amber-400 shrink-0" title={t('record.encryptedLocallyNotBacked')} />
+                    }
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white text-sm truncate">
+                        {rec.title}
+                        {rec.source === 'restored' && <span className="ms-1.5 text-emerald-400 text-[10px] font-bold uppercase">{t('record.decrypted')}</span>}
+                      </p>
+                      <p className="text-slate-500 text-xs">{fmt(rec.duration)} • {fmtB(rec.size)}{rec.source === 'imported' ? ` • ${t('record.imported')}` : ''}</p>
+                    </div>
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleToggleBackup(rec.id, rec.markedForBackup); }}
                     className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
@@ -1959,7 +2966,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
                 </p>
               </div>
               <button
-                onClick={() => setShowPurgeConfirm(true)}
+                onClick={() => { setPurgeAcknowledged(false); setShowPurgeConfirm(true); }}
                 disabled={vaultRecordings.length === 0}
                 className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors"
               >
@@ -2296,7 +3303,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
         <PinSetup
           mode={pinEnabled ? 'change' : 'setup'}
           onClose={() => setShowPinSetup(false)}
-          onSuccess={() => setPinEnabled(isPinEnabled())}
+          onSuccess={handlePinSetupSuccess}
         />
       )}
     </div>
