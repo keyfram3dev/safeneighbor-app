@@ -41,11 +41,11 @@ const CATEGORY_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-  hotline: 'text-red-400 bg-red-950/40 border-red-800/30',
-  'legal-aid': 'text-blue-400 bg-blue-950/40 border-blue-800/30',
-  'know-your-rights': 'text-amber-400 bg-amber-950/40 border-amber-800/30',
-  directory: 'text-emerald-400 bg-emerald-950/40 border-emerald-800/30',
-  community: 'text-purple-400 bg-purple-950/40 border-purple-800/30',
+  hotline: 'text-rose-300 bg-rose-500/10 border-rose-500/18',
+  'legal-aid': 'text-cyan-300 bg-cyan-500/10 border-cyan-500/18',
+  'know-your-rights': 'text-amber-300 bg-amber-500/10 border-amber-500/16',
+  directory: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/18',
+  community: 'text-violet-300 bg-violet-500/10 border-violet-500/18',
 };
 
 function LegalDirectory() {
@@ -113,62 +113,74 @@ function LegalDirectory() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="mb-2">
-        <p className="mb-2 text-xs font-semibold tracking-[0.08em] text-emerald-400">
-          {t('legalDirectory.eyebrow', { defaultValue: 'Find Legal Help' })}
-        </p>
-        <h2 className="text-[1.85rem] font-black tracking-tight text-white sm:text-[2rem]">
-          {t('legalDirectory.title')}
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
-          {t('legalDirectory.subtitle')}
-        </p>
+      <div className="mb-2 relative overflow-hidden rounded-[24px] border border-slate-800/80 bg-slate-950/65 px-5 py-4 backdrop-blur-sm">
+        <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-gradient-to-b from-emerald-400 via-cyan-400 to-blue-400" />
+        <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-transparent to-transparent pointer-events-none" />
+        <div className="relative pl-4">
+          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+            {t('legalDirectory.eyebrow', { defaultValue: 'Find Legal Help' })}
+          </p>
+          <h2 className="text-[1.85rem] font-black tracking-tight text-white sm:text-[2rem]">
+            {t('legalDirectory.title')}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
+            {t('legalDirectory.subtitle')}
+          </p>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+            {t('legalDirectory.support', { defaultValue: 'Use the filters to narrow by state, then open only the cards that match the kind of help you need right now.' })}
+          </p>
+        </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative">
-        <label htmlFor="legal-directory-search" className="sr-only">
-          {t('legalDirectory.searchPlaceholder')}
-        </label>
-        <MagnifyingGlass
-          size={18}
-          weight="bold"
-          className="absolute start-4 top-1/2 -translate-y-1/2 text-slate-500"
-        />
-        <input
-          id="legal-directory-search"
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t('legalDirectory.searchPlaceholder')}
-          className="w-full bg-slate-900 border border-slate-800 rounded-2xl ps-11 pe-4 py-3.5 text-white text-sm placeholder-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-emerald-400 focus:border-emerald-500"
-        />
-      </div>
-
-      {/* State Selector */}
-      <div>
-        <label htmlFor="legal-directory-state" className="text-slate-500 text-xs font-bold uppercase tracking-[0.12em] block mb-2">
-          {t('legalDirectory.selectState')}
-        </label>
-        <div className="relative">
-          <select
-            id="legal-directory-state"
-            value={selectedState}
-            onChange={(e) => setSelectedState(e.target.value)}
-            className="w-full appearance-none bg-slate-900 border border-slate-700/60 text-white rounded-2xl px-5 py-3.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-emerald-400"
-          >
-            <option value="">{t('legalDirectory.allStates')}</option>
-            {ALL_STATES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-          <CaretDown
-            size={16}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(240px,0.85fr)]">
+        {/* Search Bar */}
+        <div className="relative rounded-[24px] border border-slate-800/75 bg-slate-950/70 p-4 shadow-[0_12px_32px_rgba(2,6,23,0.14)]">
+          <label htmlFor="legal-directory-search" className="sr-only">
+            {t('legalDirectory.searchPlaceholder')}
+          </label>
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+            {t('legalDirectory.searchLabel', { defaultValue: 'Search organizations' })}
+          </p>
+          <MagnifyingGlass
+            size={18}
             weight="bold"
-            className="absolute end-4 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none"
+            className="absolute start-8 top-[54px] -translate-y-1/2 text-slate-500"
           />
+          <input
+            id="legal-directory-search"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('legalDirectory.searchPlaceholder')}
+            className="w-full bg-slate-950 border border-slate-800 rounded-[20px] ps-11 pe-4 py-3.5 text-white text-sm placeholder-slate-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-emerald-400 focus:border-emerald-500"
+          />
+        </div>
+
+        {/* State Selector */}
+        <div className="rounded-[24px] border border-slate-800/75 bg-slate-950/70 p-4 shadow-[0_12px_32px_rgba(2,6,23,0.14)]">
+          <label htmlFor="legal-directory-state" className="text-slate-500 text-[10px] font-black uppercase tracking-[0.14em] block mb-2">
+            {t('legalDirectory.selectState')}
+          </label>
+          <div className="relative">
+            <select
+              id="legal-directory-state"
+              value={selectedState}
+              onChange={(e) => setSelectedState(e.target.value)}
+              className="w-full appearance-none bg-slate-950 border border-slate-800 text-white rounded-[20px] px-5 py-3.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-emerald-400"
+            >
+              <option value="">{t('legalDirectory.allStates')}</option>
+              {ALL_STATES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <CaretDown
+              size={16}
+              weight="bold"
+              className="absolute end-4 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none"
+            />
+          </div>
         </div>
       </div>
 
@@ -180,14 +192,14 @@ function LegalDirectory() {
         href="https://www.immigrationadvocates.org/nonprofit/legaldirectory/"
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-3 bg-gradient-to-r from-amber-950/40 to-emerald-950/40 border border-amber-700/30 hover:border-amber-500/30 rounded-2xl px-4 py-3.5 active:scale-[0.98] transition-all hover:-translate-y-0.5"
+        className="flex items-center gap-3 bg-gradient-to-r from-slate-950 via-slate-950/96 to-emerald-950/20 border border-slate-800/75 hover:border-emerald-500/24 rounded-[24px] px-4 py-4 active:scale-[0.98] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(6,78,59,0.14)]"
       >
-        <Buildings size={22} weight="bold" className="text-amber-400 shrink-0" />
+        <Buildings size={22} weight="bold" className="text-emerald-300 shrink-0" />
         <div className="flex-1 min-w-0">
           <span className="text-white font-bold text-sm block">{t('legalDirectory.ianTitle')}</span>
-          <span className="text-slate-400 text-xs">{t('legalDirectory.ianDesc')}</span>
+          <span className="text-slate-400 text-xs leading-relaxed">{t('legalDirectory.ianDesc')}</span>
         </div>
-        <ArrowSquareOut size={16} weight="bold" className="text-amber-400 shrink-0" />
+        <ArrowSquareOut size={16} weight="bold" className="text-emerald-300 shrink-0" />
       </a>
 
       {/* Category Filter Chips */}
@@ -201,8 +213,8 @@ function LegalDirectory() {
               onClick={() => setActiveCategory(cat.id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all active:scale-95 ${
                 isActive
-                  ? 'bg-emerald-500/15 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]'
-                  : 'bg-slate-800/50 text-slate-400 hover:text-slate-200 border border-slate-700/50'
+                  ? 'bg-emerald-500/12 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.2)]'
+                  : 'bg-slate-900/65 text-slate-400 hover:text-slate-200 border border-slate-800/75'
               }`}
             >
               <Icon size={13} weight="bold" />
@@ -213,7 +225,7 @@ function LegalDirectory() {
       </div>
 
       {/* Results count */}
-      <div className="text-slate-500 text-xs">
+      <div className="rounded-[20px] border border-slate-800/70 bg-slate-950/60 px-4 py-3 text-slate-500 text-xs">
         {t('legalDirectory.resourceCount', { count: totalCount })}
         {selectedState && STATE_RESOURCES[selectedState]
           ? t('legalDirectory.inState', { state: STATE_RESOURCES[selectedState].name })
@@ -281,7 +293,7 @@ function LegalDirectory() {
 
       {/* Online Directories callout */}
       {activeCategory === 'all' || activeCategory === 'directory' ? (
-        <div className="bg-gradient-to-br from-emerald-950/30 to-emerald-900/20 backdrop-blur-sm border border-emerald-800/30 rounded-2xl p-5">
+        <div className="bg-gradient-to-br from-slate-950 via-slate-950/96 to-emerald-950/16 backdrop-blur-sm border border-slate-800/75 rounded-[24px] p-5 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
           <h3 className="text-emerald-400 font-black uppercase tracking-wider text-sm mb-3">
             {t('legalDirectory.searchDirectories')}
           </h3>
@@ -295,7 +307,7 @@ function LegalDirectory() {
                 href={d.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 bg-emerald-950/40 border border-emerald-800/30 rounded-xl px-4 py-3 text-sm active:scale-95 transition-all hover:-translate-y-0.5 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5"
+                className="flex items-center gap-3 bg-slate-950/70 border border-slate-800/75 rounded-[18px] px-4 py-3 text-sm active:scale-95 transition-all hover:-translate-y-0.5 hover:border-emerald-500/24 hover:shadow-[0_16px_34px_rgba(6,78,59,0.14)]"
               >
                 <ArrowSquareOut size={16} weight="bold" className="text-emerald-400 shrink-0" />
                 <span className="text-white font-semibold flex-1 min-w-0 truncate">{d.name}</span>
@@ -325,8 +337,8 @@ function ResourceCard({ resource, expanded, onToggle, stripPhone, t }) {
   const CategoryIcon = CATEGORY_ICONS[resource.category] || ListBullets;
 
   return (
-    <div className="group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-slate-800/30 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.06),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
+    <div className="group relative bg-gradient-to-br from-slate-950 via-slate-950/96 to-slate-900/76 border border-slate-800/75 rounded-[24px] overflow-hidden transition-all duration-300 hover:border-emerald-500/22 hover:shadow-[0_18px_40px_rgba(6,78,59,0.14)] hover:-translate-y-0.5">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.06),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-[24px]" />
       <button
         onClick={onToggle}
         className="w-full text-start px-4 py-3.5 flex items-start gap-3 active:scale-[0.99] transition-transform"
@@ -377,11 +389,11 @@ function ResourceCard({ resource, expanded, onToggle, stripPhone, t }) {
               {resource.phone && (
                 <a
                   href={`tel:${stripPhone(resource.phone)}`}
-                  className="flex items-center gap-3 bg-red-950/30 border border-red-700/30 rounded-xl px-4 py-3 text-sm active:scale-95 transition-all hover:-translate-y-0.5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5"
+                  className="flex items-center gap-3 bg-rose-500/8 border border-rose-500/16 rounded-[18px] px-4 py-3 text-sm active:scale-95 transition-all hover:-translate-y-0.5 hover:border-rose-400/24 hover:shadow-[0_16px_34px_rgba(76,5,25,0.14)]"
                 >
-                  <Phone size={16} weight="bold" className="text-red-400 shrink-0" />
+                  <Phone size={16} weight="bold" className="text-rose-300 shrink-0" />
                   <span className="text-white font-semibold flex-1 min-w-0">{resource.name}</span>
-                  <span className="text-red-400 font-bold shrink-0 text-xs">{resource.phone}</span>
+                  <span className="text-rose-300 font-bold shrink-0 text-xs">{resource.phone}</span>
                 </a>
               )}
 
