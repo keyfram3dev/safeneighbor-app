@@ -56,45 +56,48 @@ function LegalDirectory() {
   const [expandedCards, setExpandedCards] = useState(new Set());
 
   // Combine national + state resources and apply filters
-  const filteredResources = useMemo(() => {
-    const all = [];
-
-    // Flatten national resources
+  const { stateResources, nationalResources } = useMemo(() => {
     const nationalFlat = [
       ...NATIONAL_RESOURCES.hotlines,
       ...NATIONAL_RESOURCES.organizations,
       ...NATIONAL_RESOURCES.directories,
       ...NATIONAL_RESOURCES.knowYourRights,
-    ];
-    nationalFlat.forEach((r) => all.push({ ...r, isNational: true }));
+    ].map((r) => ({ ...r, isNational: true }));
 
-    // Add state resources if selected
-    if (selectedState && STATE_RESOURCES[selectedState]) {
-      STATE_RESOURCES[selectedState].organizations.forEach((r) =>
-        all.push({ ...r, isNational: false, stateName: STATE_RESOURCES[selectedState].name })
-      );
-    }
+    const stateFlat =
+      selectedState && STATE_RESOURCES[selectedState]
+        ? STATE_RESOURCES[selectedState].organizations.map((r) => ({
+            ...r,
+            isNational: false,
+            stateName: STATE_RESOURCES[selectedState].name,
+          }))
+        : [];
 
-    // Filter by category
-    let filtered = all;
-    if (activeCategory !== 'all') {
-      filtered = filtered.filter((r) => r.category === activeCategory);
-    }
+    const applyFilters = (arr) => {
+      let out = arr;
+      if (activeCategory !== 'all') {
+        out = out.filter((r) => r.category === activeCategory);
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        out = out.filter(
+          (r) =>
+            r.name.toLowerCase().includes(q) ||
+            (r.description && r.description.toLowerCase().includes(q)) ||
+            (r.city && r.city.toLowerCase().includes(q)) ||
+            (r.services && r.services.some((s) => s.toLowerCase().includes(q)))
+        );
+      }
+      return out;
+    };
 
-    // Filter by search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.name.toLowerCase().includes(q) ||
-          (r.description && r.description.toLowerCase().includes(q)) ||
-          (r.city && r.city.toLowerCase().includes(q)) ||
-          (r.services && r.services.some((s) => s.toLowerCase().includes(q)))
-      );
-    }
-
-    return filtered;
+    return {
+      stateResources: applyFilters(stateFlat),
+      nationalResources: applyFilters(nationalFlat),
+    };
   }, [selectedState, activeCategory, searchQuery]);
+
+  const totalCount = stateResources.length + nationalResources.length;
 
   const toggleCard = (id) => {
     setExpandedCards((prev) => {
@@ -110,9 +113,14 @@ function LegalDirectory() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="text-center">
-        <h2 className="text-2xl font-black text-white mb-2">{t('legalDirectory.title')}</h2>
-        <p className="text-slate-400 text-sm">
+      <div className="mb-2">
+        <p className="mb-2 text-xs font-semibold tracking-[0.08em] text-emerald-400">
+          {t('legalDirectory.eyebrow', { defaultValue: 'Find Legal Help' })}
+        </p>
+        <h2 className="text-[1.85rem] font-black tracking-tight text-white sm:text-[2rem]">
+          {t('legalDirectory.title')}
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
           {t('legalDirectory.subtitle')}
         </p>
       </div>
@@ -139,7 +147,7 @@ function LegalDirectory() {
 
       {/* State Selector */}
       <div>
-        <label htmlFor="legal-directory-state" className="text-slate-500 text-xs font-bold uppercase tracking-wider block mb-2">
+        <label htmlFor="legal-directory-state" className="text-slate-500 text-xs font-bold uppercase tracking-[0.12em] block mb-2">
           {t('legalDirectory.selectState')}
         </label>
         <div className="relative">
@@ -147,7 +155,7 @@ function LegalDirectory() {
             id="legal-directory-state"
             value={selectedState}
             onChange={(e) => setSelectedState(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 transition-colors appearance-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-emerald-400 focus:border-emerald-500"
+            className="w-full appearance-none bg-slate-900 border border-slate-700/60 text-white rounded-2xl px-5 py-3.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-emerald-400"
           >
             <option value="">{t('legalDirectory.allStates')}</option>
             {ALL_STATES.map((s) => (
@@ -159,7 +167,7 @@ function LegalDirectory() {
           <CaretDown
             size={16}
             weight="bold"
-            className="absolute end-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+            className="absolute end-4 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none"
           />
         </div>
       </div>
@@ -193,7 +201,7 @@ function LegalDirectory() {
               onClick={() => setActiveCategory(cat.id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all active:scale-95 ${
                 isActive
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-emerald-500/15 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]'
                   : 'bg-slate-800/50 text-slate-400 hover:text-slate-200 border border-slate-700/50'
               }`}
             >
@@ -206,33 +214,70 @@ function LegalDirectory() {
 
       {/* Results count */}
       <div className="text-slate-500 text-xs">
-        {t('legalDirectory.resourceCount', { count: filteredResources.length })}
+        {t('legalDirectory.resourceCount', { count: totalCount })}
         {selectedState && STATE_RESOURCES[selectedState]
           ? t('legalDirectory.inState', { state: STATE_RESOURCES[selectedState].name })
           : ''}
       </div>
 
       {/* Resource Cards */}
-      <div className="space-y-3">
-        {filteredResources.length === 0 ? (
-          <div className="text-center py-12">
-            <MagnifyingGlass size={40} className="text-slate-700 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm">{t('legalDirectory.noResults')}</p>
-            <p className="text-slate-600 text-xs mt-1">{t('legalDirectory.noResultsHint')}</p>
-          </div>
-        ) : (
-          filteredResources.map((resource) => (
-            <ResourceCard
-              key={resource.id}
-              resource={resource}
-              expanded={expandedCards.has(resource.id)}
-              onToggle={() => toggleCard(resource.id)}
-              stripPhone={stripPhone}
-              t={t}
-            />
-          ))
-        )}
-      </div>
+      {totalCount === 0 ? (
+        <div className="text-center py-12">
+          <MagnifyingGlass size={40} className="text-slate-700 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm">{t('legalDirectory.noResults')}</p>
+          <p className="text-slate-600 text-xs mt-1">{t('legalDirectory.noResultsHint')}</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* State-specific resources — pinned at top when a state is selected */}
+          {stateResources.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <MapPin size={14} weight="bold" className="text-emerald-400 shrink-0" />
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-400">
+                  {STATE_RESOURCES[selectedState]?.name}
+                </p>
+                <span className="text-[10px] font-bold text-slate-600 ml-auto">{stateResources.length} result{stateResources.length !== 1 ? 's' : ''}</span>
+              </div>
+              {stateResources.map((resource) => (
+                <ResourceCard
+                  key={resource.id}
+                  resource={resource}
+                  expanded={expandedCards.has(resource.id)}
+                  onToggle={() => toggleCard(resource.id)}
+                  stripPhone={stripPhone}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* National resources */}
+          {nationalResources.length > 0 && (
+            <div className="space-y-3">
+              {stateResources.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-slate-800" />
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500 px-2">
+                    {t('legalDirectory.nationalResources', { defaultValue: 'National' })}
+                  </p>
+                  <div className="flex-1 h-px bg-slate-800" />
+                </div>
+              )}
+              {nationalResources.map((resource) => (
+                <ResourceCard
+                  key={resource.id}
+                  resource={resource}
+                  expanded={expandedCards.has(resource.id)}
+                  onToggle={() => toggleCard(resource.id)}
+                  stripPhone={stripPhone}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Online Directories callout */}
       {activeCategory === 'all' || activeCategory === 'directory' ? (
@@ -280,7 +325,8 @@ function ResourceCard({ resource, expanded, onToggle, stripPhone, t }) {
   const CategoryIcon = CATEGORY_ICONS[resource.category] || ListBullets;
 
   return (
-    <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+    <div className="group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-slate-800/30 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.06),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
       <button
         onClick={onToggle}
         className="w-full text-start px-4 py-3.5 flex items-start gap-3 active:scale-[0.99] transition-transform"

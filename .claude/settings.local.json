@@ -5,7 +5,8 @@
       "WebFetch(domain:worldpopulationreview.com)",
       "Bash(npm run build:*)",
       "Bash(npx firebase-tools:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

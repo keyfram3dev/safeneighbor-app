@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import DOMPurify from 'dompurify';
-import { CaretRight, ChatCircle, Scroll, Warning, Lightbulb, Check, X, DownloadSimple, House, Car, Briefcase, MapPin, FileText, Eye, ShieldWarning, IdentificationCard, User, CreditCard, Lifebuoy, ProhibitInset, ScalesIcon as Scales } from '@phosphor-icons/react';
+import { CaretRight, ChatCircle, Scroll, Warning, Lightbulb, Check, X, DownloadSimple, House, Car, Briefcase, MapPin, FileText, Eye, ShieldWarning, IdentificationCard, User, CreditCard, Lifebuoy, ProhibitInset, ScalesIcon as Scales, Shield, BookOpenText, Brain, Gavel, Handshake, Megaphone } from '@phosphor-icons/react';
 import Disclaimer from './Disclaimer';
 import InstallHelp from './InstallHelp';
 import FaqCta from './FaqCta';
 import { useRotatingQuote } from '../utils/quoteRotation';
 import LegalDirectory from './LegalDirectory';
 import CaseLawSearch from './CaseLawSearch';
-import { Scale } from 'lucide-react';
 import {
   STATUS_PERSONAS,
   NEVER_SIGN_WARNING,
@@ -18,6 +17,8 @@ import {
   ASYLUM_SECTIONS,
   SHARED_SECTIONS,
 } from '../data/immigrationRightsData';
+
+const aniDelay = (s) => ({ animationDelay: `${s}s` });
 
 // State-specific recording and consent law data
 const stateGuides = {
@@ -1085,69 +1086,131 @@ User question: ${input}`
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 page-section-stagger">
-      <div className="text-center mb-8 page-section-item">
-        <div className="mb-4 flex justify-center">
-          <Scale size={64} className="text-blue-400" />
+    <div className="page-transition-in page-section-stagger mx-auto max-w-5xl px-4 pb-24 pt-3">
+      {/* Hero Card */}
+      <section className="page-section-item relative overflow-hidden rounded-[32px] border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-950/95 to-slate-900/80 p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.95)]">
+        <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/35 to-transparent" />
+        <div className="pointer-events-none absolute -top-20 right-0 h-52 w-52 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-0 h-52 w-52 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.08) 1px, transparent 1px)', backgroundSize: '24px 24px', maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.55), transparent 86%)' }} />
+
+        <div className="relative">
+          <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-blue-300/80 scenario-fade-in" style={aniDelay(0.06)}>
+            {t('legal.heroEyebrow', { defaultValue: 'Legal Protection' })}
+          </p>
+
+          <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.18)}>
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10 text-blue-300 shadow-[0_0_28px_rgba(59,130,246,0.18)]">
+              <Scales size={30} weight="bold" />
+            </div>
+            <h1 className="max-w-3xl text-[2rem] font-black tracking-tight text-white sm:text-[2.75rem]">
+              {t('legal.title')}
+            </h1>
+          </div>
+
+          <p className="max-w-3xl text-base leading-[1.6] text-slate-300 sm:text-[1.05rem] scenario-fade-in" style={aniDelay(0.32)}>
+            {t('legal.subtitle')}
+          </p>
+          <p className="mt-3 max-w-2xl text-sm leading-[1.6] text-slate-400 scenario-fade-in" style={aniDelay(0.44)}>
+            {t('legal.heroSupport', { defaultValue: 'Constitutional protections, immigration status guides, AI-powered Q&A, and a national directory of legal aid. Everything you need, organized by what matters right now.' })}
+          </p>
+
+          {/* Status pills */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-fade-in" style={aniDelay(0.56)}>
+            <span className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-purple-300">
+              <span className="h-2 w-2 rounded-full bg-purple-400" />
+              <Scroll size={13} weight="bold" />
+              {t('legal.pillRights', { defaultValue: 'Know Your Rights' })}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300">
+              <span className="h-2 w-2 rounded-full bg-cyan-400" />
+              <Brain size={13} weight="bold" />
+              {t('legal.pillAi', { defaultValue: 'AI Powered' })}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-amber-300">
+              <span className="h-2 w-2 rounded-full bg-amber-400" />
+              <MapPin size={13} weight="bold" />
+              {t('legal.pill50States', { defaultValue: '50 State Laws' })}
+            </span>
+          </div>
+
+          {/* Get Legal Help CTA */}
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.68)}>
+            <button
+              onClick={onOpenLegalResponse}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/50 bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-white shadow-[0_12px_32px_rgba(5,150,105,0.3)] transition-all hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.98]"
+            >
+              <Scales size={20} weight="bold" />
+              {t('legalResponse.buttonLabel')}
+            </button>
+          </div>
         </div>
-        <h1 className="text-3xl font-black text-white tracking-wide mb-2">{t('legal.title')}</h1>
-        <p className="text-slate-400">{t('legal.subtitle')}</p>
-      </div>
+      </section>
 
-      {/* Get Legal Help — one-tap legal response */}
-      <button
-        onClick={onOpenLegalResponse}
-        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-700 to-emerald-800 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg active:scale-95 mb-6 page-section-item"
-      >
-        <Scales size={20} weight="bold" />
-        {t('legalResponse.buttonLabel')}
-      </button>
-
-      <div className="flex gap-1.5 mb-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-700/50 page-section-item">
-        <button
-          onClick={() => setView('chat')}
-          className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
-            view === 'chat'
-              ? 'bg-blue-600 text-white shadow-lg'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap"><ChatCircle size={14} weight="bold" className="shrink-0" />{t('legal.tabAskAi')}</span>
-        </button>
-        <button
-          onClick={() => setView('constitution')}
-          className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
-            view === 'constitution'
-              ? 'bg-purple-600 text-white shadow-lg'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap"><Scroll size={14} weight="bold" className="shrink-0" />{t('legal.tabRights')}</span>
-        </button>
-        <button
-          onClick={() => setView('status')}
-          className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
-            view === 'status'
-              ? 'bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-lg shadow-red-500/20'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap"><IdentificationCard size={14} weight="bold" className="shrink-0" />{t('legal.tabByStatus')}</span>
-        </button>
-        <button
-          onClick={() => setView('directory')}
-          className={`flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-sm transition-all text-center ${
-            view === 'directory'
-              ? 'bg-emerald-600 text-white shadow-lg'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap"><MapPin size={14} weight="bold" className="shrink-0" />{t('legal.tabFindHelp')}</span>
-        </button>
+      {/* Tab Navigation */}
+      <div className="page-section-item sticky top-[84px] z-20 mt-5 overflow-x-auto rounded-2xl border border-slate-800/80 bg-slate-950/84 p-1.5 backdrop-blur-xl sm:top-[92px] scenario-fade-in" style={aniDelay(0.14)}>
+        <div className="flex min-w-max gap-1.5">
+          <button
+            onClick={() => setView('chat')}
+            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] transition-[background-color,color,transform,box-shadow] duration-200 active:scale-[0.98] ${
+              view === 'chat'
+                ? 'bg-blue-500/15 text-blue-100 shadow-[0_0_0_1px_rgba(96,165,250,0.16),0_10px_24px_rgba(30,64,175,0.12)]'
+                : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-100'
+            }`}
+          >
+            <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+              <ChatCircle size={14} weight="bold" className="shrink-0" />
+              {t('legal.tabAskAi')}
+              {view === 'chat' && <span className="h-1.5 w-1.5 rounded-full bg-blue-300" />}
+            </span>
+          </button>
+          <button
+            onClick={() => setView('constitution')}
+            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] transition-[background-color,color,transform,box-shadow] duration-200 active:scale-[0.98] ${
+              view === 'constitution'
+                ? 'bg-purple-500/15 text-purple-100 shadow-[0_0_0_1px_rgba(147,51,234,0.16),0_10px_24px_rgba(88,28,135,0.12)]'
+                : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-100'
+            }`}
+          >
+            <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+              <Scroll size={14} weight="bold" className="shrink-0" />
+              {t('legal.tabRights')}
+              {view === 'constitution' && <span className="h-1.5 w-1.5 rounded-full bg-purple-300" />}
+            </span>
+          </button>
+          <button
+            onClick={() => setView('status')}
+            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] transition-[background-color,color,transform,box-shadow] duration-200 active:scale-[0.98] ${
+              view === 'status'
+                ? 'bg-red-500/15 text-red-100 shadow-[0_0_0_1px_rgba(239,68,68,0.16),0_10px_24px_rgba(127,29,29,0.12)]'
+                : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-100'
+            }`}
+          >
+            <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+              <IdentificationCard size={14} weight="bold" className="shrink-0" />
+              {t('legal.tabByStatus')}
+              {view === 'status' && <span className="h-1.5 w-1.5 rounded-full bg-red-300" />}
+            </span>
+          </button>
+          <button
+            onClick={() => setView('directory')}
+            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] transition-[background-color,color,transform,box-shadow] duration-200 active:scale-[0.98] ${
+              view === 'directory'
+                ? 'bg-emerald-500/15 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.16),0_10px_24px_rgba(6,78,59,0.12)]'
+                : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-100'
+            }`}
+          >
+            <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+              <MapPin size={14} weight="bold" className="shrink-0" />
+              {t('legal.tabFindHelp')}
+              {view === 'directory' && <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />}
+            </span>
+          </button>
+        </div>
       </div>
 
       {view === 'chat' && (
-        <div className="space-y-6 page-section-item">
+        <div className="mt-8 space-y-6 scenario-section-rise">
           <div className="bg-gradient-to-br from-amber-950/30 to-amber-900/20 backdrop-blur-sm border border-amber-900/50 rounded-2xl p-6">
             <div className="flex items-start gap-4">
               <Warning size={28} weight="bold" className="text-amber-500 flex-shrink-0 mt-1" />
@@ -1238,12 +1301,16 @@ User question: ${input}`
       )}
 
       {view === 'constitution' && (
-        <div className="space-y-4 page-section-item">
-          <h2 className="text-2xl font-black text-white mb-2">{t('legal.constitutionalRightsTitle')}</h2>
-          <p className="text-slate-400 text-sm mb-6">{t('legal.constitutionalRightsSubtitle')}</p>
+        <div className="mt-8 space-y-4 scenario-section-rise">
+          <div className="mb-4 scenario-fade-in" style={aniDelay(0.04)}>
+            <p className="mb-2 text-xs font-semibold tracking-[0.08em] text-purple-400">{t('legal.constitutionalRightsEyebrow', { defaultValue: 'Foundations' })}</p>
+            <h2 className="text-[1.85rem] font-black tracking-tight text-white sm:text-[2rem]">{t('legal.constitutionalRightsTitle')}</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">{t('legal.constitutionalRightsSubtitle')}</p>
+          </div>
 
           {/* 1st Amendment - Collapsible */}
-          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-purple-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/5 hover:-translate-y-0.5">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(147,51,234,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1251,17 +1318,22 @@ User question: ${input}`
                 else next.add('1st');
                 return next;
               })}
-              className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              className="relative w-full p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
             >
-              <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white group-hover:text-purple-100 transition-colors">{t('legal.amendment1st')}</h3>
-                <p className="text-slate-400 text-sm">{t('legal.amendment1stDesc')}</p>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-purple-500/20 bg-purple-500/10 text-purple-300 shrink-0">
+                  <Megaphone size={20} weight="bold" />
+                </div>
+                <div className="text-start">
+                  <h3 className="text-lg font-black text-white group-hover:text-purple-100 transition-colors">{t('legal.amendment1st')}</h3>
+                  <p className="text-slate-400 text-xs hidden sm:block">{t('legal.amendment1stDesc')}</p>
+                </div>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('1st') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-purple-400 transition-colors" />
+                <CaretRight size={20} weight="bold" className="text-slate-400 group-hover:text-purple-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1273,7 +1345,7 @@ User question: ${input}`
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="bg-gradient-to-br from-purple-950 to-purple-900 p-6 border-t border-purple-800">
+                  <div className="bg-gradient-to-br from-purple-950/60 to-purple-900/40 p-6 border-t border-purple-800/50">
                 <div className="bg-purple-950/50 p-4 rounded-xl border border-purple-800/50 mb-4">
                   <p className="text-white italic text-sm leading-relaxed">
                     "Congress shall make no law... abridging the freedom of speech, or of the press; or the right of the people peaceably to assemble, and to petition the Government for a redress of grievances."
@@ -1398,7 +1470,8 @@ User question: ${input}`
           </div>
 
           {/* 4th Amendment - Collapsible */}
-          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-red-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 hover:-translate-y-0.5">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1406,17 +1479,22 @@ User question: ${input}`
                 else next.add('4th');
                 return next;
               })}
-              className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              className="relative w-full p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
             >
-              <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white group-hover:text-red-100 transition-colors">{t('legal.amendment4th')}</h3>
-                <p className="text-slate-400 text-sm">{t('legal.amendment4thDesc')}</p>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-300 shrink-0">
+                  <House size={20} weight="bold" />
+                </div>
+                <div className="text-start">
+                  <h3 className="text-lg font-black text-white group-hover:text-red-100 transition-colors">{t('legal.amendment4th')}</h3>
+                  <p className="text-slate-400 text-xs hidden sm:block">{t('legal.amendment4thDesc')}</p>
+                </div>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('4th') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-red-400 transition-colors" />
+                <CaretRight size={20} weight="bold" className="text-slate-400 group-hover:text-red-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1428,7 +1506,7 @@ User question: ${input}`
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="bg-gradient-to-br from-red-950 to-red-900 p-6 border-t border-red-800">
+                  <div className="bg-gradient-to-br from-red-950/60 to-red-900/40 p-6 border-t border-red-800/50">
                 <div className="bg-red-950/50 p-4 rounded-xl border border-red-800/50 mb-4">
                   <p className="text-white italic text-sm leading-relaxed">
                     "The right of the people to be secure in their persons, houses, papers, and effects,
@@ -1469,7 +1547,8 @@ User question: ${input}`
           </div>
 
           {/* 5th Amendment - Collapsible */}
-          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-blue-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 hover:-translate-y-0.5">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1477,17 +1556,22 @@ User question: ${input}`
                 else next.add('5th');
                 return next;
               })}
-              className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              className="relative w-full p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
             >
-              <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white group-hover:text-blue-100 transition-colors">{t('legal.amendment5th')}</h3>
-                <p className="text-slate-400 text-sm">{t('legal.amendment5thDesc')}</p>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-300 shrink-0">
+                  <ShieldWarning size={20} weight="bold" />
+                </div>
+                <div className="text-start">
+                  <h3 className="text-lg font-black text-white group-hover:text-blue-100 transition-colors">{t('legal.amendment5th')}</h3>
+                  <p className="text-slate-400 text-xs hidden sm:block">{t('legal.amendment5thDesc')}</p>
+                </div>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('5th') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-blue-400 transition-colors" />
+                <CaretRight size={20} weight="bold" className="text-slate-400 group-hover:text-blue-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1499,7 +1583,7 @@ User question: ${input}`
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="bg-gradient-to-br from-blue-950 to-blue-900 p-6 border-t border-blue-800">
+                  <div className="bg-gradient-to-br from-blue-950/60 to-blue-900/40 p-6 border-t border-blue-800/50">
                 <div className="bg-blue-950/50 p-4 rounded-xl border border-blue-800/50 mb-4">
                   <p className="text-white italic text-sm leading-relaxed">
                     "No person... shall be compelled in any criminal case to be a witness against himself..."
@@ -1539,7 +1623,8 @@ User question: ${input}`
           </div>
 
           {/* 6th Amendment - Collapsible */}
-          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-emerald-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1547,17 +1632,22 @@ User question: ${input}`
                 else next.add('6th');
                 return next;
               })}
-              className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              className="relative w-full p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
             >
-              <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white group-hover:text-emerald-100 transition-colors">{t('legal.amendment6th')}</h3>
-                <p className="text-slate-400 text-sm">{t('legal.amendment6thDesc')}</p>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 shrink-0">
+                  <Handshake size={20} weight="bold" />
+                </div>
+                <div className="text-start">
+                  <h3 className="text-lg font-black text-white group-hover:text-emerald-100 transition-colors">{t('legal.amendment6th')}</h3>
+                  <p className="text-slate-400 text-xs hidden sm:block">{t('legal.amendment6thDesc')}</p>
+                </div>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('6th') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
+                <CaretRight size={20} weight="bold" className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1569,7 +1659,7 @@ User question: ${input}`
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="bg-gradient-to-br from-emerald-950 to-emerald-900 p-6 border-t border-emerald-800">
+                  <div className="bg-gradient-to-br from-emerald-950/60 to-emerald-900/40 p-6 border-t border-emerald-800/50">
                 <div className="bg-emerald-950/50 p-4 rounded-xl border border-emerald-800/50 mb-4">
                   <p className="text-white italic text-sm leading-relaxed">
                     "In all criminal prosecutions, the accused shall enjoy the right... to have the Assistance of Counsel for his defence."
@@ -1617,7 +1707,8 @@ User question: ${input}`
           </div>
 
           {/* 14th Amendment - Collapsible */}
-          <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-amber-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 hover:-translate-y-0.5">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
                 const next = new Set(prev);
@@ -1625,17 +1716,22 @@ User question: ${input}`
                 else next.add('14th');
                 return next;
               })}
-              className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+              className="relative w-full p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
             >
-              <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white group-hover:text-amber-100 transition-colors">{t('legal.amendment14th')}</h3>
-                <p className="text-slate-400 text-sm">{t('legal.amendment14thDesc')}</p>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-300 shrink-0">
+                  <Gavel size={20} weight="bold" />
+                </div>
+                <div className="text-start">
+                  <h3 className="text-lg font-black text-white group-hover:text-amber-100 transition-colors">{t('legal.amendment14th')}</h3>
+                  <p className="text-slate-400 text-xs hidden sm:block">{t('legal.amendment14thDesc')}</p>
+                </div>
               </div>
               <motion.div
                 animate={{ rotate: expandedAmendments.has('14th') ? 90 : 0 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               >
-                <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-amber-400 transition-colors" />
+                <CaretRight size={20} weight="bold" className="text-slate-400 group-hover:text-amber-400 transition-colors" />
               </motion.div>
             </button>
             <AnimatePresence>
@@ -1647,7 +1743,7 @@ User question: ${input}`
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="bg-gradient-to-br from-amber-950 to-amber-900 p-6 border-t border-amber-800">
+                  <div className="bg-gradient-to-br from-amber-950/60 to-amber-900/40 p-6 border-t border-amber-800/50">
                 <div className="bg-amber-950/50 p-4 rounded-xl border border-amber-800/50 mb-4">
                   <p className="text-white italic text-sm leading-relaxed">
                     "...nor shall any State deprive any person of life, liberty, or property, without due process of law; nor deny to any person within its jurisdiction the equal protection of the laws."
@@ -1695,9 +1791,13 @@ User question: ${input}`
           </div>
 
           {/* Civil Disobedience: Know Your Rights */}
-          <div className="mt-12 pt-8 border-t border-slate-700">
-            <h2 className="text-2xl font-black text-white mb-2">{t('legal.civilDisobedienceTitle')}</h2>
-            <p className="text-slate-400 text-sm mb-4">{t('legal.civilDisobedienceSubtitle')}</p>
+          <div className="mt-14 pt-8 relative">
+            <div className="pointer-events-none absolute -top-6 left-6 right-6 h-px bg-gradient-to-r from-transparent via-teal-400/30 to-transparent" />
+            <div className="mb-4">
+              <p className="mb-2 text-xs font-semibold tracking-[0.08em] text-teal-400">{t('legal.civilDisobedienceEyebrow', { defaultValue: 'Civic Action' })}</p>
+              <h2 className="text-[1.85rem] font-black tracking-tight text-white sm:text-[2rem]">{t('legal.civilDisobedienceTitle')}</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">{t('legal.civilDisobedienceSubtitle')}</p>
+            </div>
 
             {/* Disclaimer */}
             <div className="bg-amber-950/30 border border-amber-900/50 rounded-2xl p-5 mb-6">
@@ -1715,7 +1815,8 @@ User question: ${input}`
             <div className="space-y-4">
 
             {/* History & Legal Framework */}
-            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+            <div className="group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-teal-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-teal-500/30 hover:shadow-lg hover:shadow-teal-500/5 hover:-translate-y-0.5">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(20,184,166,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -1723,17 +1824,22 @@ User question: ${input}`
                   else next.add('cd-history');
                   return next;
                 })}
-                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+                className="relative w-full p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
               >
-                <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold text-white group-hover:text-teal-100 transition-colors">{t('legal.historyLegalFramework')}</h3>
-                  <p className="text-slate-400 text-sm hidden sm:block">{t('legal.constitutionalProtections')}</p>
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-teal-500/20 bg-teal-500/10 text-teal-300 shrink-0">
+                    <BookOpenText size={20} weight="bold" />
+                  </div>
+                  <div className="text-start">
+                    <h3 className="text-lg font-black text-white group-hover:text-teal-100 transition-colors">{t('legal.historyLegalFramework')}</h3>
+                    <p className="text-slate-400 text-xs hidden sm:block">{t('legal.constitutionalProtections')}</p>
+                  </div>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('cd-history') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
+                  <CaretRight size={20} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -1745,7 +1851,7 @@ User question: ${input}`
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+                    <div className="bg-gradient-to-br from-teal-950/60 to-teal-900/40 p-6 border-t border-teal-800/50">
 
                       <div className="mb-6">
                         <h4 className="text-white font-black mb-3 flex items-center gap-2">
@@ -1899,7 +2005,7 @@ User question: ${input}`
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+                    <div className="bg-gradient-to-br from-teal-950/60 to-teal-900/40 p-6 border-t border-teal-800/50">
 
                       <div className="space-y-3 mb-6">
                         <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
@@ -1989,7 +2095,8 @@ User question: ${input}`
             </div>
 
             {/* Common Charges at Protests */}
-            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+            <div className="group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-teal-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-teal-500/30 hover:shadow-lg hover:shadow-teal-500/5 hover:-translate-y-0.5">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(20,184,166,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -1997,17 +2104,22 @@ User question: ${input}`
                   else next.add('cd-charges');
                   return next;
                 })}
-                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+                className="relative w-full p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
               >
-                <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold text-white group-hover:text-teal-100 transition-colors">{t('legal.commonChargesAtProtests')}</h3>
-                  <p className="text-slate-400 text-sm hidden sm:block">{t('legal.knowWhatYouMayFace')}</p>
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-teal-500/20 bg-teal-500/10 text-teal-300 shrink-0">
+                    <Warning size={20} weight="bold" />
+                  </div>
+                  <div className="text-start">
+                    <h3 className="text-lg font-black text-white group-hover:text-teal-100 transition-colors">{t('legal.commonChargesAtProtests')}</h3>
+                    <p className="text-slate-400 text-xs hidden sm:block">{t('legal.knowWhatYouMayFace')}</p>
+                  </div>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('cd-charges') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
+                  <CaretRight size={20} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2019,7 +2131,7 @@ User question: ${input}`
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+                    <div className="bg-gradient-to-br from-teal-950/60 to-teal-900/40 p-6 border-t border-teal-800/50">
 
                       <div className="space-y-3">
                         <div className="bg-teal-950/30 p-4 rounded-xl border border-teal-800/30">
@@ -2072,7 +2184,8 @@ User question: ${input}`
             </div>
 
             {/* Practical Safety */}
-            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+            <div className="group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-teal-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-teal-500/30 hover:shadow-lg hover:shadow-teal-500/5 hover:-translate-y-0.5">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(20,184,166,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2080,17 +2193,22 @@ User question: ${input}`
                   else next.add('cd-safety');
                   return next;
                 })}
-                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+                className="relative w-full p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
               >
-                <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold text-white group-hover:text-teal-100 transition-colors">{t('legal.practicalSafety')}</h3>
-                  <p className="text-slate-400 text-sm hidden sm:block">{t('legal.beforeDuringAfter')}</p>
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-teal-500/20 bg-teal-500/10 text-teal-300 shrink-0">
+                    <Shield size={20} weight="bold" />
+                  </div>
+                  <div className="text-start">
+                    <h3 className="text-lg font-black text-white group-hover:text-teal-100 transition-colors">{t('legal.practicalSafety')}</h3>
+                    <p className="text-slate-400 text-xs hidden sm:block">{t('legal.beforeDuringAfter')}</p>
+                  </div>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('cd-safety') ? 90 : 0 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <CaretRight size={24} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
+                  <CaretRight size={20} weight="bold" className="text-slate-400 group-hover:text-teal-400 transition-colors" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -2102,7 +2220,7 @@ User question: ${input}`
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+                    <div className="bg-gradient-to-br from-teal-950/60 to-teal-900/40 p-6 border-t border-teal-800/50">
 
                       <div className="mb-6">
                         <h4 className="text-white font-black mb-3 flex items-center gap-2">
@@ -2241,7 +2359,7 @@ User question: ${input}`
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-gradient-to-br from-teal-950 to-teal-900 p-6 border-t border-teal-800">
+                    <div className="bg-gradient-to-br from-teal-950/60 to-teal-900/40 p-6 border-t border-teal-800/50">
 
                       <div className="bg-teal-950/50 p-4 rounded-xl border border-teal-800/50 mb-6">
                         <p className="text-white italic text-sm leading-relaxed">
@@ -2612,7 +2730,7 @@ User question: ${input}`
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-gradient-to-br from-red-950 to-red-900 p-6 border-t border-red-800">
+                    <div className="bg-gradient-to-br from-red-950/60 to-red-900/40 p-6 border-t border-red-800/50">
                   <div className="bg-red-950/50 p-4 rounded-xl border border-red-800/50 mb-4">
                     <p className="text-white text-sm leading-relaxed">
                       <strong>What is it?</strong> CBP claims authority to operate immigration checkpoints within 100 miles of any U.S. border (including coastlines). This area covers about 2/3 of the U.S. population.
@@ -2739,7 +2857,8 @@ User question: ${input}`
             <h2 className="text-2xl font-black text-white mb-2">{t('legal.forWitnessesTitle')}</h2>
             <p className="text-slate-400 text-sm mb-6">{t('legal.forWitnessesSubtitle')}</p>
 
-            <div className="group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
+            <div className="group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-pink-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-pink-500/30 hover:shadow-lg hover:shadow-pink-500/5 hover:-translate-y-0.5">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
               <button
                 onClick={() => setExpandedAmendments(prev => {
                   const next = new Set(prev);
@@ -2747,11 +2866,13 @@ User question: ${input}`
                   else next.add('witness');
                   return next;
                 })}
-                className="w-full p-5 flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+                className="relative w-full p-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
               >
-                <div className="flex items-center gap-4">
-                  <Eye size={24} weight="bold" className="text-pink-400" />
-                  <h3 className="text-xl font-bold text-white group-hover:text-pink-100 transition-colors">{t('legal.witnessingEncounter')}</h3>
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-pink-500/20 bg-pink-500/10 text-pink-300 shrink-0">
+                    <Eye size={20} weight="bold" />
+                  </div>
+                  <h3 className="text-lg font-black text-white group-hover:text-pink-100 transition-colors">{t('legal.witnessingEncounter')}</h3>
                 </div>
                 <motion.div
                   animate={{ rotate: expandedAmendments.has('witness') ? 90 : 0 }}
@@ -2769,7 +2890,7 @@ User question: ${input}`
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-gradient-to-br from-pink-950 to-pink-900 p-6 border-t border-pink-800">
+                    <div className="bg-gradient-to-br from-pink-950/60 to-pink-900/40 p-6 border-t border-pink-800/50">
                   <div className="space-y-3">
                     <div className="bg-pink-950/30 p-4 rounded-xl border border-pink-800/30">
                       <p className="text-pink-100 text-sm leading-relaxed flex items-start gap-2">
@@ -2822,19 +2943,24 @@ User question: ${input}`
           </div>
 
           {/* State-Specific Guides Section */}
-          <div className="mt-12 pt-8 border-t border-slate-700">
-            <h2 className="text-2xl font-black text-white mb-2">{t('legal.stateGuidesTitle')}</h2>
-            <p className="text-slate-400 text-sm mb-6">{t('legal.stateGuidesSubtitle')}</p>
+          <div className="mt-14 pt-8 relative">
+            <div className="pointer-events-none absolute -top-6 left-6 right-6 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+            <div className="mb-6">
+              <p className="mb-2 text-xs font-semibold tracking-[0.08em] text-cyan-400">{t('legal.stateGuidesEyebrow', { defaultValue: 'By State' })}</p>
+              <h2 className="text-[1.85rem] font-black tracking-tight text-white sm:text-[2rem]">{t('legal.stateGuidesTitle')}</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">{t('legal.stateGuidesSubtitle')}</p>
+            </div>
 
             {/* State Selector */}
-            <div className="mb-6">
-              <label className="text-slate-500 text-xs font-bold uppercase tracking-wider block mb-2">
+            <div className="mb-6 relative">
+              <label className="text-slate-500 text-xs font-bold uppercase tracking-[0.12em] block mb-2">
                 {t('legal.selectStateLabel')}
               </label>
+              <div className="relative">
               <select
                 value={selectedState}
                 onChange={(e) => setSelectedState(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 focus:border-blue-500 outline-none transition-colors"
+                className="w-full appearance-none bg-slate-900 border border-slate-700/60 text-white rounded-2xl px-5 py-3.5 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 outline-none transition-colors"
               >
                 <option value="alabama">Alabama</option>
                 <option value="alaska">Alaska</option>
@@ -2887,14 +3013,16 @@ User question: ${input}`
                 <option value="wisconsin">Wisconsin</option>
                 <option value="wyoming">Wyoming</option>
               </select>
+              <CaretRight size={16} weight="bold" className="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 rotate-90 text-cyan-400" />
+              </div>
             </div>
 
             {/* State Content Card */}
             {stateGuides[selectedState] && (
-              <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+              <div className="bg-gradient-to-br from-slate-900 via-slate-900/96 to-cyan-950/20 border border-slate-700/50 rounded-[28px] overflow-hidden shadow-[0_16px_34px_rgba(2,6,23,0.16)]">
                 {/* State Header */}
                 <div className="p-6 flex justify-between items-start">
-                  <h3 className="text-3xl font-black text-white">{stateGuides[selectedState].name}</h3>
+                  <h3 className="text-2xl font-black tracking-tight text-white">{stateGuides[selectedState].name}</h3>
                   <div className="text-end">
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">{t('legal.relevantStatutes')}</p>
                     {stateGuides[selectedState].statutes.map((statute, idx) => (
@@ -2905,7 +3033,14 @@ User question: ${input}`
 
                 {/* Consent Badge */}
                 <div className="px-6 pb-4">
-                  <span className="inline-block bg-amber-600 text-white text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full">
+                  <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.12em] ${
+                    stateGuides[selectedState].consentType === 'ONE-PARTY CONSENT'
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                      : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                  }`}>
+                    <span className={`h-2 w-2 rounded-full ${
+                      stateGuides[selectedState].consentType === 'ONE-PARTY CONSENT' ? 'bg-emerald-400' : 'bg-amber-400'
+                    }`} />
                     {stateGuides[selectedState].consentType}
                   </span>
                 </div>
@@ -2974,66 +3109,19 @@ User question: ${input}`
             <div className="mt-6">
               <CaseLawSearch />
             </div>
-
-            {/* Rotating Quote */}
-            <div className="text-center mt-10 mb-10">
-              <p className="text-slate-400 italic text-sm mb-2">
-                {legalQuote.quote}
-              </p>
-              <p className="text-slate-500 text-xs">{legalQuote.author}</p>
-            </div>
-
-            {/* FAQ Link */}
-            <div className="mb-6">
-              <FaqCta onNavigate={onNavigate} />
-            </div>
-
-            {/* Disclaimer */}
-            <div className="mb-8">
-              <Disclaimer>
-                {t('legal.disclaimerLine1')}
-                <br />{t('legal.disclaimerLine2')}
-                <br />{t('legal.disclaimerLine3')}
-                <br />{t('legal.disclaimerLine4')}
-              </Disclaimer>
-            </div>
-
-            {/* Install CTA */}
-            <div className="text-center">
-              <button
-                onClick={() => {
-                  if (window.deferredPrompt) {
-                    window.deferredPrompt.prompt();
-                    window.deferredPrompt.userChoice.then((choice) => {
-                      if (choice.outcome === 'accepted') {
-                        console.log('User accepted install');
-                      }
-                      window.deferredPrompt = null;
-                    });
-                  } else {
-                    setShowInstallHelp(true);
-                  }
-                }}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto"
-              >
-                <DownloadSimple size={18} weight="bold" />
-                {t('legal.installButton')}
-              </button>
-              <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
-                {t('legal.installRecommended')}
-              </p>
-            </div>
           </div>
         </div>
       )}
       {view === 'status' && (
-        <div className="space-y-6 page-section-item">
+        <div className="mt-8 space-y-6 scenario-section-rise">
           {/* Disclaimer */}
-          <Disclaimer section="legal" />
+          <div className="scenario-section-item">
+            <Disclaimer section="legal" />
+          </div>
 
           {/* NEVER SIGN WARNING BANNER */}
           <div
-            className="group relative bg-gradient-to-br from-red-950/60 to-red-900/40 border border-red-800/60 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 hover:-translate-y-0.5"
+            className="scenario-section-item group relative bg-gradient-to-br from-red-950/60 to-red-900/40 border border-red-800/60 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 hover:-translate-y-0.5"
             onClick={() => setNeverSignExpanded(prev => !prev)}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-transparent to-transparent group-hover:from-red-500/5 group-hover:to-rose-500/5 rounded-2xl transition-all duration-300 pointer-events-none" />
@@ -3075,7 +3163,7 @@ User question: ${input}`
           </div>
 
           {/* PERSONA SELECTOR CARDS */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="scenario-section-item grid grid-cols-1 sm:grid-cols-3 gap-3">
             {Object.values(STATUS_PERSONAS).map(persona => {
               const isSelected = selectedStatus === persona.id;
               const colorMap = {
@@ -3209,8 +3297,8 @@ User question: ${input}`
           </AnimatePresence>
 
           {/* EVERYONE SHOULD KNOW — always visible */}
-          <div className="space-y-2">
-            <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest px-1 pt-4">{t('legal.everyoneShouldKnow')}</h2>
+          <div className="scenario-section-item space-y-2">
+            <h2 className="text-xs font-black text-slate-500 uppercase tracking-[0.12em] px-1 pt-4">{t('legal.everyoneShouldKnow')}</h2>
             {SHARED_SECTIONS.map(section => {
               const isExpanded = expandedStatus.has(section.id);
               return (
@@ -3264,8 +3352,57 @@ User question: ${input}`
         </div>
       )}
       {view === 'directory' && (
-        <div className="page-section-item"><LegalDirectory /></div>
+        <div className="mt-8 scenario-fade-in" style={aniDelay(0.06)}><LegalDirectory /></div>
       )}
+
+      {/* Shared Footer — Quote, FAQ, Disclaimer, Install */}
+      <div className="mt-14 space-y-6">
+        {/* Rotating Quote */}
+        <div className="text-center py-6">
+          <p className="text-slate-400/72 italic text-[1.02rem] font-medium leading-[1.58] mb-3" style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", "Iowan Old Style", serif' }}>
+            "{legalQuote.quote}"
+          </p>
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.12em]">
+            {legalQuote.author}
+          </p>
+        </div>
+
+        <FaqCta onNavigate={onNavigate} />
+
+        <Disclaimer>
+          {t('legal.disclaimerLine1')}
+          <br />{t('legal.disclaimerLine2')}
+          <br />{t('legal.disclaimerLine3')}
+          <br />{t('legal.disclaimerLine4')}
+        </Disclaimer>
+
+        {/* Install CTA */}
+        <div className="text-center pb-4">
+          <button
+            onClick={() => {
+              if (window.deferredPrompt) {
+                window.deferredPrompt.prompt();
+                window.deferredPrompt.userChoice.then((choice) => {
+                  if (choice.outcome === 'accepted') {
+                    console.log('User accepted install');
+                  }
+                  window.deferredPrompt = null;
+                });
+              } else {
+                setShowInstallHelp(true);
+              }
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-500/50 bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-white shadow-[0_12px_32px_rgba(30,64,175,0.3)] transition-all hover:from-blue-500 hover:to-blue-600 active:scale-[0.98]"
+          >
+            <DownloadSimple size={18} weight="bold" />
+            {t('legal.installButton')}
+          </button>
+          <p className="text-slate-500 text-xs mt-2 uppercase tracking-[0.12em]">
+            {t('legal.installRecommended')}
+          </p>
+        </div>
+      </div>
+
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>
   );

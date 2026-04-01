@@ -1,0 +1,30 @@
+# Large i18n translation files (keep English for reference)
+src/i18n/am/
+src/i18n/ar/
+src/i18n/fa/
+src/i18n/fr/
+src/i18n/hi/
+src/i18n/ht/
+src/i18n/ko/
+src/i18n/mh/
+src/i18n/my/
+src/i18n/ne/
+src/i18n/pa/
+src/i18n/pt/
+src/i18n/quc/
+src/i18n/ru/
+src/i18n/so/
+src/i18n/tl/
+src/i18n/vi/
+src/i18n/zh/
+
+# Lock files
+package-lock.json
+functions/package-lock.json
+
+# Images
+public/splash/
+public/install-help/
+
+# External assets (not in build)
+/assets_external/
