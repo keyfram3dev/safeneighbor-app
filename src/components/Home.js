@@ -952,7 +952,7 @@ const Home = ({
     : null;
 
   return (
-    <div className="max-w-4xl mx-auto pb-24 px-4 relative page-transition-in page-section-stagger">
+    <div className="max-w-4xl mx-auto pb-24 px-4 relative home-page-in home-page-stagger">
       <div
         className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
         style={{
@@ -960,7 +960,7 @@ const Home = ({
         }}
       />
 
-      <div className="mb-10 pt-5 relative sm:mb-12 sm:pt-6 page-section-item">
+      <div className="mb-10 pt-5 relative sm:mb-12 sm:pt-6 home-page-item">
         <div className="absolute inset-x-10 -top-14 h-40 bg-gradient-to-b from-blue-500/15 via-cyan-500/5 to-transparent blur-3xl pointer-events-none" />
 
         <div className="xl:grid xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)] xl:items-stretch xl:gap-4">
@@ -1010,10 +1010,10 @@ const Home = ({
             </AnimatePresence>
 
             <div className="relative">
-              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-blue-300/80 scenario-fade-in" style={aniDelay(0.08)}>
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-blue-300/80 home-hero-reveal" style={{ ...aniDelay(0.04), '--home-hero-delay': '0.04s' }}>
                 {t('home.heroEyebrow')}
               </p>
-              <div className="mb-4 flex flex-col items-center justify-center gap-3 text-center xl:flex-row xl:items-start xl:justify-start xl:text-left scenario-rise-in" style={aniDelay(0.14)}>
+              <div className="mb-4 flex flex-col items-center justify-center gap-3 text-center xl:flex-row xl:items-start xl:justify-start xl:text-left home-hero-reveal" style={{ ...aniDelay(0.1), '--home-hero-delay': '0.1s' }}>
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 shadow-[0_0_28px_rgba(59,130,246,0.18)]">
                   <ShieldCheck size={30} weight="bold" className="text-blue-300" />
                 </div>
@@ -1021,15 +1021,15 @@ const Home = ({
                   {t('home.heroTitle')}
                 </h1>
               </div>
-              <p className="mx-auto max-w-2xl text-base leading-[1.6] text-slate-300 xl:mx-0 scenario-fade-in" style={aniDelay(0.22)}>
+              <p className="mx-auto max-w-2xl text-base leading-[1.6] text-slate-300 xl:mx-0 home-hero-reveal" style={{ ...aniDelay(0.16), '--home-hero-delay': '0.16s' }}>
                 {t('home.heroSubtitle')}
               </p>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-[1.6] text-slate-400 xl:mx-0 scenario-fade-in" style={aniDelay(0.27)}>
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-[1.6] text-slate-400 xl:mx-0 home-hero-reveal" style={{ ...aniDelay(0.21), '--home-hero-delay': '0.21s' }}>
                 {t('home.heroSupport')}
               </p>
             </div>
 
-            <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-fade-in" style={aniDelay(0.32)}>
+            <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start home-hero-reveal" style={{ ...aniDelay(0.26), '--home-hero-delay': '0.26s' }}>
               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 {t('home.reassuranceOffline')}
@@ -1044,7 +1044,7 @@ const Home = ({
               </span>
             </div>
 
-            <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.38)}>
+            <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start home-hero-reveal" style={{ ...aniDelay(0.32), '--home-hero-delay': '0.32s' }}>
               <button
                 onClick={openEmergencyAction}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-white transition-all shadow-[0_12px_32px_rgba(127,29,29,0.35)] hover:from-red-500 hover:to-red-600 sm:w-auto"
@@ -1068,7 +1068,7 @@ const Home = ({
             </div>
           </motion.div>
 
-          <div className="mt-3 flex flex-col gap-3 xl:mt-0 scenario-rise-in" style={aniDelay(0.20)}>
+          <div className="mt-3 flex flex-col gap-3 xl:mt-0 home-hero-reveal" style={{ ...aniDelay(0.14), '--home-hero-delay': '0.14s' }}>
             <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
               <div className="flex items-start justify-between gap-3 sm:gap-4">
                 <div>
@@ -1477,7 +1477,7 @@ const Home = ({
       </div>
 
       <HomeSection
-        className="page-section-item"
+        className="home-page-item"
         eyebrow={t('home.immediateHelpEyebrow')}
         title={t('home.immediateHelpTitle')}
         description={
@@ -1495,7 +1495,7 @@ const Home = ({
       </HomeSection>
 
       <HomeSection
-        className="page-section-item"
+        className="home-page-item"
         eyebrow={t('home.prepareEyebrow')}
         title={t('home.prepareTitle')}
         description={
@@ -1509,13 +1509,13 @@ const Home = ({
         </div>
       </HomeSection>
 
-      <HomeSection className="page-section-item" eyebrow={t('home.documentEyebrow')} title={t('home.documentTitle')} description={t('home.documentDesc')}>
+      <HomeSection className="home-page-item" eyebrow={t('home.documentEyebrow')} title={t('home.documentTitle')} description={t('home.documentDesc')}>
         <div className="grid gap-3 md:grid-cols-2">
           {dynamicDocumentItems.map((item) => <HomeCard key={item.id} item={item} variant={item.id === leadingDocumentItemId ? 'featured' : 'standard'} />)}
         </div>
       </HomeSection>
 
-      <HomeSection className="page-section-item" eyebrow={t('home.rightsEyebrow')} title={t('home.rightsTitle')} description={t('home.rightsDesc')}>
+      <HomeSection className="home-page-item" eyebrow={t('home.rightsEyebrow')} title={t('home.rightsTitle')} description={t('home.rightsDesc')}>
         <div className="grid gap-3 md:grid-cols-2">
           {dynamicRightsItems.map((item) => <HomeCard key={item.id} item={item} variant={item.id === leadingRightsItemId ? 'featured' : 'standard'} />)}
         </div>
@@ -1549,7 +1549,7 @@ const Home = ({
         </div>
       </HomeSection>
 
-      <HomeSection className="page-section-item" eyebrow={t('home.afterEyebrow')} title={t('home.afterTitle')} description={t('home.afterDesc')}>
+      <HomeSection className="home-page-item" eyebrow={t('home.afterEyebrow')} title={t('home.afterTitle')} description={t('home.afterDesc')}>
         <div className="space-y-3">
           <HomeCard
             variant="featured"
@@ -1567,7 +1567,7 @@ const Home = ({
         </div>
       </HomeSection>
 
-      <div className="relative mt-14 overflow-hidden rounded-[28px] border border-slate-800/70 bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900/90 px-6 py-10 text-center shadow-[0_18px_54px_rgba(2,6,23,0.22)] sm:px-10 page-section-item">
+      <div className="relative mt-14 overflow-hidden rounded-[28px] border border-slate-800/70 bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900/90 px-6 py-10 text-center shadow-[0_18px_54px_rgba(2,6,23,0.22)] sm:px-10 home-page-item">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.08),transparent_42%)] pointer-events-none" />
         <div className="absolute left-1/2 top-0 h-px w-36 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
         <div className="absolute bottom-0 left-1/2 h-px w-36 -translate-x-1/2 bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
@@ -1582,7 +1582,7 @@ const Home = ({
         </div>
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-2 page-section-item">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-2 home-page-item">
         {utilityActions.map((action) => (
           <button
             key={action.id}
@@ -1595,7 +1595,7 @@ const Home = ({
         ))}
       </div>
 
-      <div className="mt-8 rounded-[24px] border border-slate-800/70 bg-slate-950/65 px-4 py-5 shadow-[0_12px_32px_rgba(2,6,23,0.14)] sm:px-6 page-section-item">
+      <div className="mt-8 rounded-[24px] border border-slate-800/70 bg-slate-950/65 px-4 py-5 shadow-[0_12px_32px_rgba(2,6,23,0.14)] sm:px-6 home-page-item">
         <div className="mb-3 text-center">
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
             Important Context

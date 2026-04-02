@@ -1131,6 +1131,7 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [expandedStatus, setExpandedStatus] = useState(new Set());
   const [neverSignExpanded, setNeverSignExpanded] = useState(false);
+  const chatSectionRef = useRef(null);
   const constitutionSectionRef = useRef(null);
   const statusSectionRef = useRef(null);
   const directorySectionRef = useRef(null);
@@ -1144,6 +1145,7 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
   };
 
   const getSectionRefForView = (targetView) => {
+    if (targetView === 'chat') return chatSectionRef;
     if (targetView === 'constitution') return constitutionSectionRef;
     if (targetView === 'status') return statusSectionRef;
     if (targetView === 'directory') return directorySectionRef;
@@ -1283,16 +1285,24 @@ User question: ${input}`
             </p>
 
             <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-fade-in" style={aniDelay(0.46)}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-violet-300">
+              <button
+                type="button"
+                onClick={() => jumpToLegalView('constitution')}
+                className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-violet-300 transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-400/30 hover:bg-violet-500/14"
+              >
                 <span className="h-2 w-2 rounded-full bg-violet-400" />
                 <Scroll size={13} weight="bold" />
                 {t('legal.pillRights', { defaultValue: 'Know Your Rights' })}
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300">
+              </button>
+              <button
+                type="button"
+                onClick={() => jumpToLegalView('chat')}
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300 transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-cyan-500/14"
+              >
                 <span className="h-2 w-2 rounded-full bg-cyan-400" />
                 <Brain size={13} weight="bold" />
                 {t('legal.pillAi', { defaultValue: 'AI Powered' })}
-              </span>
+              </button>
               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 <MapPin size={13} weight="bold" />
@@ -1439,52 +1449,76 @@ User question: ${input}`
       </section>
 
       {/* Tab Navigation */}
-      <div className="page-section-item sticky top-[84px] z-20 mt-5 overflow-x-auto rounded-[24px] border border-slate-800/80 bg-slate-950/84 p-1.5 shadow-[0_18px_44px_rgba(2,6,23,0.18)] backdrop-blur-xl sm:top-[92px] scenario-fade-in" style={aniDelay(0.14)}>
+      <div className="page-section-item sticky top-[84px] z-20 mt-5 overflow-x-auto rounded-[26px] border border-slate-800/58 bg-slate-950/84 p-1.5 shadow-[0_18px_44px_rgba(2,6,23,0.18)] backdrop-blur-xl sm:top-[92px] scenario-fade-in" style={aniDelay(0.14)}>
         <div className="flex min-w-max gap-1.5">
           <button
             onClick={() => setView('chat')}
-            className={`flex-1 rounded-[18px] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] transition-[background-color,color,transform,box-shadow] duration-200 active:scale-[0.98] ${
-              view === 'chat' ? LEGAL_TAB_STYLES.chat.active : `text-slate-400 ${LEGAL_TAB_STYLES.chat.hover}`
+            className={`group flex-1 rounded-[20px] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+              view === 'chat'
+                ? `${LEGAL_TAB_STYLES.chat.active} border-cyan-400/16`
+                : `border-slate-800/70 bg-slate-950/35 text-slate-400 ${LEGAL_TAB_STYLES.chat.hover}`
             }`}
           >
-            <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
-              <ChatCircle size={14} weight="bold" className="shrink-0" />
+            <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+              <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                view === 'chat' ? 'border-cyan-400/20 bg-cyan-500/10 text-cyan-200' : 'border-slate-800/80 bg-slate-950/55 text-slate-500 group-hover:border-cyan-400/16 group-hover:text-cyan-200'
+              }`}>
+                <ChatCircle size={14} weight="bold" className="shrink-0" />
+              </span>
               {t('legal.tabAskAi')}
               {view === 'chat' && <span className={`h-1.5 w-1.5 rounded-full ${LEGAL_TAB_STYLES.chat.dot}`} />}
             </span>
           </button>
           <button
             onClick={() => setView('constitution')}
-            className={`flex-1 rounded-[18px] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] transition-[background-color,color,transform,box-shadow] duration-200 active:scale-[0.98] ${
-              view === 'constitution' ? LEGAL_TAB_STYLES.constitution.active : `text-slate-400 ${LEGAL_TAB_STYLES.constitution.hover}`
+            className={`group flex-1 rounded-[20px] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+              view === 'constitution'
+                ? `${LEGAL_TAB_STYLES.constitution.active} border-violet-400/16`
+                : `border-slate-800/70 bg-slate-950/35 text-slate-400 ${LEGAL_TAB_STYLES.constitution.hover}`
             }`}
           >
-            <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
-              <Scroll size={14} weight="bold" className="shrink-0" />
+            <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+              <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                view === 'constitution' ? 'border-violet-400/20 bg-violet-500/10 text-violet-200' : 'border-slate-800/80 bg-slate-950/55 text-slate-500 group-hover:border-violet-400/16 group-hover:text-violet-200'
+              }`}>
+                <Scroll size={14} weight="bold" className="shrink-0" />
+              </span>
               {t('legal.tabRights')}
               {view === 'constitution' && <span className={`h-1.5 w-1.5 rounded-full ${LEGAL_TAB_STYLES.constitution.dot}`} />}
             </span>
           </button>
           <button
             onClick={() => setView('status')}
-            className={`flex-1 rounded-[18px] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] transition-[background-color,color,transform,box-shadow] duration-200 active:scale-[0.98] ${
-              view === 'status' ? LEGAL_TAB_STYLES.status.active : `text-slate-400 ${LEGAL_TAB_STYLES.status.hover}`
+            className={`group flex-1 rounded-[20px] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+              view === 'status'
+                ? `${LEGAL_TAB_STYLES.status.active} border-rose-400/16`
+                : `border-slate-800/70 bg-slate-950/35 text-slate-400 ${LEGAL_TAB_STYLES.status.hover}`
             }`}
           >
-            <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
-              <IdentificationCard size={14} weight="bold" className="shrink-0" />
+            <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+              <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                view === 'status' ? 'border-rose-400/20 bg-rose-500/10 text-rose-200' : 'border-slate-800/80 bg-slate-950/55 text-slate-500 group-hover:border-rose-400/16 group-hover:text-rose-200'
+              }`}>
+                <IdentificationCard size={14} weight="bold" className="shrink-0" />
+              </span>
               {t('legal.tabByStatus')}
               {view === 'status' && <span className={`h-1.5 w-1.5 rounded-full ${LEGAL_TAB_STYLES.status.dot}`} />}
             </span>
           </button>
           <button
             onClick={() => setView('directory')}
-            className={`flex-1 rounded-[18px] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] transition-[background-color,color,transform,box-shadow] duration-200 active:scale-[0.98] ${
-              view === 'directory' ? LEGAL_TAB_STYLES.directory.active : `text-slate-400 ${LEGAL_TAB_STYLES.directory.hover}`
+            className={`group flex-1 rounded-[20px] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+              view === 'directory'
+                ? `${LEGAL_TAB_STYLES.directory.active} border-emerald-400/16`
+                : `border-slate-800/70 bg-slate-950/35 text-slate-400 ${LEGAL_TAB_STYLES.directory.hover}`
             }`}
           >
-            <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
-              <MapPin size={14} weight="bold" className="shrink-0" />
+            <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+              <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                view === 'directory' ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200' : 'border-slate-800/80 bg-slate-950/55 text-slate-500 group-hover:border-emerald-400/16 group-hover:text-emerald-200'
+              }`}>
+                <MapPin size={14} weight="bold" className="shrink-0" />
+              </span>
               {t('legal.tabFindHelp')}
               {view === 'directory' && <span className={`h-1.5 w-1.5 rounded-full ${LEGAL_TAB_STYLES.directory.dot}`} />}
             </span>
@@ -1493,7 +1527,7 @@ User question: ${input}`
       </div>
 
       {view === 'chat' && (
-        <div className="mt-8 space-y-6 scenario-section-rise">
+        <div ref={chatSectionRef} className="mt-8 space-y-6 scenario-section-rise">
           <LegalSectionHeader
             eyebrow={t('legal.chatEyebrow', { defaultValue: 'Ask a focused question' })}
             title={t('legal.chatTitle', { defaultValue: 'Use AI to pressure-test your next step' })}
@@ -3435,12 +3469,12 @@ User question: ${input}`
             delay={0.04}
           />
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_320px] xl:items-start">
-            <div className="space-y-4">
-              <div className="scenario-section-item">
-                <Disclaimer section="legal" />
-              </div>
+          <div className="scenario-section-item">
+            <Disclaimer section="legal" />
+          </div>
 
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_296px] xl:items-stretch">
+            <div className="space-y-4">
               <div
                 className="scenario-section-item group relative cursor-pointer overflow-hidden rounded-[26px] border border-red-900/60 bg-gradient-to-br from-slate-950 via-slate-950/96 to-red-950/24 transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/28 hover:shadow-[0_18px_40px_rgba(76,5,25,0.18)]"
                 onClick={() => setNeverSignExpanded((prev) => !prev)}
@@ -3494,15 +3528,17 @@ User question: ${input}`
                   const IconComponent = persona.id === 'undocumented' ? User : persona.id === 'greenCard' ? CreditCard : Lifebuoy;
                   return (
                     <button
+                      type="button"
                       key={persona.id}
+                      aria-pressed={isSelected}
                       onClick={() => {
-                        setSelectedStatus(isSelected ? null : persona.id);
+                        setSelectedStatus(persona.id);
                         setExpandedStatus(new Set());
                       }}
-                      className={`group relative text-start p-4 rounded-2xl border transition-all duration-300 active:scale-95 ${
+                      className={`group relative text-start p-4 rounded-2xl border transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
                         isSelected
-                          ? `bg-gradient-to-br ${c.selectedCard} ${c.border} scale-[1.02] shadow-[0_18px_42px_rgba(15,23,42,0.24)]`
-                          : `bg-gradient-to-br ${c.card} ${c.border} ${c.hoverBorder} ${c.hoverShadow} hover:-translate-y-0.5`
+                          ? `bg-gradient-to-br ${c.selectedCard} border-white/18 ring-1 ring-white/6 scale-[1.02] shadow-[0_18px_42px_rgba(15,23,42,0.24)]`
+                          : `bg-gradient-to-br ${c.card} border-slate-800/80 shadow-[0_12px_28px_rgba(2,6,23,0.14)] hover:border-slate-700/90 hover:-translate-y-0.5`
                       }`}
                     >
                       {!isSelected && <div className={`absolute inset-0 bg-gradient-to-br from-transparent to-transparent ${c.glow} rounded-2xl transition-all duration-300 pointer-events-none`} />}
@@ -3541,41 +3577,41 @@ User question: ${input}`
             </div>
 
             <div className="scenario-section-item hidden xl:block">
-              <div className="relative overflow-hidden rounded-[28px] border border-slate-800/54 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.06),transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.82),rgba(2,6,23,0.94))] px-5 py-5 shadow-[0_16px_34px_rgba(2,6,23,0.16)]">
-                <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/20 to-transparent" />
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-200/60">
-                  {t('legal.statusPanelEyebrow', { defaultValue: 'How to use this section' })}
-                </p>
-                <h3 className="mt-3 text-xl font-black tracking-tight text-white">
-                  {t('legal.statusPanelTitle', { defaultValue: 'Pick the nearest reality, then open only what you need.' })}
-                </h3>
-                <div className="mt-4 space-y-3">
-                  {[
-                    t('legal.statusPanelPoint1', { defaultValue: 'Start with the card that most closely matches your current paperwork or process.' }),
-                    t('legal.statusPanelPoint2', { defaultValue: 'Open the critical sections first. Those are the highest-risk decisions to avoid getting wrong.' }),
-                    t('legal.statusPanelPoint3', { defaultValue: 'If your situation changes or a deadline appears, move next to the directory and get human legal help.' }),
-                  ].map((point) => (
-                    <p key={point} className="flex items-start gap-2 text-sm leading-relaxed text-slate-300">
-                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-cyan-300/70" />
-                      <span>{point}</span>
-                    </p>
-                  ))}
+              <div className="relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-800/62 bg-slate-950/48 p-3.5 shadow-[0_14px_28px_rgba(2,6,23,0.14)]">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-200/60">
+                    {t('legal.statusPanelEyebrowCompact', { defaultValue: 'Use this section' })}
+                  </p>
+                  <h3 className="mt-1.5 text-[1.02rem] font-black leading-tight tracking-tight text-white">
+                    {t('legal.statusPanelCompactTitle', { defaultValue: 'Pick the nearest fit first.' })}
+                  </h3>
+                  <div className="mt-2.5 space-y-2">
+                    {[
+                      t('legal.statusPanelCompactPoint1', { defaultValue: 'Start with the card that matches your status or paperwork.' }),
+                      t('legal.statusPanelCompactPoint2', { defaultValue: 'If a deadline appears or things change, move to legal help next.' }),
+                    ].map((point) => (
+                      <p key={point} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-slate-300">
+                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-cyan-300/65 shrink-0" />
+                        <span>{point}</span>
+                      </p>
+                    ))}
+                  </div>
                 </div>
-                <div className="mt-5 grid gap-2">
-                  <div className="rounded-[20px] border border-rose-500/12 bg-rose-500/7 px-4 py-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-rose-300/80">
+                <div className="mt-3 overflow-hidden rounded-[18px] border border-slate-800/48 bg-slate-950/38">
+                  <div className="px-3.5 py-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-rose-300/76">
                       {t('legal.statusPanelWatch', { defaultValue: 'Watch for' })}
                     </p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-300">
-                      {t('legal.statusPanelWatchCopy', { defaultValue: 'Any request to sign, admit facts, or waive review before speaking to counsel.' })}
+                    <p className="mt-1 text-[12.5px] leading-relaxed text-slate-300">
+                      {t('legal.statusPanelCompactWatchCopy', { defaultValue: 'Any request to sign, admit facts, or waive review.' })}
                     </p>
                   </div>
-                  <div className="rounded-[20px] border border-cyan-500/12 bg-cyan-500/7 px-4 py-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-300/80">
+                  <div className="border-t border-slate-800/46 px-3.5 py-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-300/76">
                       {t('legal.statusPanelBestMove', { defaultValue: 'Best next move' })}
                     </p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-300">
-                      {t('legal.statusPanelBestMoveCopy', { defaultValue: 'Document what happened, keep copies of every notice, and escalate to a qualified immigration attorney quickly.' })}
+                    <p className="mt-1 text-[12.5px] leading-relaxed text-slate-300">
+                      {t('legal.statusPanelCompactBestMoveCopy', { defaultValue: 'Keep every notice and escalate quickly.' })}
                     </p>
                   </div>
                 </div>
