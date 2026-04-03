@@ -22,23 +22,27 @@ const aniDelay = (s) => ({ animationDelay: `${s}s` });
 
 const LEGAL_TAB_STYLES = {
   chat: {
-    active: 'bg-cyan-500/14 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.16),0_10px_24px_rgba(8,47,73,0.22)]',
-    hover: 'hover:bg-slate-800/80 hover:text-cyan-100',
+    active: 'bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/28 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(203,213,225,0.1),0_10px_24px_rgba(8,47,73,0.22)]',
+    idle: 'bg-gradient-to-br from-slate-900 via-slate-900/96 to-cyan-950/10 text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(2,6,23,0.16)]',
+    hover: 'hover:from-slate-900 hover:via-slate-900 hover:to-cyan-950/18 hover:text-cyan-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_24px_rgba(8,47,73,0.18)]',
     dot: 'bg-cyan-300',
   },
   constitution: {
-    active: 'bg-violet-500/14 text-violet-100 shadow-[0_0_0_1px_rgba(167,139,250,0.18),0_10px_24px_rgba(59,7,100,0.18)]',
-    hover: 'hover:bg-slate-800/80 hover:text-violet-100',
+    active: 'bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/30 text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(203,213,225,0.1),0_10px_24px_rgba(59,7,100,0.18)]',
+    idle: 'bg-gradient-to-br from-slate-900 via-slate-900/96 to-violet-950/12 text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(2,6,23,0.16)]',
+    hover: 'hover:from-slate-900 hover:via-slate-900 hover:to-violet-950/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_24px_rgba(59,7,100,0.16)]',
     dot: 'bg-violet-300',
   },
   status: {
-    active: 'bg-rose-500/14 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.16),0_10px_24px_rgba(76,5,25,0.22)]',
-    hover: 'hover:bg-slate-800/80 hover:text-rose-100',
+    active: 'bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950/28 text-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(203,213,225,0.1),0_10px_24px_rgba(76,5,25,0.22)]',
+    idle: 'bg-gradient-to-br from-slate-900 via-slate-900/96 to-rose-950/10 text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(2,6,23,0.16)]',
+    hover: 'hover:from-slate-900 hover:via-slate-900 hover:to-rose-950/18 hover:text-rose-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_24px_rgba(76,5,25,0.18)]',
     dot: 'bg-rose-300',
   },
   directory: {
-    active: 'bg-emerald-500/14 text-emerald-100 shadow-[0_0_0_1px_rgba(52,211,153,0.16),0_10px_24px_rgba(6,78,59,0.18)]',
-    hover: 'hover:bg-slate-800/80 hover:text-emerald-100',
+    active: 'bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/28 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(203,213,225,0.1),0_10px_24px_rgba(6,78,59,0.18)]',
+    idle: 'bg-gradient-to-br from-slate-900 via-slate-900/96 to-emerald-950/10 text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(2,6,23,0.16)]',
+    hover: 'hover:from-slate-900 hover:via-slate-900 hover:to-emerald-950/18 hover:text-emerald-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_24px_rgba(6,78,59,0.16)]',
     dot: 'bg-emerald-300',
   },
 };
@@ -1152,6 +1156,12 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
     return null;
   };
 
+  const getScrollOffsetForView = (targetView) => {
+    if (targetView === 'directory') return 122;
+    if (targetView === 'status') return 74;
+    return 116;
+  };
+
   const jumpToLegalView = (targetView) => {
     const targetRef = getSectionRefForView(targetView);
     if (!targetRef) {
@@ -1160,7 +1170,7 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
     }
 
     if (view === targetView) {
-      scrollToLegalSection(targetRef, targetView === 'directory' ? 122 : 116);
+      scrollToLegalSection(targetRef, getScrollOffsetForView(targetView));
       return;
     }
 
@@ -1176,7 +1186,7 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
 
     const frame = window.requestAnimationFrame(() => {
       window.setTimeout(() => {
-        const didScroll = scrollToLegalSection(targetRef, targetView === 'directory' ? 122 : 116);
+        const didScroll = scrollToLegalSection(targetRef, getScrollOffsetForView(targetView));
         if (didScroll) {
           pendingHeroScrollRef.current = null;
         }
@@ -1449,19 +1459,19 @@ User question: ${input}`
       </section>
 
       {/* Tab Navigation */}
-      <div className="page-section-item sticky top-[84px] z-20 mt-5 overflow-x-auto rounded-[26px] border border-slate-800/58 bg-slate-950/84 p-1.5 shadow-[0_18px_44px_rgba(2,6,23,0.18)] backdrop-blur-xl sm:top-[92px] scenario-fade-in" style={aniDelay(0.14)}>
+      <div className="page-section-item sticky top-[84px] z-20 mt-5 overflow-x-auto rounded-[26px] border border-slate-800/80 bg-slate-950/84 p-1.5 shadow-[0_18px_44px_rgba(2,6,23,0.18)] backdrop-blur-xl sm:top-[92px] scenario-fade-in" style={aniDelay(0.14)}>
         <div className="flex min-w-max gap-1.5">
           <button
             onClick={() => setView('chat')}
-            className={`group flex-1 rounded-[20px] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
               view === 'chat'
-                ? `${LEGAL_TAB_STYLES.chat.active} border-cyan-400/16`
-                : `border-slate-800/70 bg-slate-950/35 text-slate-400 ${LEGAL_TAB_STYLES.chat.hover}`
+                ? `${LEGAL_TAB_STYLES.chat.active} border-slate-300/8`
+                : `border-slate-300/10 ${LEGAL_TAB_STYLES.chat.idle} ${LEGAL_TAB_STYLES.chat.hover}`
             }`}
           >
             <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
               <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
-                view === 'chat' ? 'border-cyan-400/20 bg-cyan-500/10 text-cyan-200' : 'border-slate-800/80 bg-slate-950/55 text-slate-500 group-hover:border-cyan-400/16 group-hover:text-cyan-200'
+                view === 'chat' ? 'border-slate-300/12 bg-cyan-500/10 text-cyan-200' : 'border-slate-300/10 bg-slate-950/72 text-slate-400 group-hover:border-cyan-400/16 group-hover:text-cyan-200'
               }`}>
                 <ChatCircle size={14} weight="bold" className="shrink-0" />
               </span>
@@ -1471,15 +1481,15 @@ User question: ${input}`
           </button>
           <button
             onClick={() => setView('constitution')}
-            className={`group flex-1 rounded-[20px] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
               view === 'constitution'
-                ? `${LEGAL_TAB_STYLES.constitution.active} border-violet-400/16`
-                : `border-slate-800/70 bg-slate-950/35 text-slate-400 ${LEGAL_TAB_STYLES.constitution.hover}`
+                ? `${LEGAL_TAB_STYLES.constitution.active} border-slate-300/8`
+                : `border-slate-300/10 ${LEGAL_TAB_STYLES.constitution.idle} ${LEGAL_TAB_STYLES.constitution.hover}`
             }`}
           >
             <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
               <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
-                view === 'constitution' ? 'border-violet-400/20 bg-violet-500/10 text-violet-200' : 'border-slate-800/80 bg-slate-950/55 text-slate-500 group-hover:border-violet-400/16 group-hover:text-violet-200'
+                view === 'constitution' ? 'border-slate-300/12 bg-violet-500/10 text-violet-200' : 'border-slate-300/10 bg-slate-950/72 text-slate-400 group-hover:border-violet-400/16 group-hover:text-violet-200'
               }`}>
                 <Scroll size={14} weight="bold" className="shrink-0" />
               </span>
@@ -1489,15 +1499,15 @@ User question: ${input}`
           </button>
           <button
             onClick={() => setView('status')}
-            className={`group flex-1 rounded-[20px] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
               view === 'status'
-                ? `${LEGAL_TAB_STYLES.status.active} border-rose-400/16`
-                : `border-slate-800/70 bg-slate-950/35 text-slate-400 ${LEGAL_TAB_STYLES.status.hover}`
+                ? `${LEGAL_TAB_STYLES.status.active} border-slate-300/8`
+                : `border-slate-300/10 ${LEGAL_TAB_STYLES.status.idle} ${LEGAL_TAB_STYLES.status.hover}`
             }`}
           >
             <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
               <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
-                view === 'status' ? 'border-rose-400/20 bg-rose-500/10 text-rose-200' : 'border-slate-800/80 bg-slate-950/55 text-slate-500 group-hover:border-rose-400/16 group-hover:text-rose-200'
+                view === 'status' ? 'border-slate-300/12 bg-rose-500/10 text-rose-200' : 'border-slate-300/10 bg-slate-950/72 text-slate-400 group-hover:border-rose-400/16 group-hover:text-rose-200'
               }`}>
                 <IdentificationCard size={14} weight="bold" className="shrink-0" />
               </span>
@@ -1507,15 +1517,15 @@ User question: ${input}`
           </button>
           <button
             onClick={() => setView('directory')}
-            className={`group flex-1 rounded-[20px] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
               view === 'directory'
-                ? `${LEGAL_TAB_STYLES.directory.active} border-emerald-400/16`
-                : `border-slate-800/70 bg-slate-950/35 text-slate-400 ${LEGAL_TAB_STYLES.directory.hover}`
+                ? `${LEGAL_TAB_STYLES.directory.active} border-slate-300/8`
+                : `border-slate-300/10 ${LEGAL_TAB_STYLES.directory.idle} ${LEGAL_TAB_STYLES.directory.hover}`
             }`}
           >
             <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
               <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
-                view === 'directory' ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200' : 'border-slate-800/80 bg-slate-950/55 text-slate-500 group-hover:border-emerald-400/16 group-hover:text-emerald-200'
+                view === 'directory' ? 'border-slate-300/12 bg-emerald-500/10 text-emerald-200' : 'border-slate-300/10 bg-slate-950/72 text-slate-400 group-hover:border-emerald-400/16 group-hover:text-emerald-200'
               }`}>
                 <MapPin size={14} weight="bold" className="shrink-0" />
               </span>
