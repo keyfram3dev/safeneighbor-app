@@ -103,6 +103,7 @@ function Whistle() {
   const { t } = useTranslation();
   const whistleQuote = useRotatingQuote('signals.communityQuote', 'signals.communityQuoteAuthor', 'whistle');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const [expandedHandSignal, setExpandedHandSignal] = useState(null);
 
   const whistleProtocolRef = useRef(null);
   const visualSignalsRef = useRef(null);
@@ -122,10 +123,10 @@ function Whistle() {
   ];
 
   const handSignals = [
-    { gesture: t('signals.hand1Gesture'), meaning: t('signals.hand1Meaning'), Icon: handSignalIcons[0] },
-    { gesture: t('signals.hand2Gesture'), meaning: t('signals.hand2Meaning'), Icon: handSignalIcons[1] },
-    { gesture: t('signals.hand3Gesture'), meaning: t('signals.hand3Meaning'), Icon: handSignalIcons[2] },
-    { gesture: t('signals.hand4Gesture'), meaning: t('signals.hand4Meaning'), Icon: handSignalIcons[3] },
+    { gesture: t('signals.hand1Gesture'), meaning: t('signals.hand1Meaning'), Icon: handSignalIcons[0], howTo: 'Cross both arms above your head in an X shape. Hold clearly at full arm extension so the shape is visible from distance.' },
+    { gesture: t('signals.hand2Gesture'), meaning: t('signals.hand2Meaning'), Icon: handSignalIcons[1], howTo: 'Raise both hands to shoulder height and wiggle fingers rapidly. Keep hands open and palms facing outward.' },
+    { gesture: t('signals.hand3Gesture'), meaning: t('signals.hand3Meaning'), Icon: handSignalIcons[2], howTo: 'Extend one arm straight up with index finger pointing skyward. Pump upward twice to amplify the signal.' },
+    { gesture: t('signals.hand4Gesture'), meaning: t('signals.hand4Meaning'), Icon: handSignalIcons[3], howTo: 'Raise a closed fist to head height and hold still. Do not pump — a stationary fist means hold position.' },
   ];
 
   return (
@@ -171,6 +172,35 @@ function Whistle() {
         </div>
       </section>
 
+      {/* ── Community Alert Signals ── */}
+      <div ref={whistleProtocolRef} className="page-section-item mb-3">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-blue-950/20 backdrop-blur-sm px-5 py-4 shadow-[0_8px_24px_rgba(2,6,23,0.22)]">
+          <div className="pointer-events-none absolute inset-y-3 left-0 w-1 rounded-full bg-gradient-to-b from-blue-400 via-teal-400 to-amber-400" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/[0.025] via-transparent to-transparent" />
+          <div className="relative pl-4">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-400/80 mb-2">Whistle Protocol</p>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+                <House size={18} weight="bold" className="text-blue-400" />
+              </div>
+              <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.communityTitle')}</h2>
+            </div>
+            <p className="text-slate-400 text-sm leading-[1.6] mt-1 max-w-[44ch]">{t('signals.communityDesc')}</p>
+          </div>
+        </div>
+      </div>
+      <div className="page-section-item mb-3">
+        <div className="bg-amber-950/30 border border-amber-900/40 rounded-xl px-4 py-3">
+          <p className="text-amber-400 text-[11px] font-black uppercase tracking-[0.2em] mb-1">{t('signals.signalOnlyRule')}</p>
+          <p className="text-white text-sm leading-[1.6]">{t('signals.signalOnlyDesc')}</p>
+        </div>
+      </div>
+      <div className="page-section-item mb-6">
+        {communitySignals.map((signal, index) => (
+          <SignalCard key={index} {...signal} neighborResponseLabel={t('signals.neighborResponse')} />
+        ))}
+      </div>
+
       {/* ── Hierarchy of Sound ── */}
       <div className="page-section-item mb-6">
         <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-cyan-950/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
@@ -204,43 +234,17 @@ function Whistle() {
         </div>
       </div>
 
-      {/* ── Community Alert Signals ── */}
-      <div ref={whistleProtocolRef} className="page-section-item mb-6">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-blue-950/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
-          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/30 to-transparent" />
-          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-blue-500/6 blur-3xl" />
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.07),transparent_48%)]" />
-          <div className="relative">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-400/80 mb-3">Whistle Protocol</p>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
-                <House size={20} weight="bold" className="text-blue-400" />
-              </div>
-              <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.communityTitle')}</h2>
-            </div>
-            <p className="text-slate-400 text-sm mb-4 leading-[1.6]">{t('signals.communityDesc')}</p>
-            <div className="bg-amber-950/30 border border-amber-900/40 rounded-xl p-4 mb-4">
-              <p className="text-amber-400 text-[11px] font-black uppercase tracking-[0.2em] mb-1.5">{t('signals.signalOnlyRule')}</p>
-              <p className="text-white text-sm leading-[1.6]">{t('signals.signalOnlyDesc')}</p>
-            </div>
-            {communitySignals.map((signal, index) => (
-              <SignalCard key={index} {...signal} neighborResponseLabel={t('signals.neighborResponse')} />
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* ── Visual Signaling ── */}
       <div ref={visualSignalsRef} className="page-section-item mb-6">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-slate-800/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
-          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-slate-500/30 to-transparent" />
-          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-violet-500/5 blur-3xl" />
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.06),transparent_48%)]" />
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-violet-950/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/30 to-transparent" />
+          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-violet-500/6 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.07),transparent_48%)]" />
           <div className="relative">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Visual Signals</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-violet-400/80 mb-3">Visual Signals</p>
             <div className="flex items-center gap-3 mb-3">
-              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-600/40 bg-slate-800/60">
-                <Eye size={20} weight="bold" className="text-slate-300" />
+              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10">
+                <Eye size={20} weight="bold" className="text-violet-300" />
               </div>
               <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.visualTitle')}</h2>
             </div>
@@ -248,16 +252,31 @@ function Whistle() {
             <div className="space-y-2">
               {handSignals.map((signal, index) => {
                 const IconComponent = signal.Icon;
+                const isExpanded = expandedHandSignal === index;
                 return (
-                  <div key={index} className="flex items-start gap-3 bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
-                    <div className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-slate-600/40 bg-slate-800/60 mt-0.5">
-                      <IconComponent size={18} weight="bold" className="text-slate-300" />
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setExpandedHandSignal(isExpanded ? null : index)}
+                    className="w-full text-left flex items-start gap-3 bg-slate-950/50 border border-slate-800/50 rounded-xl p-4 transition-all duration-200 hover:border-violet-500/20 hover:bg-slate-950/70 active:scale-[0.99]"
+                  >
+                    <div className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10 mt-0.5">
+                      <IconComponent size={18} weight="bold" className="text-violet-300" />
                     </div>
-                    <div>
-                      <p className="text-white font-black text-sm mb-1 tracking-[-0.01em]">{signal.gesture}</p>
-                      <p className="text-slate-300 text-sm leading-[1.6]">{signal.meaning}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-white font-black text-sm tracking-[-0.01em]">{signal.gesture}</p>
+                        <span className={`text-violet-400/60 text-xs font-black uppercase tracking-[0.12em] flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
+                      </div>
+                      <p className="text-slate-300 text-sm leading-[1.6] mt-0.5">{signal.meaning}</p>
+                      {isExpanded && (
+                        <div className="mt-3 pt-3 border-t border-violet-500/15">
+                          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-violet-400/70 mb-1.5">How to perform</p>
+                          <p className="text-slate-300 text-sm leading-[1.6]">{signal.howTo}</p>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -296,15 +315,15 @@ function Whistle() {
 
       {/* ── Digital & External Comms ── */}
       <div className="page-section-item mb-6">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-slate-800/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
-          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-slate-500/30 to-transparent" />
-          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-cyan-500/5 blur-3xl" />
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.06),transparent_48%)]" />
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-cyan-950/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-cyan-500/6 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.07),transparent_48%)]" />
           <div className="relative">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Digital Comms</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400/80 mb-3">Digital Comms</p>
             <div className="flex items-center gap-3 mb-3">
-              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-600/40 bg-slate-800/60">
-                <DeviceMobile size={20} weight="bold" className="text-slate-300" />
+              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10">
+                <DeviceMobile size={20} weight="bold" className="text-cyan-300" />
               </div>
               <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.digitalTitle')}</h2>
             </div>
@@ -338,10 +357,9 @@ function Whistle() {
             </div>
             <div className="space-y-2">
               {[
-                t('signals.reminder1'),
                 t('signals.reminder2'),
                 t('signals.reminder3'),
-                t('signals.reminder4'),
+                t('signals.reminder1'),
               ].map((reminder, i) => (
                 <div key={i} className="flex items-start gap-3 bg-slate-950/40 border border-slate-800/40 rounded-xl px-4 py-3">
                   <span className="text-amber-400/60 font-black text-sm flex-shrink-0 mt-0.5 tabular-nums">
@@ -361,8 +379,9 @@ function Whistle() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(6,182,212,0.06),transparent_42%)] pointer-events-none" />
           <div className="absolute left-1/2 top-0 h-px w-36 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent" />
           <div className="relative">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4">Perspective</p>
-            <p className="mx-auto mt-4 max-w-[34ch] text-[1.12rem] italic leading-[1.65] text-slate-300 sm:text-[1.26rem]">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Why community signals work</p>
+            <p className="text-slate-500 text-sm leading-[1.6] max-w-[38ch] mx-auto mb-4">Coordinated action starts with shared language. These words have guided people through harder moments than most of us will face.</p>
+            <p className="mx-auto max-w-[34ch] text-[1.12rem] italic leading-[1.65] text-slate-300 sm:text-[1.26rem]">
               {whistleQuote.quote}
             </p>
             <p className="mt-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">{whistleQuote.author}</p>
@@ -403,7 +422,7 @@ function Whistle() {
           <DownloadSimple size={18} weight="bold" />
           {t('emergency.installButton')}
         </button>
-        <p className="text-slate-500 text-[11px] mt-2 uppercase tracking-[0.2em]">{t('emergency.installRecommended')}</p>
+        <p className="text-slate-500 text-[11px] mt-2 uppercase tracking-[0.2em]">Works offline in the field — no signal required</p>
       </div>
 
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
