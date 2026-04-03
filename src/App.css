@@ -312,7 +312,7 @@ input[type="time"] {
 .scenario-section-rise > .scenario-section-item {
   opacity: 1;
   transform: translateY(0);
-  animation: scenarioRiseIn 0.78s cubic-bezier(0.22, 1, 0.36, 1) var(--scenario-item-delay, 0s) backwards;
+  animation: scenarioRiseIn 0.60s cubic-bezier(0.22, 1, 0.36, 1) var(--scenario-item-delay, 0s) backwards;
 }
 
 .scenario-section-rise > .scenario-section-item:nth-child(1) {

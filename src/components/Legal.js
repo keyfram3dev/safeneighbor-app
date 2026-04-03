@@ -1149,12 +1149,15 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
   const constitutionSectionRef = useRef(null);
   const statusSectionRef = useRef(null);
   const directorySectionRef = useRef(null);
+  const tabBarRef = useRef(null);
   const pendingHeroScrollRef = useRef(null);
 
-  const scrollToLegalSection = (sectionRef, offset = 118) => {
+  const scrollToLegalSection = (sectionRef) => {
     if (!sectionRef?.current) return false;
-    const top = sectionRef.current.getBoundingClientRect().top + window.scrollY - offset;
-    window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
+    // Scroll section to just below the main nav (84px), tab bar scrolls away
+    const sectionTop = sectionRef.current.getBoundingClientRect().top;
+    const scrollTarget = window.scrollY + sectionTop - 96;
+    window.scrollTo({ top: Math.max(scrollTarget, 0), behavior: 'smooth' });
     return true;
   };
 
@@ -1166,12 +1169,6 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
     return null;
   };
 
-  const getScrollOffsetForView = (targetView) => {
-    if (targetView === 'directory') return 122;
-    if (targetView === 'status') return 74;
-    return 116;
-  };
-
   const jumpToLegalView = (targetView) => {
     const targetRef = getSectionRefForView(targetView);
     if (!targetRef) {
@@ -1180,7 +1177,7 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
     }
 
     if (view === targetView) {
-      scrollToLegalSection(targetRef, getScrollOffsetForView(targetView));
+      scrollToLegalSection(targetRef);
       return;
     }
 
@@ -1196,7 +1193,7 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
 
     const frame = window.requestAnimationFrame(() => {
       window.setTimeout(() => {
-        const didScroll = scrollToLegalSection(targetRef, getScrollOffsetForView(targetView));
+        const didScroll = scrollToLegalSection(targetRef);
         if (didScroll) {
           pendingHeroScrollRef.current = null;
         }
@@ -1304,7 +1301,7 @@ User question: ${input}`
               {t('legal.heroEyebrow', { defaultValue: 'Legal Protection' })}
             </p>
 
-            <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.18)}>
+            <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.14)}>
               <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300 shadow-[0_0_28px_rgba(34,211,238,0.14)]">
                 <Scales size={30} weight="bold" />
               </div>
@@ -1315,11 +1312,11 @@ User question: ${input}`
               </div>
             </div>
 
-            <p className="max-w-3xl text-base leading-[1.6] text-slate-300 sm:text-[1.05rem] scenario-fade-in" style={aniDelay(0.32)}>
+            <p className="max-w-3xl text-base leading-[1.6] text-slate-300 sm:text-[1.05rem] scenario-fade-in" style={aniDelay(0.24)}>
               {t('legal.subtitle')}
             </p>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.46)}>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.34)}>
               <button
                 onClick={onOpenLegalResponse}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/50 bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-white shadow-[0_12px_32px_rgba(5,150,105,0.3)] transition-all hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.98]"
@@ -1329,7 +1326,7 @@ User question: ${input}`
               </button>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3 scenario-rise-in" style={aniDelay(0.58)}>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3 scenario-rise-in" style={aniDelay(0.44)}>
               {[
                 {
                   id: 'constitution',
@@ -1376,7 +1373,7 @@ User question: ${input}`
           </div>
 
           <div className="hidden xl:flex xl:flex-col xl:gap-4">
-            <div className="relative flex min-h-[232px] flex-col justify-between overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)] scenario-rise-in" style={aniDelay(0.3)}>
+            <div className="relative flex min-h-[232px] flex-col justify-between overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)] scenario-rise-in" style={aniDelay(0.22)}>
               <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
               <div className="pointer-events-none absolute -bottom-14 right-0 h-32 w-32 rounded-full bg-cyan-500/8 blur-3xl" />
               <div className="relative flex items-start justify-between gap-3">
@@ -1433,10 +1430,10 @@ User question: ${input}`
       </section>
 
       {/* Tab Navigation */}
-      <div className="page-section-item sticky top-[84px] z-20 mt-5 overflow-x-auto rounded-[26px] border border-slate-800/80 bg-slate-950/84 p-1.5 shadow-[0_18px_44px_rgba(2,6,23,0.18)] backdrop-blur-xl sm:top-[92px] scenario-fade-in" style={aniDelay(0.14)}>
+      <div ref={tabBarRef} className="page-section-item sticky top-[84px] z-20 mt-5 overflow-x-auto rounded-[26px] border border-slate-800/80 bg-slate-950/98 p-1.5 shadow-[0_18px_44px_rgba(2,6,23,0.18)] backdrop-blur-xl sm:top-[92px] scenario-fade-in" style={aniDelay(0.14)}>
         <div className="flex min-w-max gap-1.5">
           <button
-            onClick={() => setView('chat')}
+            onClick={() => jumpToLegalView('chat')}
             className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
               view === 'chat'
                 ? `${LEGAL_TAB_STYLES.chat.active} border-slate-300/8`
@@ -1454,7 +1451,7 @@ User question: ${input}`
             </span>
           </button>
           <button
-            onClick={() => setView('constitution')}
+            onClick={() => jumpToLegalView('constitution')}
             className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
               view === 'constitution'
                 ? `${LEGAL_TAB_STYLES.constitution.active} border-slate-300/8`
@@ -1472,7 +1469,7 @@ User question: ${input}`
             </span>
           </button>
           <button
-            onClick={() => setView('status')}
+            onClick={() => jumpToLegalView('status')}
             className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
               view === 'status'
                 ? `${LEGAL_TAB_STYLES.status.active} border-slate-300/8`
@@ -1490,7 +1487,7 @@ User question: ${input}`
             </span>
           </button>
           <button
-            onClick={() => setView('directory')}
+            onClick={() => jumpToLegalView('directory')}
             className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
               view === 'directory'
                 ? `${LEGAL_TAB_STYLES.directory.active} border-slate-300/8`

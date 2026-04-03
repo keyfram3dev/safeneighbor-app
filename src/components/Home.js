@@ -267,6 +267,7 @@ const Home = ({
     familyKitReady: false,
   });
   const [reviewMarkers, setReviewMarkers] = useState(() => readReviewMarkers());
+  const [animReady, setAnimReady] = useState(false);
   const heroTransitionTimeoutRef = useRef(null);
 
   const rememberAction = (action) => {
@@ -350,6 +351,14 @@ const Home = ({
       setShowInstallHelp(true);
     }
   };
+
+  useEffect(() => {
+    let raf1 = requestAnimationFrame(() => {
+      let raf2 = requestAnimationFrame(() => setAnimReady(true));
+      return () => cancelAnimationFrame(raf2);
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -952,7 +961,7 @@ const Home = ({
       }
     : null;
   return (
-    <div className="max-w-4xl mx-auto pb-24 px-4 relative page-transition-in page-section-stagger">
+    <div className={`max-w-4xl mx-auto pb-24 px-4 relative${animReady ? ' page-transition-in page-section-stagger' : ' opacity-0'}`}>
       <div
         className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
         style={{

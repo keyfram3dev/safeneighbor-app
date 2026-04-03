@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { SpeakerHigh, Megaphone, House, Thermometer, DeviceMobile, Lightbulb, Warning, DownloadSimple, Eye, Hand, HandWaving, HandPointing, HandGrabbing } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { tapHaptic } from '../utils/haptics';
@@ -18,8 +18,26 @@ const signalSoundFiles = [
 // Hand signal icon mapping
 const handSignalIcons = [Hand, HandWaving, HandPointing, HandGrabbing];
 
-// Per-signal severity color configs — amber, cyan, red, orange
+// Per-signal severity color configs — blue, teal, amber, red (calm → urgent)
 const SIGNAL_COLORS = [
+  {
+    card: 'from-blue-950/60 to-blue-900/40 border-blue-800/50 hover:border-blue-500/30 hover:shadow-blue-500/5',
+    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.07),transparent_48%)]',
+    responseBox: 'bg-blue-950/30 border-blue-900/50',
+    responseLabel: 'text-blue-400',
+    pattern: 'text-blue-300',
+    playBtn: 'bg-blue-900/50 border border-blue-700/50 hover:bg-blue-800/50',
+    playSpeaker: 'text-blue-400',
+  },
+  {
+    card: 'from-teal-950/60 to-teal-900/40 border-teal-800/50 hover:border-teal-500/30 hover:shadow-teal-500/5',
+    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(20,184,166,0.07),transparent_48%)]',
+    responseBox: 'bg-teal-950/30 border-teal-900/50',
+    responseLabel: 'text-teal-400',
+    pattern: 'text-teal-300',
+    playBtn: 'bg-teal-900/50 border border-teal-700/50 hover:bg-teal-800/50',
+    playSpeaker: 'text-teal-400',
+  },
   {
     card: 'from-amber-950/60 to-amber-900/40 border-amber-800/50 hover:border-amber-500/30 hover:shadow-amber-500/5',
     glow: 'bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.07),transparent_48%)]',
@@ -30,15 +48,6 @@ const SIGNAL_COLORS = [
     playSpeaker: 'text-amber-400',
   },
   {
-    card: 'from-cyan-950/60 to-cyan-900/40 border-cyan-800/50 hover:border-cyan-500/30 hover:shadow-cyan-500/5',
-    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.07),transparent_48%)]',
-    responseBox: 'bg-cyan-950/30 border-cyan-900/50',
-    responseLabel: 'text-cyan-400',
-    pattern: 'text-cyan-300',
-    playBtn: 'bg-cyan-900/50 border border-cyan-700/50 hover:bg-cyan-800/50',
-    playSpeaker: 'text-cyan-400',
-  },
-  {
     card: 'from-red-950/60 to-red-900/40 border-red-800/50 hover:border-red-500/30 hover:shadow-red-500/5',
     glow: 'bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.07),transparent_48%)]',
     responseBox: 'bg-red-950/30 border-red-900/50',
@@ -46,15 +55,6 @@ const SIGNAL_COLORS = [
     pattern: 'text-red-300',
     playBtn: 'bg-red-900/50 border border-red-700/50 hover:bg-red-800/50',
     playSpeaker: 'text-red-400',
-  },
-  {
-    card: 'from-orange-950/60 to-orange-900/40 border-orange-800/50 hover:border-orange-500/30 hover:shadow-orange-500/5',
-    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.07),transparent_48%)]',
-    responseBox: 'bg-orange-950/30 border-orange-900/50',
-    responseLabel: 'text-orange-400',
-    pattern: 'text-orange-300',
-    playBtn: 'bg-orange-900/50 border border-orange-700/50 hover:bg-orange-800/50',
-    playSpeaker: 'text-orange-400',
   },
 ];
 
@@ -69,9 +69,10 @@ const SignalCard = ({ pattern, title, description, neighborResponse, neighborRes
   };
 
   return (
-    <div className={`group relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 mb-3 transition-all duration-300 hover:shadow-lg ${colors.card}`}>
+    <div className={`group relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 mb-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 shadow-[0_8px_24px_rgba(2,6,23,0.2)] ${colors.card}`}>
       <div className={`pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${colors.glow}`} />
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className="pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full bg-white/3 blur-2xl" />
       <div className="relative">
         {/* Pattern + Play */}
         <div className="flex items-center gap-3 mb-4">
@@ -102,6 +103,16 @@ function Whistle() {
   const { t } = useTranslation();
   const whistleQuote = useRotatingQuote('signals.communityQuote', 'signals.communityQuoteAuthor', 'whistle');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
+
+  const whistleProtocolRef = useRef(null);
+  const visualSignalsRef = useRef(null);
+  const deescalationRef = useRef(null);
+
+  const scrollToSection = (ref) => {
+    if (!ref?.current) return;
+    const top = ref.current.getBoundingClientRect().top + window.scrollY - 96;
+    window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
+  };
 
   const communitySignals = [
     { pattern: t('signals.signal1Pattern'), title: t('signals.signal1Title'), description: t('signals.signal1Desc'), neighborResponse: t('signals.signal1Response'), soundFile: signalSoundFiles[0], colors: SIGNAL_COLORS[0] },
@@ -147,43 +158,45 @@ function Whistle() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 scenario-rise-in" style={aniDelay(0.32)}>
-            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-200">
+            <button onClick={() => scrollToSection(whistleProtocolRef)} className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-amber-200 transition-colors hover:bg-amber-500/20 active:scale-95">
               4 Alert Patterns
-            </span>
-            <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-violet-200">
+            </button>
+            <button onClick={() => scrollToSection(visualSignalsRef)} className="rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-violet-200 transition-colors hover:bg-violet-500/20 active:scale-95">
               Hand Signals
-            </span>
-            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-200">
+            </button>
+            <button onClick={() => scrollToSection(deescalationRef)} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-200 transition-colors hover:bg-emerald-500/20 active:scale-95">
               De-Escalation
-            </span>
+            </button>
           </div>
         </div>
       </section>
 
       {/* ── Hierarchy of Sound ── */}
       <div className="page-section-item mb-6">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900/96 to-cyan-950/20 p-5">
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.05),transparent_48%)]" />
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-cyan-950/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-cyan-500/6 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.07),transparent_48%)]" />
           <div className="relative">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400/80 mb-3">Sound System</p>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-3">
               <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10">
                 <SpeakerHigh size={20} weight="bold" className="text-cyan-400" />
               </div>
-              <h2 className="text-[1.2rem] font-black tracking-[-0.02em] text-white">{t('signals.hierarchyTitle')}</h2>
+              <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.hierarchyTitle')}</h2>
             </div>
             <p className="text-slate-400 text-sm mb-4 leading-[1.6]">{t('signals.hierarchyDesc')}</p>
             <div className="space-y-2">
               <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
-                <p className="text-cyan-400 font-black text-sm mb-1">{t('signals.chantsTitle')}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-1.5">{t('signals.chantsTitle')}</p>
                 <p className="text-slate-300 text-sm leading-[1.6]">{t('signals.chantsDesc')}</p>
               </div>
               <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
-                <p className="text-cyan-400 font-black text-sm mb-1">{t('signals.drumsTitle')}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-1.5">{t('signals.drumsTitle')}</p>
                 <p className="text-slate-300 text-sm leading-[1.6]">{t('signals.drumsDesc')}</p>
               </div>
               <div className="bg-cyan-950/30 border border-cyan-900/40 rounded-xl p-4">
-                <p className="text-cyan-300 font-black text-sm mb-1">{t('signals.whistlesTitle')}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-1.5">{t('signals.whistlesTitle')}</p>
                 <p className="text-slate-300 text-sm leading-[1.6]">{t('signals.whistlesDesc')}</p>
               </div>
             </div>
@@ -192,35 +205,44 @@ function Whistle() {
       </div>
 
       {/* ── Community Alert Signals ── */}
-      <div className="page-section-item mb-6">
-        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Whistle Protocol</p>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
-            <House size={20} weight="bold" className="text-blue-400" />
+      <div ref={whistleProtocolRef} className="page-section-item mb-6">
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-blue-950/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/30 to-transparent" />
+          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-blue-500/6 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.07),transparent_48%)]" />
+          <div className="relative">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-400/80 mb-3">Whistle Protocol</p>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+                <House size={20} weight="bold" className="text-blue-400" />
+              </div>
+              <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.communityTitle')}</h2>
+            </div>
+            <p className="text-slate-400 text-sm mb-4 leading-[1.6]">{t('signals.communityDesc')}</p>
+            <div className="bg-amber-950/30 border border-amber-900/40 rounded-xl p-4 mb-4">
+              <p className="text-amber-400 text-[11px] font-black uppercase tracking-[0.2em] mb-1.5">{t('signals.signalOnlyRule')}</p>
+              <p className="text-white text-sm leading-[1.6]">{t('signals.signalOnlyDesc')}</p>
+            </div>
+            {communitySignals.map((signal, index) => (
+              <SignalCard key={index} {...signal} neighborResponseLabel={t('signals.neighborResponse')} />
+            ))}
           </div>
-          <h2 className="text-[1.2rem] font-black tracking-[-0.02em] text-white">{t('signals.communityTitle')}</h2>
         </div>
-        <p className="text-slate-400 text-sm mb-4 ml-[52px] leading-[1.6]">{t('signals.communityDesc')}</p>
-        <div className="bg-amber-950/30 border border-amber-900/40 rounded-xl p-4 mb-4">
-          <p className="text-amber-400 text-[11px] font-black uppercase tracking-[0.2em] mb-1.5">{t('signals.signalOnlyRule')}</p>
-          <p className="text-white text-sm leading-[1.6]">{t('signals.signalOnlyDesc')}</p>
-        </div>
-        {communitySignals.map((signal, index) => (
-          <SignalCard key={index} {...signal} neighborResponseLabel={t('signals.neighborResponse')} />
-        ))}
       </div>
 
       {/* ── Visual Signaling ── */}
-      <div className="page-section-item mb-6">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900/96 to-slate-800/20 p-5">
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.04),transparent_48%)]" />
+      <div ref={visualSignalsRef} className="page-section-item mb-6">
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-slate-800/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-slate-500/30 to-transparent" />
+          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-violet-500/5 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.06),transparent_48%)]" />
           <div className="relative">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Visual Signals</p>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-3">
               <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-600/40 bg-slate-800/60">
                 <Eye size={20} weight="bold" className="text-slate-300" />
               </div>
-              <h2 className="text-[1.2rem] font-black tracking-[-0.02em] text-white">{t('signals.visualTitle')}</h2>
+              <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.visualTitle')}</h2>
             </div>
             <p className="text-slate-400 text-sm mb-4 leading-[1.6]">{t('signals.visualDesc')}</p>
             <div className="space-y-2">
@@ -244,25 +266,27 @@ function Whistle() {
       </div>
 
       {/* ── De-escalation ── */}
-      <div className="page-section-item mb-6">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900/96 to-red-950/20 p-5">
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.05),transparent_48%)]" />
+      <div ref={deescalationRef} className="page-section-item mb-6">
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-red-950/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent" />
+          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-red-500/6 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.07),transparent_48%)]" />
           <div className="relative">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-red-400/80 mb-3">De-escalation</p>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-3">
               <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10">
                 <Thermometer size={20} weight="bold" className="text-red-400" />
               </div>
-              <h2 className="text-[1.2rem] font-black tracking-[-0.02em] text-white">{t('signals.deescTitle')}</h2>
+              <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.deescTitle')}</h2>
             </div>
             <p className="text-slate-400 text-sm mb-4 leading-[1.6]">{t('signals.deescDesc')}</p>
             <div className="space-y-2">
               <div className="bg-red-950/30 border border-red-900/40 rounded-xl p-4">
-                <p className="text-red-400 font-black text-sm mb-2">{t('signals.dropVolumeTitle')}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-red-400 mb-1.5">{t('signals.dropVolumeTitle')}</p>
                 <p className="text-slate-300 text-sm leading-[1.6]">{t('signals.dropVolumeDesc')}</p>
               </div>
               <div className="bg-red-950/30 border border-red-900/40 rounded-xl p-4">
-                <p className="text-red-400 font-black text-sm mb-2">{t('signals.sitDownTitle')}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-red-400 mb-1.5">{t('signals.sitDownTitle')}</p>
                 <p className="text-slate-300 text-sm leading-[1.6]">{t('signals.sitDownDesc')}</p>
               </div>
             </div>
@@ -272,23 +296,25 @@ function Whistle() {
 
       {/* ── Digital & External Comms ── */}
       <div className="page-section-item mb-6">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900/96 to-slate-800/20 p-5">
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.04),transparent_48%)]" />
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-slate-800/20 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-slate-500/30 to-transparent" />
+          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-cyan-500/5 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.06),transparent_48%)]" />
           <div className="relative">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Digital Comms</p>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-3">
               <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-600/40 bg-slate-800/60">
                 <DeviceMobile size={20} weight="bold" className="text-slate-300" />
               </div>
-              <h2 className="text-[1.2rem] font-black tracking-[-0.02em] text-white">{t('signals.digitalTitle')}</h2>
+              <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.digitalTitle')}</h2>
             </div>
             <div className="space-y-2">
               <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
-                <p className="text-cyan-400 font-black text-sm mb-2">{t('signals.buddyTitle')}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-1.5">{t('signals.buddyTitle')}</p>
                 <p className="text-slate-300 text-sm leading-[1.6]">{t('signals.buddyDesc')}</p>
               </div>
               <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
-                <p className="text-cyan-400 font-black text-sm mb-2">{t('signals.telegramTitle')}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-1.5">{t('signals.telegramTitle')}</p>
                 <p className="text-slate-300 text-sm leading-[1.6]">{t('signals.telegramDesc')}</p>
               </div>
             </div>
@@ -298,14 +324,17 @@ function Whistle() {
 
       {/* ── Key Reminders ── */}
       <div className="page-section-item mb-8">
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-900/60 via-slate-900/50 to-amber-950/10 p-5">
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.04),transparent_48%)]" />
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-800/90 via-slate-900/95 to-amber-950/10 backdrop-blur-sm p-5 shadow-[0_18px_48px_rgba(2,6,23,0.28)]">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
+          <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-amber-500/5 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.06),transparent_48%)]" />
           <div className="relative">
-            <div className="flex items-center gap-3 mb-4">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-400/80 mb-3">Field Notes</p>
+            <div className="flex items-center gap-3 mb-3">
               <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10">
                 <Lightbulb size={20} weight="bold" className="text-amber-400" />
               </div>
-              <h2 className="text-[1.2rem] font-black tracking-[-0.02em] text-white">{t('signals.remindersTitle')}</h2>
+              <h2 className="text-[1.65rem] font-black tracking-[-0.03em] leading-[1.04] text-white sm:text-[1.92rem]">{t('signals.remindersTitle')}</h2>
             </div>
             <div className="space-y-2">
               {[
