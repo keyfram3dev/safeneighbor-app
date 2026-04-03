@@ -20,7 +20,6 @@ const HOME_USAGE_KEY = 'safeneighbor_home_usage';
 const HOME_REVIEW_KEY = 'safeneighbor_home_review_markers';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const aniDelay = (s) => ({ animationDelay: `${s}s` });
-const animationDelayStyle = (delay = 0) => ({ animationDelay: `${delay}s` });
 const sectionDelayStyle = (delay = 0) => ({ '--scenario-delay': `${delay}s` });
 
 const readHomeUsage = () => {
@@ -190,19 +189,19 @@ const HomeCard = ({ item, variant = 'standard' }) => {
         <div className="flex min-w-0 flex-1 flex-col self-stretch">
           <div>
             {item.badge && !isFeatured && (
-              <p className={`mb-2 text-[11px] font-bold uppercase tracking-[0.18em] ${c.link}`}>
+              <p className={`mb-2 text-[11px] font-black uppercase tracking-[0.2em] ${c.link}`}>
                 {item.badge}
               </p>
             )}
             {isFeatured && (
-              <p className={`mb-2 text-[11px] font-bold uppercase tracking-[0.18em] ${c.link}`}>
+              <p className={`mb-2 text-[11px] font-black uppercase tracking-[0.2em] ${c.link}`}>
                 Priority Guide
               </p>
             )}
             <h2 className={`${isFeatured ? 'text-[1.38rem] leading-[1.04] tracking-[-0.03em] sm:text-[1.72rem]' : 'text-[1.02rem] leading-[1.2] tracking-[-0.02em] sm:text-[1.08rem]'} mb-1.5 font-black text-white ${c.titleHover} transition-colors`}>
               {item.title}
             </h2>
-            <p className={`text-slate-400 ${isFeatured ? 'mb-4 max-w-[34ch] text-[15px] leading-[1.62] text-slate-300' : 'mb-3 text-[13.5px] leading-[1.58] sm:text-sm'}`}>
+            <p className={`text-slate-400 ${isFeatured ? 'mb-4 max-w-[34ch] text-[15px] leading-[1.6] text-slate-300' : 'mb-3 text-[13.5px] leading-[1.6] sm:text-sm'}`}>
               {item.description}
             </p>
           </div>
@@ -223,14 +222,14 @@ const HomeSection = ({ eyebrow, title, description, children, className = '' }) 
       <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-transparent to-transparent pointer-events-none" />
       <div className="absolute -right-10 top-1/2 h-24 w-24 -translate-y-1/2 rounded-full bg-slate-700/10 blur-3xl pointer-events-none" />
       <div className="relative pl-4">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
           {eyebrow}
         </p>
         <h2 className="text-[1.65rem] font-black leading-[1.04] tracking-[-0.03em] text-white sm:text-[1.92rem]">
           {title}
         </h2>
         {description && (
-          <p className="mt-2 max-w-[40ch] text-[15px] leading-[1.62] text-slate-300">
+          <p className="mt-2 max-w-[40ch] text-[15px] leading-[1.6] text-slate-300">
             {description}
           </p>
         )}
@@ -1002,7 +1001,7 @@ const Home = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/8 via-transparent to-red-500/8" />
                   <div className="absolute inset-x-6 bottom-6 flex justify-center xl:justify-start">
-                    <div className="rounded-full border border-cyan-400/20 bg-slate-950/80 px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200 shadow-[0_12px_30px_rgba(8,47,73,0.28)] backdrop-blur-md">
+                    <div className="rounded-full border border-cyan-400/20 bg-slate-950/80 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200 shadow-[0_12px_30px_rgba(8,47,73,0.28)] backdrop-blur-md">
                       {t('home.openingRightsGuide', { defaultValue: 'Opening Rights Guide' })}
                     </div>
                   </div>
@@ -1011,11 +1010,11 @@ const Home = ({
             </AnimatePresence>
 
             <div className="relative">
-              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-blue-300/80 scenario-fade-in" style={aniDelay(0.06)}>
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-blue-300/80 scenario-fade-in" style={aniDelay(0.12)}>
                 {t('home.heroEyebrow')}
               </p>
 
-              <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.18)}>
+              <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.20)}>
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 shadow-[0_0_28px_rgba(59,130,246,0.18)]">
                   <ShieldCheck size={30} weight="bold" className="text-blue-300" />
                 </div>
@@ -1024,23 +1023,23 @@ const Home = ({
                 </h1>
               </div>
 
-              <p className="mx-auto max-w-[31ch] text-[1.03rem] font-medium leading-[1.5] text-slate-200 xl:mx-0 sm:text-[1.12rem] scenario-fade-in" style={aniDelay(0.32)}>
+              <p className="mx-auto max-w-[31ch] text-[1.03rem] leading-[1.6] text-slate-200 xl:mx-0 sm:text-[1.12rem] scenario-rise-in" style={aniDelay(0.34)}>
                 {t('home.heroSubtitle')}
               </p>
-              <p className="mx-auto mt-3 max-w-[40ch] text-[14px] leading-[1.68] text-slate-400 xl:mx-0 sm:text-[15px] scenario-fade-in" style={aniDelay(0.44)}>
+              <p className="mx-auto mt-3 max-w-[40ch] text-[14px] leading-[1.68] text-slate-400 xl:mx-0 sm:text-[15px] scenario-rise-in" style={aniDelay(0.46)}>
                 {t('home.heroSupport')}
               </p>
 
-              <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-fade-in" style={aniDelay(0.56)}>
-                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-emerald-300">
+              <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-rise-in" style={aniDelay(0.56)}>
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-300">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
                   {t('home.reassuranceOffline')}
                 </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-cyan-300">
                   <span className="h-2 w-2 rounded-full bg-cyan-400" />
                   {t('home.reassurancePrivate')}
                 </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-violet-300">
+                <span className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-violet-300">
                   <span className="h-2 w-2 rounded-full bg-violet-400" />
                   {t('home.reassuranceNoAccount')}
                 </span>
@@ -1049,7 +1048,7 @@ const Home = ({
               <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.68)}>
                 <button
                   onClick={openEmergencyAction}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-[13px] font-black uppercase tracking-[0.18em] text-white transition-all shadow-[0_12px_32px_rgba(127,29,29,0.35)] hover:from-red-500 hover:to-red-600 sm:w-auto"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-white transition-all shadow-[0_12px_32px_rgba(127,29,29,0.35)] hover:from-red-500 hover:to-red-600 sm:w-auto"
                 >
                   <Question size={18} weight="bold" />
                   <span>{t('home.emergencyCta')}</span>
@@ -1057,7 +1056,7 @@ const Home = ({
                 <button
                   onClick={openHeroRightsAction}
                   disabled={heroTransition === 'rights'}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/70 px-6 py-3.5 text-[15px] font-semibold tracking-[0.01em] text-white transition-all shadow-[0_10px_24px_rgba(15,23,42,0.28)] hover:bg-slate-800/80 sm:w-auto"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/70 px-6 py-3.5 text-sm font-bold text-white transition-all shadow-[0_10px_24px_rgba(15,23,42,0.28)] hover:bg-slate-800/80 sm:w-auto"
                 >
                   <motion.div
                     animate={heroTransition === 'rights' ? { scale: [1, 1.12, 1], rotate: [0, -6, 0] } : { scale: 1, rotate: 0 }}
@@ -1071,11 +1070,11 @@ const Home = ({
             </div>
           </motion.div>
 
-          <div className="mt-3 flex flex-col gap-3 xl:mt-0 scenario-fade-in" style={animationDelayStyle(0.18)}>
+          <div className="mt-3 flex flex-col gap-3 xl:mt-0 scenario-rise-in" style={aniDelay(0.26)}>
             <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
               <div className="flex items-start justify-between gap-3 sm:gap-4">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/60">
                     {primaryRecommendation.eyebrow}
                   </p>
                   <h2 className="mt-1 text-[1.55rem] font-black leading-[1.02] tracking-[-0.03em] text-white sm:text-[1.78rem]">
@@ -1090,13 +1089,13 @@ const Home = ({
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 sm:mt-4">
-                <span className="rounded-full border border-white/10 bg-slate-900/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white/75">
+                <span className="rounded-full border border-white/10 bg-slate-900/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/75">
                   {primaryRecommendation.meta}
                 </span>
                 <button
                   type="button"
                   onClick={primaryRecommendation.onClick}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[14px] font-semibold tracking-[0.01em] transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${primaryRecommendation.accentClassName}`}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${primaryRecommendation.accentClassName}`}
                 >
                   {primaryRecommendation.ctaLabel}
                   <ChevronRight size={16} />
@@ -1105,7 +1104,7 @@ const Home = ({
             </div>
 
             <div className="rounded-2xl border border-slate-800/80 bg-gradient-to-r from-slate-950/85 via-slate-950/70 to-slate-900/80 px-4 py-3 shadow-[0_14px_30px_rgba(2,6,23,0.12)] sm:py-3.5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
                 {t('home.trustEyebrow')}
               </p>
               <p className="mt-1 text-[13.5px] leading-[1.6] text-slate-300 sm:text-[14px]">
@@ -1152,16 +1151,16 @@ const Home = ({
           <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/[0.08] via-slate-900/80 to-slate-900/70 px-4 py-4 text-left shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
                   {t('home.setupOverviewEyebrow')}
                 </p>
-                <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                <p className="mt-1 text-sm leading-[1.6] text-slate-300">
                   {isPreparedReturningUser
                     ? t('home.setupOverviewReturningText')
                     : t('home.setupOverviewText')}
                 </p>
               </div>
-              <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/80">
+              <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-white/80">
                 {setupItems.filter((item) => item.ready).length}/{setupItems.length}
               </span>
             </div>
@@ -1214,10 +1213,10 @@ const Home = ({
           )}
 
           <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/[0.07] via-slate-950/90 to-slate-900/90 px-4 py-4 text-left shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-300">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-300">
               {isFirstTimeUser ? t('home.startHereFirstTimeEyebrow') : t('home.startHereEyebrow')}
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-slate-300">
+            <p className="mt-1 text-sm leading-[1.6] text-slate-300">
               {checklistItems.length > 0
                 ? (isFirstTimeUser ? t('home.startHereFirstTimeText') : t('home.startHereText'))
                 : t('home.startHereDoneText')}
@@ -1270,13 +1269,13 @@ const Home = ({
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-red-300">
                   {t('home.liveReportsEyebrow', { defaultValue: 'Live Community Activity' })}
                 </p>
                 <h3 className="mt-1 text-lg font-black tracking-tight text-white">
                   {liveAwarenessHeadline}
                 </h3>
-                <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                <p className="mt-1 text-sm leading-[1.6] text-slate-300">
                   {liveAwarenessSummary}
                 </p>
               </div>
@@ -1365,7 +1364,7 @@ const Home = ({
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/70">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70">
                     {resumeAction.eyebrow}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1383,7 +1382,7 @@ const Home = ({
                   <h3 className="mt-1 text-lg font-black text-white">
                     {resumeAction.title}
                   </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                  <p className="mt-2 text-sm leading-[1.6] text-slate-300">
                     {resumeAction.description}
                   </p>
                 </div>
@@ -1404,10 +1403,10 @@ const Home = ({
           <div className={`mt-2 grid gap-3 sm:mt-4 ${(retentionPrompts.length > 0 || quietStateSupport) ? 'xl:grid-cols-[minmax(0,1fr)_minmax(300px,0.95fr)]' : ''}`}>
             {featuredQuickActions.length > 0 && (
               <div className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/[0.06] via-slate-950/90 to-slate-900/90 px-4 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-violet-300">
                   {t('home.frequentEyebrow', { defaultValue: 'Used often' })}
                 </p>
-                <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                <p className="mt-1 text-sm leading-[1.6] text-slate-300">
                   {t('home.frequentIntro', { defaultValue: 'Returning users can jump back into the tools they rely on most.' })}
                 </p>
                 <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -1436,10 +1435,10 @@ const Home = ({
 
             {retentionPrompts.length > 0 && (
               <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.06] via-slate-950/90 to-slate-900/90 px-4 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
                   {t('home.retentionEyebrow', { defaultValue: 'Keep ready' })}
                 </p>
-                <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                <p className="mt-1 text-sm leading-[1.6] text-slate-300">
                   {t('home.retentionIntro', { defaultValue: 'A few small refreshes keep your plan useful when a stressful moment hits.' })}
                 </p>
                 <div className="mt-4 space-y-2">
@@ -1452,7 +1451,7 @@ const Home = ({
                     >
                       <div>
                         <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/85">{prompt.label}</p>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-400">{prompt.detail}</p>
+                        <p className="mt-1 text-xs leading-[1.6] text-slate-400">{prompt.detail}</p>
                       </div>
                       <ChevronRight size={16} className="text-slate-500" />
                     </button>
@@ -1463,11 +1462,11 @@ const Home = ({
 
             {quietStateSupport && retentionPrompts.length === 0 && (
               <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] via-slate-950/90 to-slate-900/90 px-4 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
                   {t('home.quietStateEyebrow', { defaultValue: 'Quiet state' })}
                 </p>
                 <h3 className="mt-1 text-lg font-black tracking-tight text-white">{quietStateSupport.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-300">{quietStateSupport.detail}</p>
+                <p className="mt-2 text-sm leading-[1.6] text-slate-300">{quietStateSupport.detail}</p>
                 <button
                   type="button"
                   onClick={quietStateSupport.onClick}
@@ -1547,7 +1546,7 @@ const Home = ({
             </p>
             <button
               onClick={() => navigate('legal', { type: 'page', id: 'legal-page' })}
-              className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-[14px] font-semibold tracking-[0.01em] text-white transition-all shadow-lg shadow-red-900/30 hover:from-red-500 hover:to-red-600 hover:shadow-red-900/50"
+              className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-white transition-all shadow-lg shadow-red-900/30 hover:from-red-500 hover:to-red-600 hover:shadow-red-900/50"
             >
               {t('home.exploreRights')}
             </button>
@@ -1578,13 +1577,13 @@ const Home = ({
         <div className="absolute left-1/2 top-0 h-px w-36 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
         <div className="absolute bottom-0 left-1/2 h-px w-36 -translate-x-1/2 bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
         <div className="relative">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
             Reflection
           </p>
           <p className="mx-auto mt-4 max-w-[34ch] text-[1.12rem] italic leading-[1.65] text-slate-300 sm:text-[1.26rem]">
             {homeQuote.quote}
           </p>
-          <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{homeQuote.author}</p>
+          <p className="mt-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">{homeQuote.author}</p>
         </div>
       </div>
 
@@ -1593,7 +1592,7 @@ const Home = ({
           <button
             key={action.id}
             onClick={action.onClick}
-            className={`inline-flex items-center gap-2 rounded-full border bg-gradient-to-r px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/95 transition-all shadow-[0_8px_20px_rgba(15,23,42,0.16)] opacity-85 hover:opacity-100 ${action.className}`}
+            className={`inline-flex items-center gap-2 rounded-full border bg-gradient-to-r px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-white/95 transition-all shadow-[0_8px_20px_rgba(15,23,42,0.16)] opacity-85 hover:opacity-100 ${action.className}`}
           >
             {action.icon}
             <span>{action.label}</span>
@@ -1603,7 +1602,7 @@ const Home = ({
 
       <div className="mt-8 rounded-[24px] border border-slate-800/70 bg-slate-950/65 px-4 py-5 shadow-[0_12px_32px_rgba(2,6,23,0.14)] sm:px-6 page-section-item">
         <div className="mb-3 text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
             Important Context
           </p>
         </div>
