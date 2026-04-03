@@ -19,6 +19,16 @@ import {
 } from '../data/immigrationRightsData';
 
 const aniDelay = (s) => ({ animationDelay: `${s}s` });
+const LEGAL_VIEW_QUERY_PARAM = 'legalTab';
+const LEGAL_VIEWS = ['chat', 'constitution', 'status', 'directory'];
+
+const normalizeLegalView = (value) => (LEGAL_VIEWS.includes(value) ? value : 'constitution');
+
+const getInitialLegalView = () => {
+  if (typeof window === 'undefined') return 'constitution';
+  const params = new URLSearchParams(window.location.search);
+  return normalizeLegalView(params.get(LEGAL_VIEW_QUERY_PARAM));
+};
 
 const LEGAL_TAB_STYLES = {
   chat: {
@@ -1126,7 +1136,7 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
   const { t } = useTranslation();
   const legalQuote = useRotatingQuote('legal.nietzscheQuote', 'legal.nietzscheAuthor', 'legal');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
-  const [view, setView] = useState('constitution');
+  const [view, setView] = useState(getInitialLegalView);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1194,6 +1204,26 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
     });
 
     return () => window.cancelAnimationFrame(frame);
+  }, [view]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      setView(normalizeLegalView(params.get(LEGAL_VIEW_QUERY_PARAM)));
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (view === 'constitution') {
+      url.searchParams.delete(LEGAL_VIEW_QUERY_PARAM);
+    } else {
+      url.searchParams.set(LEGAL_VIEW_QUERY_PARAM, view);
+    }
+    window.history.replaceState({}, '', url);
   }, [view]);
 
   const sendMessage = async () => {
@@ -1282,11 +1312,6 @@ User question: ${input}`
                 <h1 className="max-w-3xl text-[2rem] font-black tracking-tight text-white sm:text-[2.75rem]">
                   {t('legal.title')}
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-[1.65] text-slate-400">
-                  {t('legal.heroSupport', {
-                    defaultValue: 'Constitutional protections, status-based guidance, AI-powered Q&A, and a national directory of legal aid organized by what matters right now.',
-                  })}
-                </p>
               </div>
             </div>
 
@@ -1294,33 +1319,7 @@ User question: ${input}`
               {t('legal.subtitle')}
             </p>
 
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-fade-in" style={aniDelay(0.46)}>
-              <button
-                type="button"
-                onClick={() => jumpToLegalView('constitution')}
-                className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-violet-300 transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-400/30 hover:bg-violet-500/14"
-              >
-                <span className="h-2 w-2 rounded-full bg-violet-400" />
-                <Scroll size={13} weight="bold" />
-                {t('legal.pillRights', { defaultValue: 'Know Your Rights' })}
-              </button>
-              <button
-                type="button"
-                onClick={() => jumpToLegalView('chat')}
-                className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300 transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-cyan-500/14"
-              >
-                <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                <Brain size={13} weight="bold" />
-                {t('legal.pillAi', { defaultValue: 'AI Powered' })}
-              </button>
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                <MapPin size={13} weight="bold" />
-                {t('legal.pill50States', { defaultValue: '50 State Laws' })}
-              </span>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.58)}>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.46)}>
               <button
                 onClick={onOpenLegalResponse}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/50 bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-white shadow-[0_12px_32px_rgba(5,150,105,0.3)] transition-all hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.98]"
@@ -1328,36 +1327,29 @@ User question: ${input}`
                 <Scales size={20} weight="bold" />
                 {t('legalResponse.buttonLabel')}
               </button>
-              <button
-                onClick={() => jumpToLegalView('status')}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-700/55 bg-slate-950/65 px-5 py-3.5 text-sm font-black uppercase tracking-[0.18em] text-slate-100 transition-all hover:border-cyan-500/24 hover:bg-slate-900/80 active:scale-[0.98]"
-              >
-                <IdentificationCard size={18} weight="bold" />
-                {t('legal.heroStatusCta', { defaultValue: 'Choose your status' })}
-              </button>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3 scenario-rise-in" style={aniDelay(0.68)}>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3 scenario-rise-in" style={aniDelay(0.58)}>
               {[
                 {
                   id: 'constitution',
                   icon: Scroll,
                   label: t('legal.heroQuickRights', { defaultValue: 'Start with rights' }),
-                  detail: t('legal.heroQuickRightsDetail', { defaultValue: 'Open the constitutional foundation first.' }),
+                  detail: t('legal.heroQuickRightsDetail', { defaultValue: 'Start with the constitutional foundation.' }),
                   accent: 'text-violet-300 border-slate-700/60 bg-slate-900/75 hover:border-violet-400/24 hover:bg-slate-900/90',
                 },
                 {
                   id: 'status',
                   icon: IdentificationCard,
-                  label: t('legal.heroQuickStatus', { defaultValue: 'Choose your status' }),
-                  detail: t('legal.heroQuickStatusDetail', { defaultValue: 'Guidance arranged by where you are in the process.' }),
+                  label: t('legal.heroQuickStatus', { defaultValue: 'Choose situation' }),
+                  detail: t('legal.heroQuickStatusDetail', { defaultValue: 'Find the closest legal situation first.' }),
                   accent: 'text-cyan-300 border-slate-700/60 bg-slate-900/75 hover:border-cyan-400/24 hover:bg-slate-900/90',
                 },
                 {
                   id: 'directory',
                   icon: MapPin,
                   label: t('legal.heroQuickDirectory', { defaultValue: 'Find legal help' }),
-                  detail: t('legal.heroQuickDirectoryDetail', { defaultValue: 'Search national and state-specific support.' }),
+                  detail: t('legal.heroQuickDirectoryDetail', { defaultValue: 'Search national and state-specific help.' }),
                   accent: 'text-emerald-300 border-slate-700/60 bg-slate-900/75 hover:border-emerald-400/24 hover:bg-slate-900/90',
                 },
               ].map((item) => {
@@ -1413,24 +1405,6 @@ User question: ${input}`
               </div>
               <div className="relative mt-4 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
-                  {t('legal.desktopQuoteSupportEyebrow', { defaultValue: 'Use this page to' })}
-                </p>
-                <div className="mt-2 space-y-2">
-                  {[
-                    t('legal.heroSupportPoint1', { defaultValue: 'Confirm what officers can and cannot do.' }),
-                    t('legal.heroSupportPoint2', { defaultValue: 'Find the next safest action by status or scenario.' }),
-                    t('legal.heroSupportPoint3', { defaultValue: 'Locate real legal aid when it is time to escalate.' }),
-                  ].map((point) => (
-                    <p key={point} className="flex items-start gap-2 text-xs leading-relaxed text-slate-300">
-                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-cyan-300/70" />
-                      <span>{point}</span>
-                    </p>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative mt-4 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
                   {t('legal.desktopQuoteScriptsEyebrow', { defaultValue: 'Fast first phrases' })}
                 </p>
                 <div className="mt-3 space-y-2">
@@ -1463,7 +1437,7 @@ User question: ${input}`
         <div className="flex min-w-max gap-1.5">
           <button
             onClick={() => setView('chat')}
-            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
               view === 'chat'
                 ? `${LEGAL_TAB_STYLES.chat.active} border-slate-300/8`
                 : `border-slate-300/10 ${LEGAL_TAB_STYLES.chat.idle} ${LEGAL_TAB_STYLES.chat.hover}`
@@ -1481,7 +1455,7 @@ User question: ${input}`
           </button>
           <button
             onClick={() => setView('constitution')}
-            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
               view === 'constitution'
                 ? `${LEGAL_TAB_STYLES.constitution.active} border-slate-300/8`
                 : `border-slate-300/10 ${LEGAL_TAB_STYLES.constitution.idle} ${LEGAL_TAB_STYLES.constitution.hover}`
@@ -1499,7 +1473,7 @@ User question: ${input}`
           </button>
           <button
             onClick={() => setView('status')}
-            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
               view === 'status'
                 ? `${LEGAL_TAB_STYLES.status.active} border-slate-300/8`
                 : `border-slate-300/10 ${LEGAL_TAB_STYLES.status.idle} ${LEGAL_TAB_STYLES.status.hover}`
@@ -1511,13 +1485,13 @@ User question: ${input}`
               }`}>
                 <IdentificationCard size={14} weight="bold" className="shrink-0" />
               </span>
-              {t('legal.tabByStatus')}
+              {t('legal.tabByStatus', { defaultValue: 'By Situation' })}
               {view === 'status' && <span className={`h-1.5 w-1.5 rounded-full ${LEGAL_TAB_STYLES.status.dot}`} />}
             </span>
           </button>
           <button
             onClick={() => setView('directory')}
-            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] ${
+            className={`group flex-1 rounded-[20px] border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,color,transform,box-shadow,border-color] duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
               view === 'directory'
                 ? `${LEGAL_TAB_STYLES.directory.active} border-slate-300/8`
                 : `border-slate-300/10 ${LEGAL_TAB_STYLES.directory.idle} ${LEGAL_TAB_STYLES.directory.hover}`
@@ -1540,7 +1514,7 @@ User question: ${input}`
         <div ref={chatSectionRef} className="mt-8 space-y-6 scenario-section-rise">
           <LegalSectionHeader
             eyebrow={t('legal.chatEyebrow', { defaultValue: 'Ask a focused question' })}
-            title={t('legal.chatTitle', { defaultValue: 'Use AI to pressure-test your next step' })}
+            title={t('legal.chatTitle', { defaultValue: 'Ai Legal Help' })}
             description={t('legal.chatSubtitle', { defaultValue: 'Keep questions concrete. Ask what officers can do, what you can say, or what documents matter in the moment.' })}
             support={t('legal.chatSupport', { defaultValue: 'This tool helps with orientation, not legal representation. Use the directory tab when you need a lawyer or hotline.' })}
             accent="text-cyan-400"
@@ -3471,66 +3445,37 @@ User question: ${input}`
       {view === 'status' && (
         <div ref={statusSectionRef} className="mt-8 space-y-6 scenario-section-rise">
           <LegalSectionHeader
-            eyebrow={t('legal.statusEyebrow', { defaultValue: 'Guidance by status' })}
+            eyebrow={t('legal.statusEyebrow', { defaultValue: 'Guidance by situation' })}
             title={t('legal.statusTitle', { defaultValue: 'Choose the closest legal situation first' })}
-            description={t('legal.statusSubtitle', { defaultValue: 'Each path keeps the guidance focused on the risk, paperwork, and deadlines that matter most for that status.' })}
-            support={t('legal.statusSupport', { defaultValue: 'This is a decision aid, not a label. Pick the closest fit to surface the most relevant protections and next actions.' })}
+            description={t('legal.statusSubtitle', { defaultValue: 'Start with the card that most closely matches your paperwork, exposure, or process.' })}
             accent="text-cyan-400"
             delay={0.04}
           />
 
-          <div className="scenario-section-item">
-            <Disclaimer section="legal" />
+          <div className="scenario-section-item xl:hidden">
+            <div className="relative overflow-hidden rounded-2xl border border-slate-800/62 bg-slate-950/48 p-4 shadow-[0_14px_28px_rgba(2,6,23,0.14)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-200/60">
+                {t('legal.statusPanelEyebrowCompact', { defaultValue: 'Use this section' })}
+              </p>
+              <h3 className="mt-1.5 text-[1.02rem] font-black leading-tight tracking-tight text-white">
+                {t('legal.statusPanelCompactTitle', { defaultValue: 'Pick the nearest fit first.' })}
+              </h3>
+              <div className="mt-2.5 space-y-2">
+                {[
+                  t('legal.statusPanelCompactPoint1', { defaultValue: 'Start with the card that matches your status or paperwork.' }),
+                  t('legal.statusPanelCompactPoint2', { defaultValue: 'If a deadline appears or things change, move to legal help next.' }),
+                ].map((point) => (
+                  <p key={point} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-slate-300">
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-cyan-300/65 shrink-0" />
+                    <span>{point}</span>
+                  </p>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_296px] xl:items-stretch">
             <div className="space-y-4">
-              <div
-                className="scenario-section-item group relative cursor-pointer overflow-hidden rounded-[26px] border border-red-900/60 bg-gradient-to-br from-slate-950 via-slate-950/96 to-red-950/24 transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/28 hover:shadow-[0_18px_40px_rgba(76,5,25,0.18)]"
-                onClick={() => setNeverSignExpanded((prev) => !prev)}
-              >
-                <div className="absolute inset-0 rounded-[26px] bg-gradient-to-br from-transparent to-transparent transition-all duration-300 pointer-events-none group-hover:from-red-500/5 group-hover:to-rose-500/4" />
-                <div className="relative p-5 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/16 bg-red-500/10 text-red-300">
-                      <ProhibitInset size={24} weight="bold" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300/80">
-                        {t('legal.neverSignEyebrow', { defaultValue: 'Highest-risk mistake' })}
-                      </p>
-                      <h3 className="mt-1 text-base font-black uppercase tracking-[0.08em] text-red-100">{NEVER_SIGN_WARNING.title}</h3>
-                      <p className="mt-1 text-xs leading-relaxed text-red-100/68">{NEVER_SIGN_WARNING.summary}</p>
-                    </div>
-                  </div>
-                  <motion.div animate={{ rotate: neverSignExpanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
-                    <CaretRight size={20} weight="bold" className="text-red-300" />
-                  </motion.div>
-                </div>
-                <AnimatePresence>
-                  {neverSignExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-5 pb-5 space-y-3 border-t border-red-900/45 pt-4">
-                        {NEVER_SIGN_WARNING.forms.map((form, i) => (
-                          <div key={i} className="flex items-start gap-2.5">
-                            <X size={16} weight="bold" className="text-red-400 shrink-0 mt-0.5" />
-                            <div>
-                              <p className="text-red-100 text-sm font-bold">{form.name}</p>
-                              <p className="text-red-100/60 text-xs leading-relaxed mt-0.5">{form.danger}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
               <div className="scenario-section-item grid grid-cols-1 gap-3 md:grid-cols-3">
                 {Object.values(STATUS_PERSONAS).map(persona => {
                   const isSelected = selectedStatus === persona.id;
@@ -3577,12 +3522,63 @@ User question: ${input}`
                       </p>
                       <p className={`relative mt-3 text-[11px] font-bold uppercase tracking-[0.12em] ${isSelected ? c.accent : 'text-slate-500'}`}>
                         {isSelected
-                          ? t('legal.statusSelectedLabel', { defaultValue: 'Showing guidance below' })
-                          : t('legal.statusOpenLabel', { defaultValue: 'Open this path' })}
+                          ? t('legal.statusSelectedLabel', { defaultValue: 'Guidance shown below' })
+                          : t('legal.statusOpenLabel', { defaultValue: 'Open this situation' })}
                       </p>
                     </button>
                   );
                 })}
+              </div>
+
+              <div
+                className="scenario-section-item group relative cursor-pointer overflow-hidden rounded-[26px] border border-red-900/60 bg-gradient-to-br from-slate-950 via-slate-950/96 to-red-950/24 transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/28 hover:shadow-[0_18px_40px_rgba(76,5,25,0.18)]"
+                onClick={() => setNeverSignExpanded((prev) => !prev)}
+              >
+                <div className="absolute inset-0 rounded-[26px] bg-gradient-to-br from-transparent to-transparent transition-all duration-300 pointer-events-none group-hover:from-red-500/5 group-hover:to-rose-500/4" />
+                <div className="relative p-5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/16 bg-red-500/10 text-red-300">
+                      <ProhibitInset size={24} weight="bold" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300/80">
+                        {t('legal.neverSignEyebrow', { defaultValue: 'Before you do anything else' })}
+                      </p>
+                      <h3 className="mt-1 text-base font-black uppercase tracking-[0.08em] text-red-100">{NEVER_SIGN_WARNING.title}</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-red-100/68">{NEVER_SIGN_WARNING.summary}</p>
+                    </div>
+                  </div>
+                  <motion.div animate={{ rotate: neverSignExpanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
+                    <CaretRight size={20} weight="bold" className="text-red-300" />
+                  </motion.div>
+                </div>
+                <AnimatePresence>
+                  {neverSignExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 space-y-3 border-t border-red-900/45 pt-4">
+                        {NEVER_SIGN_WARNING.forms.map((form, i) => (
+                          <div key={i} className="flex items-start gap-2.5">
+                            <X size={16} weight="bold" className="text-red-400 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-red-100 text-sm font-bold">{form.name}</p>
+                              <p className="text-red-100/60 text-xs leading-relaxed mt-0.5">{form.danger}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <div className="scenario-section-item">
+                <Disclaimer section="legal" />
               </div>
             </div>
 

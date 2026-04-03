@@ -2393,7 +2393,7 @@
   },
   "legalResponse": {
     "title": "법적 도움 받기",
-    "buttonLabel": "법적 도움 받기",
+    "buttonLabel": "AI로 법률 질문 검색하기",
     "homeCardDesc": "변호사, 핫라인 또는 지역 법률 지원에 즉시 연결하세요.",
     "yourAttorney": "법률 연락처",
     "noAttorney": "저장된 변호사나 법률 지원이 없습니다.",

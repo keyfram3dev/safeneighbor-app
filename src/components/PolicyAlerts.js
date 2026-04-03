@@ -11,10 +11,13 @@ import {
   ArrowSquareOut,
   Spinner,
   WifiSlash,
+  ArrowClockwise,
 } from '@phosphor-icons/react';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 const CACHE_KEY = 'sn_policy_alerts';
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const FEDERAL_REGISTER_PROXY_URL = 'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/federalRegisterAlerts';
 
 const TYPE_COLORS = {
   Rule: 'text-emerald-400 bg-emerald-950/40 border-emerald-800/30',
@@ -23,8 +26,21 @@ const TYPE_COLORS = {
   'Presidential Document': 'text-red-400 bg-red-950/40 border-red-800/30',
 };
 
+const normalizeDocuments = (results = []) => results.map((doc) => ({
+  title: doc.title,
+  type: doc.type,
+  abstractText: doc.abstractText ?? doc.abstract ?? '',
+  publicationDate: doc.publicationDate ?? doc.publication_date,
+  htmlUrl: doc.htmlUrl ?? doc.html_url,
+  pdfUrl: doc.pdfUrl ?? doc.pdf_url,
+  agencies: Array.isArray(doc.agencies)
+    ? doc.agencies.map((agency) => (typeof agency === 'string' ? agency : agency?.name)).filter(Boolean)
+    : [],
+}));
+
 function PolicyAlerts() {
   const { t } = useTranslation();
+  const { isOnline } = useOnlineStatus();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -52,19 +68,17 @@ function PolicyAlerts() {
     setError(null);
 
     try {
-      const response = await fetch(
-        'https://us-central1-safeneighbor-33bb0.cloudfunctions.net/federalRegisterAlerts',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ page: 1 }),
-        }
-      );
+      const response = await fetch(FEDERAL_REGISTER_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: 1 }),
+      });
 
-      if (!response.ok) throw new Error('API error');
+      if (!response.ok) throw new Error(`proxy_api_${response.status}`);
 
       const data = await response.json();
-      const docs = data.documents || [];
+      const docs = normalizeDocuments(data.documents || []);
+
       setAlerts(docs);
 
       // Cache result
@@ -82,8 +96,27 @@ function PolicyAlerts() {
     fetchAlerts();
   }, [fetchAlerts]);
 
-  // Don't render if offline and no cached data
-  if (error === 'offline' && alerts.length === 0) return null;
+  useEffect(() => {
+    if (isOnline && error === 'offline') {
+      fetchAlerts();
+    }
+  }, [error, fetchAlerts, isOnline]);
+
+  const hasAlerts = alerts.length > 0;
+
+  let summary = t('policyAlerts.noUpdates', { defaultValue: 'No recent immigration policy updates found.' });
+  if (loading) {
+    summary = t('policyAlerts.loading', { defaultValue: 'Loading policy updates...' });
+  } else if (error === 'offline') {
+    summary = t('policyAlerts.offline', { defaultValue: 'Policy updates require an internet connection.' });
+  } else if (error === 'fetch') {
+    summary = t('policyAlerts.error', { defaultValue: 'Unable to load policy updates. Try again later.' });
+  } else if (hasAlerts) {
+    summary = t('policyAlerts.summary', {
+      count: alerts.length,
+      defaultValue: '{{count}} recent policy updates available.',
+    });
+  }
 
   return (
     <div className="bg-gradient-to-br from-amber-950/30 to-amber-900/20 backdrop-blur-sm border border-amber-800/30 rounded-2xl overflow-hidden">
@@ -94,8 +127,11 @@ function PolicyAlerts() {
         <Newspaper size={20} weight="bold" className="text-amber-400 shrink-0" />
         <div className="flex-1 text-start">
           <span className="text-white font-bold text-sm">{t('policyAlerts.title')}</span>
+          <p className="mt-1 pe-3 text-[11px] leading-relaxed text-amber-100/70">
+            {summary}
+          </p>
         </div>
-        {alerts.length > 0 && (
+        {hasAlerts && (
           <span className="text-amber-500 text-xs font-bold">{alerts.length}</span>
         )}
         <CaretDown
@@ -130,7 +166,17 @@ function PolicyAlerts() {
               )}
 
               {error === 'fetch' && !loading && (
-                <p className="text-slate-500 text-sm text-center py-4">{t('policyAlerts.error')}</p>
+                <div className="py-4 text-center">
+                  <p className="text-slate-500 text-sm">{t('policyAlerts.error')}</p>
+                  <button
+                    type="button"
+                    onClick={fetchAlerts}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition-colors hover:border-amber-400/35 hover:text-amber-100"
+                  >
+                    <ArrowClockwise size={12} weight="bold" />
+                    {t('policyAlerts.retry', { defaultValue: 'Retry' })}
+                  </button>
+                </div>
               )}
 
               {!loading && !error && alerts.length === 0 && (

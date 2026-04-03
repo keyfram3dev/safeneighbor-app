@@ -2393,7 +2393,7 @@
   },
   "legalResponse": {
     "title": "Obtener ayuda legal",
-    "buttonLabel": "Obtener ayuda legal",
+    "buttonLabel": "Buscar preguntas legales con IA",
     "homeCardDesc": "Contacta al instante con un abogado, línea de ayuda o asistencia legal local.",
     "yourAttorney": "Sus Contactos Legales",
     "noAttorney": "No tiene abogado ni asistencia legal guardada.",

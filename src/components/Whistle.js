@@ -5,6 +5,8 @@ import { tapHaptic } from '../utils/haptics';
 import { useRotatingQuote } from '../utils/quoteRotation';
 import InstallHelp from './InstallHelp';
 
+const aniDelay = (s) => ({ animationDelay: `${s}s` });
+
 // Sound files for community signals (not translatable)
 const signalSoundFiles = [
   '/sounds/1shortwhistle.mov',
@@ -16,8 +18,48 @@ const signalSoundFiles = [
 // Hand signal icon mapping
 const handSignalIcons = [Hand, HandWaving, HandPointing, HandGrabbing];
 
+// Per-signal severity color configs — amber, cyan, red, orange
+const SIGNAL_COLORS = [
+  {
+    card: 'from-amber-950/60 to-amber-900/40 border-amber-800/50 hover:border-amber-500/30 hover:shadow-amber-500/5',
+    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.07),transparent_48%)]',
+    responseBox: 'bg-amber-950/30 border-amber-900/50',
+    responseLabel: 'text-amber-400',
+    pattern: 'text-amber-300',
+    playBtn: 'bg-amber-900/50 border border-amber-700/50 hover:bg-amber-800/50',
+    playSpeaker: 'text-amber-400',
+  },
+  {
+    card: 'from-cyan-950/60 to-cyan-900/40 border-cyan-800/50 hover:border-cyan-500/30 hover:shadow-cyan-500/5',
+    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.07),transparent_48%)]',
+    responseBox: 'bg-cyan-950/30 border-cyan-900/50',
+    responseLabel: 'text-cyan-400',
+    pattern: 'text-cyan-300',
+    playBtn: 'bg-cyan-900/50 border border-cyan-700/50 hover:bg-cyan-800/50',
+    playSpeaker: 'text-cyan-400',
+  },
+  {
+    card: 'from-red-950/60 to-red-900/40 border-red-800/50 hover:border-red-500/30 hover:shadow-red-500/5',
+    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.07),transparent_48%)]',
+    responseBox: 'bg-red-950/30 border-red-900/50',
+    responseLabel: 'text-red-400',
+    pattern: 'text-red-300',
+    playBtn: 'bg-red-900/50 border border-red-700/50 hover:bg-red-800/50',
+    playSpeaker: 'text-red-400',
+  },
+  {
+    card: 'from-orange-950/60 to-orange-900/40 border-orange-800/50 hover:border-orange-500/30 hover:shadow-orange-500/5',
+    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.07),transparent_48%)]',
+    responseBox: 'bg-orange-950/30 border-orange-900/50',
+    responseLabel: 'text-orange-400',
+    pattern: 'text-orange-300',
+    playBtn: 'bg-orange-900/50 border border-orange-700/50 hover:bg-orange-800/50',
+    playSpeaker: 'text-orange-400',
+  },
+];
+
 // Signal Card Component
-const SignalCard = ({ pattern, title, description, neighborResponse, neighborResponseLabel, soundFile }) => {
+const SignalCard = ({ pattern, title, description, neighborResponse, neighborResponseLabel, soundFile, colors }) => {
   const playSound = () => {
     tapHaptic();
     if (soundFile) {
@@ -27,43 +69,45 @@ const SignalCard = ({ pattern, title, description, neighborResponse, neighborRes
   };
 
   return (
-  <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-4">
-    {/* Pattern Display */}
-    <div className="flex items-center justify-between mb-4">
-      <div className="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 flex-1 me-3">
-        <p className="text-white text-center font-mono font-bold">{pattern}</p>
+    <div className={`group relative overflow-hidden rounded-[28px] border bg-gradient-to-br p-5 mb-4 transition-all duration-300 hover:shadow-lg ${colors.card}`}>
+      <div className={`pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${colors.glow}`} />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="relative">
+        {/* Pattern + Play */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex-1 bg-slate-950/60 border border-slate-700/50 rounded-xl px-4 py-2">
+            <p className={`text-center font-mono font-black text-base ${colors.pattern}`}>{pattern}</p>
+          </div>
+          <button
+            onClick={playSound}
+            className={`flex-shrink-0 p-3 rounded-xl transition-all ${soundFile ? colors.playBtn : 'bg-slate-800/60 border border-slate-700/50 cursor-default'}`}
+          >
+            <SpeakerHigh size={20} weight="bold" className={soundFile ? colors.playSpeaker : 'text-slate-600'} />
+          </button>
+        </div>
+        {/* Title & Description */}
+        <h3 className="text-[1.05rem] font-black tracking-tight text-white mb-2">{title}</h3>
+        <p className="text-slate-300 text-sm mb-4 leading-relaxed">{description}</p>
+        {/* Neighbor Response */}
+        <div className={`rounded-xl p-4 border ${colors.responseBox}`}>
+          <p className={`text-[10px] font-black uppercase tracking-[0.18em] mb-1.5 ${colors.responseLabel}`}>{neighborResponseLabel}</p>
+          <p className="text-white font-medium text-sm">{neighborResponse}</p>
+        </div>
       </div>
-      <button
-        onClick={playSound}
-        className={`p-3 rounded-full transition-colors ${soundFile ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 hover:bg-slate-600'}`}
-      >
-        <SpeakerHigh size={20} weight="bold" className={soundFile ? 'text-white' : 'text-slate-300'} />
-      </button>
     </div>
-
-    {/* Title and Description */}
-    <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-    <p className="text-slate-300 text-sm mb-4 leading-relaxed">{description}</p>
-
-    {/* Neighbor Response Box */}
-    <div className="bg-blue-950/30 border border-blue-900/50 rounded-lg p-4">
-      <p className="text-blue-400 text-xs font-bold uppercase tracking-wider mb-2">{neighborResponseLabel}</p>
-      <p className="text-white font-medium text-sm">{neighborResponse}</p>
-    </div>
-  </div>
   );
 };
 
 function Whistle() {
   const { t } = useTranslation();
-  const whistleQuote = useRotatingQuote('signals.nietzscheQuote', 'signals.nietzscheAuthor', 'whistle');
+  const whistleQuote = useRotatingQuote('signals.communityQuote', 'signals.communityQuoteAuthor', 'whistle');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   const communitySignals = [
-    { pattern: t('signals.signal1Pattern'), title: t('signals.signal1Title'), description: t('signals.signal1Desc'), neighborResponse: t('signals.signal1Response'), soundFile: signalSoundFiles[0] },
-    { pattern: t('signals.signal2Pattern'), title: t('signals.signal2Title'), description: t('signals.signal2Desc'), neighborResponse: t('signals.signal2Response'), soundFile: signalSoundFiles[1] },
-    { pattern: t('signals.signal3Pattern'), title: t('signals.signal3Title'), description: t('signals.signal3Desc'), neighborResponse: t('signals.signal3Response'), soundFile: signalSoundFiles[2] },
-    { pattern: t('signals.signal4Pattern'), title: t('signals.signal4Title'), description: t('signals.signal4Desc'), neighborResponse: t('signals.signal4Response'), soundFile: signalSoundFiles[3] },
+    { pattern: t('signals.signal1Pattern'), title: t('signals.signal1Title'), description: t('signals.signal1Desc'), neighborResponse: t('signals.signal1Response'), soundFile: signalSoundFiles[0], colors: SIGNAL_COLORS[0] },
+    { pattern: t('signals.signal2Pattern'), title: t('signals.signal2Title'), description: t('signals.signal2Desc'), neighborResponse: t('signals.signal2Response'), soundFile: signalSoundFiles[1], colors: SIGNAL_COLORS[1] },
+    { pattern: t('signals.signal3Pattern'), title: t('signals.signal3Title'), description: t('signals.signal3Desc'), neighborResponse: t('signals.signal3Response'), soundFile: signalSoundFiles[2], colors: SIGNAL_COLORS[2] },
+    { pattern: t('signals.signal4Pattern'), title: t('signals.signal4Title'), description: t('signals.signal4Desc'), neighborResponse: t('signals.signal4Response'), soundFile: signalSoundFiles[3], colors: SIGNAL_COLORS[3] },
   ];
 
   const whistleProtocol = [
@@ -80,213 +124,276 @@ function Whistle() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 pb-24 page-section-stagger">
-      {/* Header */}
-      <div className="text-center mb-8 pt-4 page-section-item">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <Megaphone size={36} weight="bold" className="text-blue-400" />
-          <h1 className="text-3xl font-black text-white tracking-wide">{t('signals.title')}</h1>
+    <div className="page-transition-in scenario-section-rise max-w-5xl mx-auto px-4 pb-24 pt-3">
+
+      {/* ── Hero Card ── */}
+      <section className="scenario-section-item relative overflow-hidden rounded-[32px] border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-950/95 to-slate-900/80 px-6 py-7 mb-8 shadow-[0_24px_70px_-44px_rgba(15,23,42,0.92)]">
+        <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/35 to-transparent" />
+        <div className="pointer-events-none absolute -top-16 right-0 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-0 h-48 w-48 rounded-full bg-blue-500/8 blur-3xl" />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.025]"
+          style={{ backgroundImage: 'repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 40px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 40px)' }}
+        />
+        <div className="relative">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300/80 mb-3 scenario-fade-in">
+            Community Protocols
+          </p>
+          <div className="scenario-rise-in" style={aniDelay(0.05)}>
+            <div className="flex flex-col sm:flex-row items-start gap-4 mb-5">
+              <div className="inline-flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300 shadow-[0_0_28px_rgba(6,182,212,0.15)]">
+                <Megaphone size={30} weight="bold" />
+              </div>
+              <div>
+                <h1 className="text-[2rem] sm:text-[2.6rem] font-black tracking-tight text-white leading-tight">
+                  {t('signals.title')}
+                </h1>
+                <p className="text-slate-400 text-sm leading-relaxed mt-2 max-w-xl">
+                  {t('signals.subtitle')}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 scenario-fade-in" style={aniDelay(0.12)}>
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">
+              4 Alert Patterns
+            </span>
+            <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">
+              Hand Signals
+            </span>
+            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200">
+              De-Escalation
+            </span>
+          </div>
         </div>
-        <p className="text-slate-400 text-sm">
-          {t('signals.subtitle')}
-        </p>
+      </section>
+
+      {/* ── Hierarchy of Sound ── */}
+      <div className="scenario-section-item mb-6">
+        <div className="group relative overflow-hidden rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900/96 to-cyan-950/20 p-5">
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.05),transparent_48%)]" />
+          <div className="relative">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/70 mb-3">Sound System</p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10">
+                <SpeakerHigh size={20} weight="bold" className="text-cyan-400" />
+              </div>
+              <h2 className="text-[1.2rem] font-black tracking-tight text-white">{t('signals.hierarchyTitle')}</h2>
+            </div>
+            <p className="text-slate-400 text-sm mb-4 leading-relaxed">{t('signals.hierarchyDesc')}</p>
+            <div className="space-y-2">
+              <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
+                <p className="text-cyan-400 font-black text-sm mb-1">{t('signals.chantsTitle')}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{t('signals.chantsDesc')}</p>
+              </div>
+              <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
+                <p className="text-cyan-400 font-black text-sm mb-1">{t('signals.drumsTitle')}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{t('signals.drumsDesc')}</p>
+              </div>
+              <div className="bg-cyan-950/30 border border-cyan-900/40 rounded-xl p-4">
+                <p className="text-cyan-300 font-black text-sm mb-1">{t('signals.whistlesTitle')}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{t('signals.whistlesDesc')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Section 1: Community Alert Signals */}
-      <div className="mb-10 page-section-item">
-        {/* The Hierarchy of Sound */}
-        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <SpeakerHigh size={28} weight="bold" className="text-cyan-400" />
-            <h2 className="text-xl font-bold text-white">{t('signals.hierarchyTitle')}</h2>
+      {/* ── Community Alert Signals ── */}
+      <div className="scenario-section-item mb-6">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400/70 mb-2">Alert Patterns</p>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+            <House size={20} weight="bold" className="text-blue-400" />
           </div>
-          <p className="text-slate-400 text-sm mb-4">
-            {t('signals.hierarchyDesc')}
-          </p>
-          <div className="space-y-3">
-            <div className="bg-slate-900/50 rounded-lg p-4">
-              <p className="text-cyan-400 font-bold text-sm mb-1">{t('signals.chantsTitle')}</p>
-              <p className="text-slate-300 text-sm">{t('signals.chantsDesc')}</p>
-            </div>
-            <div className="bg-slate-900/50 rounded-lg p-4">
-              <p className="text-cyan-400 font-bold text-sm mb-1">{t('signals.drumsTitle')}</p>
-              <p className="text-slate-300 text-sm">{t('signals.drumsDesc')}</p>
-            </div>
-            <div className="bg-slate-900/50 rounded-lg p-4">
-              <p className="text-cyan-400 font-bold text-sm mb-1">{t('signals.whistlesTitle')}</p>
-              <p className="text-slate-300 text-sm">{t('signals.whistlesDesc')}</p>
-            </div>
-          </div>
+          <h2 className="text-[1.2rem] font-black tracking-tight text-white">{t('signals.communityTitle')}</h2>
         </div>
-
-        <div className="flex items-center gap-2 mb-4">
-          <House size={24} weight="bold" className="text-blue-400" />
-          <h2 className="text-xl font-bold text-white">{t('signals.communityTitle')}</h2>
-        </div>
-        <p className="text-slate-400 text-sm mb-4">
-          {t('signals.communityDesc')}
-        </p>
-
+        <p className="text-slate-400 text-sm mb-5 ml-[52px] leading-relaxed">{t('signals.communityDesc')}</p>
         {communitySignals.map((signal, index) => (
-          <SignalCard
-            key={index}
-            pattern={signal.pattern}
-            title={signal.title}
-            description={signal.description}
-            neighborResponse={signal.neighborResponse}
-            neighborResponseLabel={t('signals.neighborResponse')}
-            soundFile={signal.soundFile}
-          />
+          <div key={index} className="scenario-section-item" style={aniDelay(index * 0.06)}>
+            <SignalCard {...signal} neighborResponseLabel={t('signals.neighborResponse')} />
+          </div>
         ))}
       </div>
 
-      {/* Section 2: Whistle Protocol */}
-      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6 page-section-item">
-        <div className="flex items-center gap-2 mb-4">
-          <Megaphone size={28} weight="bold" className="text-amber-400" />
-          <h2 className="text-xl font-bold text-white">{t('signals.whistleProtocolTitle')}</h2>
-        </div>
-        <div className="bg-amber-950/30 border border-amber-900/50 rounded-lg p-4 mb-4">
-          <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">{t('signals.signalOnlyRule')}</p>
-          <p className="text-white text-sm">{t('signals.signalOnlyDesc')}</p>
-        </div>
-
-        {/* Protocol Table */}
-        <div className="space-y-3">
-          {whistleProtocol.map((item, index) => (
-            <div key={index} className="bg-slate-900/50 rounded-lg p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                <span className="bg-slate-700 text-white text-xs font-mono font-bold px-3 py-1 rounded inline-block w-fit">
-                  {item.pattern}
-                </span>
-                <span className="text-cyan-400 font-bold text-sm">{item.meaning}</span>
+      {/* ── Whistle Protocol ── */}
+      <div className="scenario-section-item mb-6">
+        <div className="group relative overflow-hidden rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900/96 to-amber-950/20 p-5">
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.05),transparent_48%)]" />
+          <div className="relative">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400/70 mb-3">Protocol</p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10">
+                <Megaphone size={20} weight="bold" className="text-amber-400" />
               </div>
-              <p className="text-slate-300 text-sm">{item.action}</p>
+              <h2 className="text-[1.2rem] font-black tracking-tight text-white">{t('signals.whistleProtocolTitle')}</h2>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Section 4: Visual Signaling */}
-      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6 page-section-item">
-        <div className="flex items-center gap-2 mb-4">
-          <Eye size={28} weight="bold" className="text-cyan-400" />
-          <h2 className="text-xl font-bold text-white">{t('signals.visualTitle')}</h2>
-        </div>
-        <p className="text-slate-400 text-sm mb-4">
-          {t('signals.visualDesc')}
-        </p>
-        <div className="space-y-3">
-          {handSignals.map((signal, index) => {
-            const IconComponent = signal.Icon;
-            return (
-              <div key={index} className="flex items-start gap-3 bg-slate-900/50 rounded-lg p-4">
-                <IconComponent size={24} weight="bold" className="text-cyan-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-white font-bold text-sm mb-1">{signal.gesture}</p>
-                  <p className="text-slate-300 text-sm">{signal.meaning}</p>
+            <div className="bg-amber-950/30 border border-amber-900/40 rounded-xl p-4 mb-4">
+              <p className="text-amber-400 text-[10px] font-black uppercase tracking-[0.18em] mb-1.5">{t('signals.signalOnlyRule')}</p>
+              <p className="text-white text-sm leading-relaxed">{t('signals.signalOnlyDesc')}</p>
+            </div>
+            <div className="space-y-2">
+              {whistleProtocol.map((item, index) => (
+                <div key={index} className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                    <span className="bg-slate-800/80 border border-slate-700/60 text-white text-xs font-mono font-black px-3 py-1 rounded-lg inline-block w-fit">
+                      {item.pattern}
+                    </span>
+                    <span className="text-amber-400 font-black text-sm">{item.meaning}</span>
+                  </div>
+                  <p className="text-slate-300 text-sm leading-relaxed">{item.action}</p>
                 </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Visual Signaling ── */}
+      <div className="scenario-section-item mb-6">
+        <div className="group relative overflow-hidden rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900/96 to-violet-950/20 p-5">
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.05),transparent_48%)]" />
+          <div className="relative">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-400/70 mb-3">Visual</p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10">
+                <Eye size={20} weight="bold" className="text-violet-400" />
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Section 5: De-escalation */}
-      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-6 page-section-item">
-        <div className="flex items-center gap-2 mb-4">
-          <Thermometer size={28} weight="bold" className="text-red-400" />
-          <h2 className="text-xl font-bold text-white">{t('signals.deescTitle')}</h2>
-        </div>
-        <p className="text-slate-400 text-sm mb-4">
-          {t('signals.deescDesc')}
-        </p>
-        <div className="space-y-3">
-          <div className="bg-red-950/30 border border-red-900/50 rounded-lg p-4">
-            <p className="text-red-400 font-bold text-sm mb-2">{t('signals.dropVolumeTitle')}</p>
-            <p className="text-slate-300 text-sm">{t('signals.dropVolumeDesc')}</p>
-          </div>
-          <div className="bg-red-950/30 border border-red-900/50 rounded-lg p-4">
-            <p className="text-red-400 font-bold text-sm mb-2">{t('signals.sitDownTitle')}</p>
-            <p className="text-slate-300 text-sm">{t('signals.sitDownDesc')}</p>
+              <h2 className="text-[1.2rem] font-black tracking-tight text-white">{t('signals.visualTitle')}</h2>
+            </div>
+            <p className="text-slate-400 text-sm mb-4 leading-relaxed">{t('signals.visualDesc')}</p>
+            <div className="space-y-2">
+              {handSignals.map((signal, index) => {
+                const IconComponent = signal.Icon;
+                return (
+                  <div key={index} className="flex items-start gap-3 bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
+                    <div className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10 mt-0.5">
+                      <IconComponent size={18} weight="bold" className="text-violet-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-black text-sm mb-1">{signal.gesture}</p>
+                      <p className="text-slate-300 text-sm leading-relaxed">{signal.meaning}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Section 6: Digital & External Comms */}
-      <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 mb-8 page-section-item">
-        <div className="flex items-center gap-2 mb-4">
-          <DeviceMobile size={28} weight="bold" className="text-blue-400" />
-          <h2 className="text-xl font-bold text-white">{t('signals.digitalTitle')}</h2>
-        </div>
-        <div className="space-y-3">
-          <div className="bg-slate-900/50 rounded-lg p-4">
-            <p className="text-cyan-400 font-bold text-sm mb-2">{t('signals.buddyTitle')}</p>
-            <p className="text-slate-300 text-sm">{t('signals.buddyDesc')}</p>
+      {/* ── De-escalation ── */}
+      <div className="scenario-section-item mb-6">
+        <div className="group relative overflow-hidden rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900/96 to-red-950/20 p-5">
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.05),transparent_48%)]" />
+          <div className="relative">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400/70 mb-3">Temperature Control</p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10">
+                <Thermometer size={20} weight="bold" className="text-red-400" />
+              </div>
+              <h2 className="text-[1.2rem] font-black tracking-tight text-white">{t('signals.deescTitle')}</h2>
+            </div>
+            <p className="text-slate-400 text-sm mb-4 leading-relaxed">{t('signals.deescDesc')}</p>
+            <div className="space-y-2">
+              <div className="bg-red-950/30 border border-red-900/40 rounded-xl p-4">
+                <p className="text-red-400 font-black text-sm mb-2">{t('signals.dropVolumeTitle')}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{t('signals.dropVolumeDesc')}</p>
+              </div>
+              <div className="bg-red-950/30 border border-red-900/40 rounded-xl p-4">
+                <p className="text-red-400 font-black text-sm mb-2">{t('signals.sitDownTitle')}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{t('signals.sitDownDesc')}</p>
+              </div>
+            </div>
           </div>
-          <div className="bg-slate-900/50 rounded-lg p-4">
-            <p className="text-cyan-400 font-bold text-sm mb-2">{t('signals.telegramTitle')}</p>
-            <p className="text-slate-300 text-sm">{t('signals.telegramDesc')}</p>
+        </div>
+      </div>
+
+      {/* ── Digital & External Comms ── */}
+      <div className="scenario-section-item mb-6">
+        <div className="group relative overflow-hidden rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900/96 to-emerald-950/20 p-5">
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.05),transparent_48%)]" />
+          <div className="relative">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400/70 mb-3">Encrypted</p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10">
+                <DeviceMobile size={20} weight="bold" className="text-emerald-400" />
+              </div>
+              <h2 className="text-[1.2rem] font-black tracking-tight text-white">{t('signals.digitalTitle')}</h2>
+            </div>
+            <div className="space-y-2">
+              <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
+                <p className="text-emerald-400 font-black text-sm mb-2">{t('signals.buddyTitle')}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{t('signals.buddyDesc')}</p>
+              </div>
+              <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4">
+                <p className="text-emerald-400 font-black text-sm mb-2">{t('signals.telegramTitle')}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{t('signals.telegramDesc')}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Best Practices Summary */}
-      <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5 mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Lightbulb size={24} weight="bold" className="text-amber-400" />
-          <h3 className="text-white font-bold">{t('signals.remindersTitle')}</h3>
+      {/* ── Key Reminders ── */}
+      <div className="scenario-section-item mb-8">
+        <div className="group relative overflow-hidden rounded-[28px] border border-slate-700/50 bg-gradient-to-br from-slate-900/60 via-slate-900/50 to-amber-950/10 p-5">
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.04),transparent_48%)]" />
+          <div className="relative">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10">
+                <Lightbulb size={20} weight="bold" className="text-amber-400" />
+              </div>
+              <h3 className="text-[1.1rem] font-black tracking-tight text-white">{t('signals.remindersTitle')}</h3>
+            </div>
+            <div className="space-y-2">
+              {[
+                t('signals.reminder1'),
+                t('signals.reminder2'),
+                t('signals.reminder3'),
+                t('signals.reminder4'),
+              ].map((reminder, i) => (
+                <div key={i} className="flex items-start gap-3 bg-slate-950/40 border border-slate-800/40 rounded-xl px-4 py-3">
+                  <span className="text-amber-400/60 font-black text-sm flex-shrink-0 mt-0.5 tabular-nums">
+                    0{i + 1}
+                  </span>
+                  <p className="text-slate-300 text-sm leading-relaxed">{reminder}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <ul className="space-y-3">
-          <li className="text-slate-300 text-sm flex items-start gap-2">
-            <span className="text-slate-500">•</span>
-            <span>{t('signals.reminder1')}</span>
-          </li>
-          <li className="text-slate-300 text-sm flex items-start gap-2">
-            <span className="text-slate-500">•</span>
-            <span>{t('signals.reminder2')}</span>
-          </li>
-          <li className="text-slate-300 text-sm flex items-start gap-2">
-            <span className="text-slate-500">•</span>
-            <span>{t('signals.reminder3')}</span>
-          </li>
-          <li className="text-slate-300 text-sm flex items-start gap-2">
-            <span className="text-slate-500">•</span>
-            <span>{t('signals.reminder4')}</span>
-          </li>
-        </ul>
       </div>
 
-      {/* Rotating Quote */}
-      <div className="text-center mb-8 page-section-item">
-        <p className="text-slate-400 italic text-sm mb-2">
-          {whistleQuote.quote}
-        </p>
-        <p className="text-slate-500 text-xs">{whistleQuote.author}</p>
+      {/* ── Rotating Quote ── */}
+      <div className="scenario-section-item mb-8">
+        <div className="relative overflow-hidden rounded-[28px] border border-slate-800/70 bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.05),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.92))] px-6 py-8 text-center">
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/20 to-transparent" />
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200/50 mb-4">Perspective</p>
+          <p
+            className="text-slate-400/80 italic text-[1rem] font-medium leading-[1.6] mb-3 max-w-2xl mx-auto"
+            style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", "Iowan Old Style", ui-serif, Georgia, serif' }}
+          >
+            {whistleQuote.quote}
+          </p>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.12em]">{whistleQuote.author}</p>
+        </div>
       </div>
 
-      {/* Disclaimer */}
-      <div className="text-center mb-6 page-section-item">
+      {/* ── Disclaimer ── */}
+      <div className="text-center mb-6 scenario-section-item">
         <div className="flex items-center justify-center gap-2 mb-2">
           <Warning size={18} weight="bold" className="text-amber-500" />
           <h3 className="text-amber-400 font-medium text-xs tracking-wider">{t('disclaimer.title')}</h3>
         </div>
-        <p className="text-slate-500 text-xs mb-1">
-          {t('disclaimer.line1')}
-        </p>
-        <p className="text-slate-500 text-xs mb-1">
-          {t('disclaimer.line2')}
-        </p>
-        <p className="text-slate-500 text-xs mb-1">
-          {t('disclaimer.line3')}
-        </p>
-        <p className="text-slate-500 text-xs">
-          {t('disclaimer.line4')}
-        </p>
+        <p className="text-slate-500 text-xs mb-1">{t('disclaimer.line1')}</p>
+        <p className="text-slate-500 text-xs mb-1">{t('disclaimer.line2')}</p>
+        <p className="text-slate-500 text-xs mb-1">{t('disclaimer.line3')}</p>
+        <p className="text-slate-500 text-xs">{t('disclaimer.line4')}</p>
       </div>
 
-      {/* Install CTA */}
-      <div className="text-center page-section-item">
+      {/* ── Install CTA ── */}
+      <div className="text-center scenario-section-item">
         <button
           onClick={() => {
             if (window.deferredPrompt) {
@@ -301,15 +408,14 @@ function Whistle() {
               setShowInstallHelp(true);
             }
           }}
-          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 flex items-center justify-center gap-2 mx-auto"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-500/50 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-white shadow-[0_12px_32px_rgba(30,64,175,0.3)] transition-all active:scale-[0.98] mx-auto"
         >
-          <DownloadSimple size={20} weight="bold" />
+          <DownloadSimple size={18} weight="bold" />
           {t('emergency.installButton')}
         </button>
-        <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">
-          {t('emergency.installRecommended')}
-        </p>
+        <p className="text-slate-500 text-xs mt-2 uppercase tracking-wider">{t('emergency.installRecommended')}</p>
       </div>
+
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
     </div>
   );

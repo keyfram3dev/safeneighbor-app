@@ -2393,7 +2393,7 @@
   },
   "legalResponse": {
     "title": "获取法律帮助",
-    "buttonLabel": "获取法律帮助",
+    "buttonLabel": "使用 AI 搜索法律问题",
     "homeCardDesc": "即时联系律师、热线或当地法律援助。",
     "yourAttorney": "您的法律联系人",
     "noAttorney": "未保存律师或法律援助。",

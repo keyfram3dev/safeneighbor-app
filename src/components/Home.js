@@ -15,11 +15,13 @@ import { getLastKnownLocation } from '../utils/locationShare';
 import { calculateDistance } from '../utils/geo';
 import { Door, MapPin, User, Megaphone, Leaf, VideoCamera, Car, Shield, Eye, Buildings, ClipboardTextIcon as ClipboardText, UsersThreeIcon as UsersThree, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit, PathIcon as Path, ScalesIcon as Scales, TimerIcon as Timer, IdentificationCardIcon as IdentificationCard, BookOpenTextIcon as BookOpenText, ShieldCheck } from '@phosphor-icons/react';
 
-const aniDelay = (s) => ({ animationDelay: `${s}s` });
 const LAST_HOME_ACTION_KEY = 'safeneighbor_home_last_action';
 const HOME_USAGE_KEY = 'safeneighbor_home_usage';
 const HOME_REVIEW_KEY = 'safeneighbor_home_review_markers';
 const DAY_MS = 24 * 60 * 60 * 1000;
+const aniDelay = (s) => ({ animationDelay: `${s}s` });
+const animationDelayStyle = (delay = 0) => ({ animationDelay: `${delay}s` });
+const sectionDelayStyle = (delay = 0) => ({ '--scenario-delay': `${delay}s` });
 
 const readHomeUsage = () => {
   try {
@@ -188,23 +190,23 @@ const HomeCard = ({ item, variant = 'standard' }) => {
         <div className="flex min-w-0 flex-1 flex-col self-stretch">
           <div>
             {item.badge && !isFeatured && (
-              <p className={`mb-2 text-[10px] font-black uppercase tracking-[0.2em] ${c.link}`}>
+              <p className={`mb-2 text-[11px] font-bold uppercase tracking-[0.18em] ${c.link}`}>
                 {item.badge}
               </p>
             )}
             {isFeatured && (
-              <p className={`mb-2 text-[11px] font-black uppercase tracking-[0.2em] ${c.link}`}>
+              <p className={`mb-2 text-[11px] font-bold uppercase tracking-[0.18em] ${c.link}`}>
                 Priority Guide
               </p>
             )}
-            <h2 className={`${isFeatured ? 'text-xl sm:text-2xl' : 'text-lg'} font-bold text-white mb-1 ${c.titleHover} transition-colors`}>
+            <h2 className={`${isFeatured ? 'text-[1.38rem] leading-[1.04] tracking-[-0.03em] sm:text-[1.72rem]' : 'text-[1.02rem] leading-[1.2] tracking-[-0.02em] sm:text-[1.08rem]'} mb-1.5 font-black text-white ${c.titleHover} transition-colors`}>
               {item.title}
             </h2>
-            <p className={`text-slate-400 ${isFeatured ? 'text-[15px] mb-4 max-w-xl' : 'text-sm mb-3'} leading-relaxed`}>
+            <p className={`text-slate-400 ${isFeatured ? 'mb-4 max-w-[34ch] text-[15px] leading-[1.62] text-slate-300' : 'mb-3 text-[13.5px] leading-[1.58] sm:text-sm'}`}>
               {item.description}
             </p>
           </div>
-          <span className={`${c.link} ${isFeatured ? 'text-sm px-3 py-1.5 rounded-full border border-current/20 bg-slate-950/40' : 'text-sm'} mt-auto font-semibold inline-flex items-center gap-1 group-hover:gap-2 transition-all`}>
+          <span className={`${c.link} ${isFeatured ? 'rounded-full border border-current/20 bg-slate-950/40 px-3 py-1.5 text-[13px] font-semibold' : 'text-[13px] font-semibold'} mt-auto inline-flex items-center gap-1 tracking-[0.01em] group-hover:gap-2 transition-all`}>
             {item.ctaLabel} <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
           </span>
         </div>
@@ -221,14 +223,14 @@ const HomeSection = ({ eyebrow, title, description, children, className = '' }) 
       <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-transparent to-transparent pointer-events-none" />
       <div className="absolute -right-10 top-1/2 h-24 w-24 -translate-y-1/2 rounded-full bg-slate-700/10 blur-3xl pointer-events-none" />
       <div className="relative pl-4">
-        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
           {eyebrow}
         </p>
-        <h2 className="text-2xl font-black text-white tracking-tight">
+        <h2 className="text-[1.65rem] font-black leading-[1.04] tracking-[-0.03em] text-white sm:text-[1.92rem]">
           {title}
         </h2>
         {description && (
-          <p className="text-slate-400 text-sm mt-2 max-w-2xl leading-relaxed">
+          <p className="mt-2 max-w-[40ch] text-[15px] leading-[1.62] text-slate-300">
             {description}
           </p>
         )}
@@ -950,9 +952,8 @@ const Home = ({
         onClick: () => navigate('scenarios', { type: 'page', id: 'scenarios' }),
       }
     : null;
-
   return (
-    <div className="max-w-4xl mx-auto pb-24 px-4 relative home-page-in home-page-stagger">
+    <div className="max-w-4xl mx-auto pb-24 px-4 relative page-transition-in page-section-stagger">
       <div
         className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
         style={{
@@ -960,7 +961,7 @@ const Home = ({
         }}
       />
 
-      <div className="mb-10 pt-5 relative sm:mb-12 sm:pt-6 home-page-item">
+      <div className="mb-10 pt-5 relative sm:mb-12 sm:pt-6 page-section-item">
         <div className="absolute inset-x-10 -top-14 h-40 bg-gradient-to-b from-blue-500/15 via-cyan-500/5 to-transparent blur-3xl pointer-events-none" />
 
         <div className="xl:grid xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)] xl:items-stretch xl:gap-4">
@@ -1010,75 +1011,77 @@ const Home = ({
             </AnimatePresence>
 
             <div className="relative">
-              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-blue-300/80 home-hero-reveal" style={{ ...aniDelay(0.04), '--home-hero-delay': '0.04s' }}>
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-blue-300/80 scenario-fade-in" style={aniDelay(0.06)}>
                 {t('home.heroEyebrow')}
               </p>
-              <div className="mb-4 flex flex-col items-center justify-center gap-3 text-center xl:flex-row xl:items-start xl:justify-start xl:text-left home-hero-reveal" style={{ ...aniDelay(0.1), '--home-hero-delay': '0.1s' }}>
+
+              <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.18)}>
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 shadow-[0_0_28px_rgba(59,130,246,0.18)]">
                   <ShieldCheck size={30} weight="bold" className="text-blue-300" />
                 </div>
-                <h1 className="max-w-3xl text-center text-[2rem] font-black text-white sm:text-[2.9rem] xl:text-left">
+                <h1 className="max-w-3xl text-center text-[2.22rem] font-black leading-[0.94] tracking-[-0.045em] text-white sm:text-[3.28rem] xl:text-left">
                   {t('home.heroTitle')}
                 </h1>
               </div>
-              <p className="mx-auto max-w-2xl text-base leading-[1.6] text-slate-300 xl:mx-0 home-hero-reveal" style={{ ...aniDelay(0.16), '--home-hero-delay': '0.16s' }}>
+
+              <p className="mx-auto max-w-[31ch] text-[1.03rem] font-medium leading-[1.5] text-slate-200 xl:mx-0 sm:text-[1.12rem] scenario-fade-in" style={aniDelay(0.32)}>
                 {t('home.heroSubtitle')}
               </p>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-[1.6] text-slate-400 xl:mx-0 home-hero-reveal" style={{ ...aniDelay(0.21), '--home-hero-delay': '0.21s' }}>
+              <p className="mx-auto mt-3 max-w-[40ch] text-[14px] leading-[1.68] text-slate-400 xl:mx-0 sm:text-[15px] scenario-fade-in" style={aniDelay(0.44)}>
                 {t('home.heroSupport')}
               </p>
-            </div>
 
-            <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start home-hero-reveal" style={{ ...aniDelay(0.26), '--home-hero-delay': '0.26s' }}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                {t('home.reassuranceOffline')}
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300">
-                <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                {t('home.reassurancePrivate')}
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-violet-300">
-                <span className="h-2 w-2 rounded-full bg-violet-400" />
-                {t('home.reassuranceNoAccount')}
-              </span>
-            </div>
+              <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-fade-in" style={aniDelay(0.56)}>
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-emerald-300">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  {t('home.reassuranceOffline')}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                  {t('home.reassurancePrivate')}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-violet-300">
+                  <span className="h-2 w-2 rounded-full bg-violet-400" />
+                  {t('home.reassuranceNoAccount')}
+                </span>
+              </div>
 
-            <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start home-hero-reveal" style={{ ...aniDelay(0.32), '--home-hero-delay': '0.32s' }}>
-              <button
-                onClick={openEmergencyAction}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-white transition-all shadow-[0_12px_32px_rgba(127,29,29,0.35)] hover:from-red-500 hover:to-red-600 sm:w-auto"
-              >
-                <Question size={18} weight="bold" />
-                <span>{t('home.emergencyCta')}</span>
-              </button>
-              <button
-                onClick={openHeroRightsAction}
-                disabled={heroTransition === 'rights'}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/70 px-6 py-3.5 text-sm font-bold text-white transition-all shadow-[0_10px_24px_rgba(15,23,42,0.28)] hover:bg-slate-800/80 sm:w-auto"
-              >
-                <motion.div
-                  animate={heroTransition === 'rights' ? { scale: [1, 1.12, 1], rotate: [0, -6, 0] } : { scale: 1, rotate: 0 }}
-                  transition={{ duration: 0.26, ease: 'easeOut' }}
+              <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.68)}>
+                <button
+                  onClick={openEmergencyAction}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-[13px] font-black uppercase tracking-[0.18em] text-white transition-all shadow-[0_12px_32px_rgba(127,29,29,0.35)] hover:from-red-500 hover:to-red-600 sm:w-auto"
                 >
-                  <IdentificationCard size={18} weight="bold" className="text-red-400" />
-                </motion.div>
-                <span>{t('home.rightsCta')}</span>
-              </button>
+                  <Question size={18} weight="bold" />
+                  <span>{t('home.emergencyCta')}</span>
+                </button>
+                <button
+                  onClick={openHeroRightsAction}
+                  disabled={heroTransition === 'rights'}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/70 px-6 py-3.5 text-[15px] font-semibold tracking-[0.01em] text-white transition-all shadow-[0_10px_24px_rgba(15,23,42,0.28)] hover:bg-slate-800/80 sm:w-auto"
+                >
+                  <motion.div
+                    animate={heroTransition === 'rights' ? { scale: [1, 1.12, 1], rotate: [0, -6, 0] } : { scale: 1, rotate: 0 }}
+                    transition={{ duration: 0.26, ease: 'easeOut' }}
+                  >
+                    <IdentificationCard size={18} weight="bold" className="text-red-400" />
+                  </motion.div>
+                  <span>{t('home.rightsCta')}</span>
+                </button>
+              </div>
             </div>
           </motion.div>
 
-          <div className="mt-3 flex flex-col gap-3 xl:mt-0 home-hero-reveal" style={{ ...aniDelay(0.14), '--home-hero-delay': '0.14s' }}>
+          <div className="mt-3 flex flex-col gap-3 xl:mt-0 scenario-fade-in" style={animationDelayStyle(0.18)}>
             <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
               <div className="flex items-start justify-between gap-3 sm:gap-4">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/65">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">
                     {primaryRecommendation.eyebrow}
                   </p>
-                  <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-xl">
+                  <h2 className="mt-1 text-[1.55rem] font-black leading-[1.02] tracking-[-0.03em] text-white sm:text-[1.78rem]">
                     {primaryRecommendation.title}
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
+                  <p className="mt-2 max-w-[30ch] text-[15px] leading-[1.62] text-slate-300">
                     {primaryRecommendation.description}
                   </p>
                 </div>
@@ -1093,7 +1096,7 @@ const Home = ({
                 <button
                   type="button"
                   onClick={primaryRecommendation.onClick}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${primaryRecommendation.accentClassName}`}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[14px] font-semibold tracking-[0.01em] transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${primaryRecommendation.accentClassName}`}
                 >
                   {primaryRecommendation.ctaLabel}
                   <ChevronRight size={16} />
@@ -1102,36 +1105,39 @@ const Home = ({
             </div>
 
             <div className="rounded-2xl border border-slate-800/80 bg-gradient-to-r from-slate-950/85 via-slate-950/70 to-slate-900/80 px-4 py-3 shadow-[0_14px_30px_rgba(2,6,23,0.12)] sm:py-3.5">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
                 {t('home.trustEyebrow')}
               </p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-300 sm:text-sm">
+              <p className="mt-1 text-[13.5px] leading-[1.6] text-slate-300 sm:text-[14px]">
                 {t('home.trustIntro')}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="-mx-1 mt-2 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-4 md:mx-0 md:mt-4 md:grid md:overflow-visible md:px-0 md:pt-0 md:pb-0 md:grid-cols-3">
+        <div
+          className="-mx-1 mt-2 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-4 md:mx-0 md:mt-4 md:grid md:overflow-visible md:px-0 md:pt-0 md:pb-0 md:grid-cols-3 scenario-section-rise"
+          style={sectionDelayStyle(0.22)}
+        >
           {coreReasons.map((reason) => (
             <button
               key={reason.id}
               type="button"
               onClick={reason.onClick}
-              className={`min-w-[250px] snap-start rounded-2xl border px-4 py-4 text-left backdrop-blur-sm shadow-[0_12px_28px_rgba(2,6,23,0.12)] transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 md:min-w-0 ${reason.className}`}
+              className={`scenario-section-item min-w-[250px] snap-start rounded-2xl border px-4 py-4 text-left backdrop-blur-sm shadow-[0_12px_28px_rgba(2,6,23,0.12)] transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 md:min-w-0 ${reason.className}`}
             >
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-slate-950/50">
                   {reason.icon}
                 </div>
                 <div>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-white/95">
+                  <p className="text-[13px] font-black uppercase tracking-[0.16em] text-white/95">
                     {reason.title}
                   </p>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                  <p className="mt-1 text-[14px] leading-[1.6] text-slate-300">
                     {reason.description}
                   </p>
-                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.18em] text-white/90">
+                  <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white/90">
                     Open
                     <ChevronRight size={14} />
                   </span>
@@ -1477,7 +1483,7 @@ const Home = ({
       </div>
 
       <HomeSection
-        className="home-page-item"
+        className="page-section-item"
         eyebrow={t('home.immediateHelpEyebrow')}
         title={t('home.immediateHelpTitle')}
         description={
@@ -1495,7 +1501,7 @@ const Home = ({
       </HomeSection>
 
       <HomeSection
-        className="home-page-item"
+        className="page-section-item"
         eyebrow={t('home.prepareEyebrow')}
         title={t('home.prepareTitle')}
         description={
@@ -1509,13 +1515,13 @@ const Home = ({
         </div>
       </HomeSection>
 
-      <HomeSection className="home-page-item" eyebrow={t('home.documentEyebrow')} title={t('home.documentTitle')} description={t('home.documentDesc')}>
+      <HomeSection className="page-section-item" eyebrow={t('home.documentEyebrow')} title={t('home.documentTitle')} description={t('home.documentDesc')}>
         <div className="grid gap-3 md:grid-cols-2">
           {dynamicDocumentItems.map((item) => <HomeCard key={item.id} item={item} variant={item.id === leadingDocumentItemId ? 'featured' : 'standard'} />)}
         </div>
       </HomeSection>
 
-      <HomeSection className="home-page-item" eyebrow={t('home.rightsEyebrow')} title={t('home.rightsTitle')} description={t('home.rightsDesc')}>
+      <HomeSection className="page-section-item" eyebrow={t('home.rightsEyebrow')} title={t('home.rightsTitle')} description={t('home.rightsDesc')}>
         <div className="grid gap-3 md:grid-cols-2">
           {dynamicRightsItems.map((item) => <HomeCard key={item.id} item={item} variant={item.id === leadingRightsItemId ? 'featured' : 'standard'} />)}
         </div>
@@ -1526,13 +1532,13 @@ const Home = ({
           <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50 rounded-2xl p-6 overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-red-500/10 to-transparent pointer-events-none" />
 
-            <h2 className="text-xl font-black text-white mb-3 flex items-center gap-3">
+            <h2 className="mb-3 flex items-center gap-3 text-[1.38rem] font-black leading-[1.06] tracking-[-0.03em] text-white sm:text-[1.6rem]">
               <div className="p-2 bg-red-600/20 rounded-lg">
                 <Shield size={22} weight="bold" className="text-red-400" />
               </div>
               {t('home.constitutionalTitle')}
             </h2>
-            <p className="text-slate-300 text-sm leading-relaxed mb-5">
+            <p className="mb-5 max-w-[56ch] text-[15px] leading-[1.65] text-slate-300">
               {t('home.constitutionalDesc', { defaultValue: 'The 4th Amendment protects you against unreasonable searches. ICE needs a <1>Judicial Warrant</1> signed by a judge to enter your home.' }).split('<1>').map((part, i) => {
                 if (i === 0) return part;
                 const [bold, rest] = part.split('</1>');
@@ -1541,7 +1547,7 @@ const Home = ({
             </p>
             <button
               onClick={() => navigate('legal', { type: 'page', id: 'legal-page' })}
-              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-red-900/30 hover:shadow-red-900/50"
+              className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-[14px] font-semibold tracking-[0.01em] text-white transition-all shadow-lg shadow-red-900/30 hover:from-red-500 hover:to-red-600 hover:shadow-red-900/50"
             >
               {t('home.exploreRights')}
             </button>
@@ -1549,7 +1555,7 @@ const Home = ({
         </div>
       </HomeSection>
 
-      <HomeSection className="home-page-item" eyebrow={t('home.afterEyebrow')} title={t('home.afterTitle')} description={t('home.afterDesc')}>
+      <HomeSection className="page-section-item" eyebrow={t('home.afterEyebrow')} title={t('home.afterTitle')} description={t('home.afterDesc')}>
         <div className="space-y-3">
           <HomeCard
             variant="featured"
@@ -1567,27 +1573,27 @@ const Home = ({
         </div>
       </HomeSection>
 
-      <div className="relative mt-14 overflow-hidden rounded-[28px] border border-slate-800/70 bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900/90 px-6 py-10 text-center shadow-[0_18px_54px_rgba(2,6,23,0.22)] sm:px-10 home-page-item">
+      <div className="relative mt-14 overflow-hidden rounded-[28px] border border-slate-800/70 bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900/90 px-6 py-10 text-center shadow-[0_18px_54px_rgba(2,6,23,0.22)] sm:px-10 page-section-item">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.08),transparent_42%)] pointer-events-none" />
         <div className="absolute left-1/2 top-0 h-px w-36 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
         <div className="absolute bottom-0 left-1/2 h-px w-36 -translate-x-1/2 bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
         <div className="relative">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
             Reflection
           </p>
-          <p className="mt-4 text-slate-300 italic text-lg max-w-2xl mx-auto leading-relaxed sm:text-xl">
+          <p className="mx-auto mt-4 max-w-[34ch] text-[1.12rem] italic leading-[1.65] text-slate-300 sm:text-[1.26rem]">
             {homeQuote.quote}
           </p>
-          <p className="text-slate-500 text-xs mt-4 tracking-[0.24em] uppercase">{homeQuote.author}</p>
+          <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{homeQuote.author}</p>
         </div>
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-2 home-page-item">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-2 page-section-item">
         {utilityActions.map((action) => (
           <button
             key={action.id}
             onClick={action.onClick}
-            className={`inline-flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r rounded-full text-white/95 text-xs transition-all shadow-[0_8px_20px_rgba(15,23,42,0.16)] border opacity-85 hover:opacity-100 ${action.className}`}
+            className={`inline-flex items-center gap-2 rounded-full border bg-gradient-to-r px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/95 transition-all shadow-[0_8px_20px_rgba(15,23,42,0.16)] opacity-85 hover:opacity-100 ${action.className}`}
           >
             {action.icon}
             <span>{action.label}</span>
@@ -1595,9 +1601,9 @@ const Home = ({
         ))}
       </div>
 
-      <div className="mt-8 rounded-[24px] border border-slate-800/70 bg-slate-950/65 px-4 py-5 shadow-[0_12px_32px_rgba(2,6,23,0.14)] sm:px-6 home-page-item">
+      <div className="mt-8 rounded-[24px] border border-slate-800/70 bg-slate-950/65 px-4 py-5 shadow-[0_12px_32px_rgba(2,6,23,0.14)] sm:px-6 page-section-item">
         <div className="mb-3 text-center">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
             Important Context
           </p>
         </div>

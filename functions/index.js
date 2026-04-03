@@ -951,11 +951,18 @@ exports.federalRegisterAlerts = functions.https.onRequest((req, res) => {
         `&fields[]=title&fields[]=type&fields[]=abstract&fields[]=publication_date&fields[]=html_url&fields[]=pdf_url&fields[]=agencies`;
 
       const response = await fetch(url, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'SafeNeighbor/1.0 (+https://safeneighbor-33bb0.web.app)',
+          Referer: 'https://safeneighbor-33bb0.web.app/',
+          Origin: 'https://safeneighbor-33bb0.web.app',
+        },
       });
 
       if (!response.ok) {
-        throw new Error(`Federal Register API error: ${response.status}`);
+        const errorBody = await response.text();
+        throw new Error(`Federal Register API error: ${response.status} ${errorBody.slice(0, 300)}`);
       }
 
       const data = await response.json();

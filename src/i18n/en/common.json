@@ -626,7 +626,7 @@
   },
   "legalResponse": {
     "title": "Get Legal Help",
-    "buttonLabel": "Get Legal Help",
+    "buttonLabel": "Search Legal Questions with AI",
     "homeCardDesc": "Instantly reach an attorney, hotline, or local legal aid.",
     "yourAttorney": "Your Legal Contacts",
     "noAttorney": "No attorney or legal aid saved.",
@@ -900,8 +900,8 @@
     "reminder2": "Practice signals with neighbors during community meetings.",
     "reminder3": "If you hear a signal, repeat it twice to confirm receipt and relay it through the neighborhood.",
     "reminder4": "Whistles are for emergencies only—overuse leads to \"noise fatigue.\"",
-    "nietzscheQuote": "\"He who has a why to live can bear almost any how.\"",
-    "nietzscheAuthor": "— FRIEDRICH NIETZSCHE"
+    "communityQuote": "\"Alone we can do so little; together we can do so much.\"",
+    "communityQuoteAuthor": "— HELEN KELLER"
   },
   "deescalation": {
     "backToHome": "Back to Home",
