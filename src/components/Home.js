@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronRight, Download, Settings, Brain } from 'lucide-react';
 import { HandWaving, SparkleIcon as Sparkle, QuestionIcon as Question } from '@phosphor-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -269,6 +269,7 @@ const Home = ({
   const [reviewMarkers, setReviewMarkers] = useState(() => readReviewMarkers());
   const [animReady, setAnimReady] = useState(false);
   const heroTransitionTimeoutRef = useRef(null);
+  const entranceFrameRef = useRef(null);
 
   const rememberAction = (action) => {
     writeLastHomeAction(action);
@@ -352,12 +353,33 @@ const Home = ({
     }
   };
 
-  useEffect(() => {
-    let raf1 = requestAnimationFrame(() => {
-      let raf2 = requestAnimationFrame(() => setAnimReady(true));
-      return () => cancelAnimationFrame(raf2);
-    });
-    return () => cancelAnimationFrame(raf1);
+  useLayoutEffect(() => {
+    const armEntranceAnimation = () => {
+      if (entranceFrameRef.current) {
+        window.cancelAnimationFrame(entranceFrameRef.current);
+      }
+
+      setAnimReady(false);
+      entranceFrameRef.current = window.requestAnimationFrame(() => {
+        setAnimReady(true);
+        entranceFrameRef.current = null;
+      });
+    };
+
+    const handlePageShow = (event) => {
+      if (!event.persisted) return;
+      armEntranceAnimation();
+    };
+
+    armEntranceAnimation();
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      if (entranceFrameRef.current) {
+        window.cancelAnimationFrame(entranceFrameRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -961,7 +983,7 @@ const Home = ({
       }
     : null;
   return (
-    <div className={`max-w-4xl mx-auto pb-24 px-4 relative${animReady ? ' page-transition-in page-section-stagger' : ' opacity-0'}`}>
+    <div className={`max-w-4xl mx-auto pb-24 px-4 relative ${animReady ? 'home-enter-active page-section-stagger' : 'home-enter-armed'}`}>
       <div
         className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
         style={{
@@ -1019,11 +1041,11 @@ const Home = ({
             </AnimatePresence>
 
             <div className="relative">
-              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-blue-300/80 scenario-fade-in" style={aniDelay(0.12)}>
+              <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-blue-300/80 scenario-fade-in" style={aniDelay(0.04)}>
                 {t('home.heroEyebrow')}
               </p>
 
-              <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.20)}>
+              <div className="mb-4 flex flex-col items-center gap-3 text-center xl:flex-row xl:items-start xl:text-left scenario-rise-in" style={aniDelay(0.1)}>
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 shadow-[0_0_28px_rgba(59,130,246,0.18)]">
                   <ShieldCheck size={30} weight="bold" className="text-blue-300" />
                 </div>
@@ -1032,14 +1054,14 @@ const Home = ({
                 </h1>
               </div>
 
-              <p className="mx-auto max-w-[31ch] text-[1.03rem] leading-[1.6] text-slate-200 xl:mx-0 sm:text-[1.12rem] scenario-rise-in" style={aniDelay(0.34)}>
+              <p className="mx-auto max-w-[31ch] text-[1.03rem] leading-[1.6] text-slate-200 xl:mx-0 sm:text-[1.12rem] scenario-rise-in" style={aniDelay(0.18)}>
                 {t('home.heroSubtitle')}
               </p>
-              <p className="mx-auto mt-3 max-w-[40ch] text-[14px] leading-[1.68] text-slate-400 xl:mx-0 sm:text-[15px] scenario-rise-in" style={aniDelay(0.46)}>
+              <p className="mx-auto mt-3 max-w-[40ch] text-[14px] leading-[1.68] text-slate-400 xl:mx-0 sm:text-[15px] scenario-rise-in" style={aniDelay(0.26)}>
                 {t('home.heroSupport')}
               </p>
 
-              <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-rise-in" style={aniDelay(0.56)}>
+              <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2.5 xl:justify-start scenario-rise-in" style={aniDelay(0.34)}>
                 <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-300">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
                   {t('home.reassuranceOffline')}
@@ -1054,7 +1076,7 @@ const Home = ({
                 </span>
               </div>
 
-              <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.68)}>
+              <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start scenario-rise-in" style={aniDelay(0.42)}>
                 <button
                   onClick={openEmergencyAction}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-white transition-all shadow-[0_12px_32px_rgba(127,29,29,0.35)] hover:from-red-500 hover:to-red-600 sm:w-auto"
@@ -1079,7 +1101,7 @@ const Home = ({
             </div>
           </motion.div>
 
-          <div className="mt-3 flex flex-col gap-3 xl:mt-0 scenario-rise-in" style={aniDelay(0.26)}>
+          <div className="mt-3 flex flex-col gap-3 xl:mt-0 scenario-rise-in" style={aniDelay(0.16)}>
             <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_14px_30px_rgba(2,6,23,0.14)]">
               <div className="flex items-start justify-between gap-3 sm:gap-4">
                 <div>

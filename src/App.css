@@ -20,9 +20,15 @@
 
 html {
   overflow-x: hidden;
+  overflow-y: auto;
   color-scheme: dark;
   /* Safari: prevent fixed element jump when address bar hides/shows */
   height: -webkit-fill-available;
+  width: 100%;
+  max-width: 100%;
+  overscroll-behavior-x: none;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 body {
@@ -38,12 +44,19 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  overscroll-behavior-x: none;
+  touch-action: pan-y manipulation;
 }
 
 #root {
   min-height: 100vh;
   min-height: 100dvh;
   background-color: #020617;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 /* Override Tailwind's min-h-screen globally for Safari dvh support */
@@ -55,7 +68,10 @@ body {
 .App {
   min-height: 100vh;
   min-height: 100dvh;
-  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 
 .App :where(h1, h2) {
@@ -78,6 +94,7 @@ body {
 
 .App :where(button, a, label, input, textarea, select) {
   letter-spacing: -0.008em;
+  touch-action: manipulation;
 }
 
 .App :where(button, input, textarea, select) {
@@ -297,12 +314,14 @@ input[type="time"] {
 .scenario-fade-in {
   opacity: 1;
   animation: scenarioFadeIn 0.52s ease-out backwards;
+  will-change: opacity;
 }
 
 .scenario-rise-in {
   opacity: 1;
   transform: translateY(0);
   animation: scenarioRiseIn 0.74s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  will-change: transform, opacity;
 }
 
 .scenario-return-marker {
@@ -359,6 +378,7 @@ input[type="time"] {
   opacity: 1;
   transform: translateY(0);
   animation: scenarioRiseIn 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--page-item-delay, 0s) backwards;
+  will-change: transform, opacity;
 }
 
 .page-section-stagger > .page-section-item:nth-child(1) {
@@ -407,6 +427,15 @@ input[type="time"] {
 
 .page-section-stagger > .page-section-item:nth-child(12) {
   --page-item-delay: 0.92s;
+}
+
+.home-enter-armed .page-section-item,
+.home-enter-armed .scenario-fade-in,
+.home-enter-armed .scenario-rise-in,
+.home-enter-armed .scenario-section-rise > .scenario-section-item {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: none !important;
 }
 
 @keyframes scenarioFadeIn {

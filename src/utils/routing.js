@@ -13,6 +13,34 @@ const OSRM_SERVERS = [
 ];
 
 const FETCH_TIMEOUT_MS = 12000;
+const CARDINAL_LABELS = {
+  north: 'north',
+  south: 'south',
+  east: 'east',
+  west: 'west',
+};
+
+function buildNominatimSearchUrl(address, bias = null, limit = 1) {
+  const params = new URLSearchParams({
+    format: 'jsonv2',
+    q: address,
+    limit: String(limit),
+    countrycodes: 'us',
+    dedupe: '1',
+    addressdetails: '1',
+  });
+
+  if (bias?.lat && bias?.lng) {
+    const west = bias.lng - 0.38;
+    const east = bias.lng + 0.38;
+    const north = bias.lat + 0.26;
+    const south = bias.lat - 0.26;
+    params.set('viewbox', `${west},${north},${east},${south}`);
+    params.set('bounded', '0');
+  }
+
+  return `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+}
 
 /**
  * Fetch with a timeout (AbortController). Accepts fetch options for POST requests.
@@ -52,6 +80,8 @@ async function tryORS(startLat, startLng, endLat, endLng) {
     distance: (feature.properties.summary?.distance || 0) / 1609.34, // metres → miles
     duration: (feature.properties.summary?.duration || 0) / 60, // seconds → minutes
     waypoints: [],
+    steps: feature.properties?.segments?.flatMap((segment) => segment.steps || []) || [],
+    provider: 'ors',
   }));
 }
 
@@ -59,23 +89,32 @@ async function tryORS(startLat, startLng, endLat, endLng) {
  * Fallback: try OSRM demo servers.
  */
 async function tryOSRM(startLat, startLng, endLat, endLng) {
-  const params = `${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson&alternatives=true`;
+  const coordinatePath = `${startLng},${startLat};${endLng},${endLat}`;
+  const queryVariants = [
+    '?overview=full&geometries=geojson&alternatives=true&steps=true',
+    '?overview=full&geometries=geojson&alternatives=false&steps=true',
+    '?overview=full&geometries=geojson&alternatives=false&steps=false',
+  ];
 
   for (const base of OSRM_SERVERS) {
-    try {
-      const res = await fetchWithTimeout(`${base}/${params}`);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (!data.routes || data.routes.length === 0) continue;
+    for (const query of queryVariants) {
+      try {
+        const res = await fetchWithTimeout(`${base}/${coordinatePath}${query}`);
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (!data.routes || data.routes.length === 0) continue;
 
-      return data.routes.map((route) => ({
-        geometry: route.geometry, // GeoJSON LineString
-        distance: route.distance / 1609.34, // metres → miles
-        duration: route.duration / 60, // seconds → minutes
-        waypoints: data.waypoints,
-      }));
-    } catch {
-      continue;
+        return data.routes.map((route) => ({
+          geometry: route.geometry, // GeoJSON LineString
+          distance: route.distance / 1609.34, // metres → miles
+          duration: route.duration / 60, // seconds → minutes
+          waypoints: data.waypoints,
+          steps: route.legs?.flatMap((leg) => leg.steps || []) || [],
+          provider: 'osrm',
+        }));
+      } catch {
+        continue;
+      }
     }
   }
   return null;
@@ -85,9 +124,9 @@ async function tryOSRM(startLat, startLng, endLat, endLng) {
  * Get a driving route. Tries providers in order:
  * 1. OpenRouteService (reliable, API key required)
  * 2. OSRM demo servers (free, no key, but unreliable)
- * 3. Straight-line fallback (always works, flagged with isFallback)
+ * 3. No fake fallback. If routing providers fail, return null.
  *
- * Returns [{ geometry, distance (miles), duration (minutes), waypoints }].
+ * Returns [{ geometry, distance (miles), duration (minutes), waypoints, steps }].
  */
 export async function getRoute(startLat, startLng, endLat, endLng) {
   // 1. OpenRouteService
@@ -106,25 +145,64 @@ export async function getRoute(startLat, startLng, endLat, endLng) {
     // OSRM failed too
   }
 
-  // 3. Straight-line fallback
-  const distM = haversineMeters(startLat, startLng, endLat, endLng);
-  const numPoints = Math.max(2, Math.ceil(distM / 200));
-  const coords = [];
-  for (let i = 0; i <= numPoints; i++) {
-    const t = i / numPoints;
-    coords.push([
-      startLng + t * (endLng - startLng),
-      startLat + t * (endLat - startLat),
-    ]);
+  return null;
+}
+
+function getOverallDirection(start, end) {
+  const latDelta = end[1] - start[1];
+  const lngDelta = end[0] - start[0];
+
+  if (Math.abs(latDelta) >= Math.abs(lngDelta)) {
+    return latDelta >= 0 ? CARDINAL_LABELS.north : CARDINAL_LABELS.south;
   }
 
-  return [{
-    geometry: { type: 'LineString', coordinates: coords },
-    distance: distM / 1609.34,
-    duration: (distM / 1609.34) * 2.5, // rough driving estimate
-    waypoints: [],
-    isFallback: true,
-  }];
+  return lngDelta >= 0 ? CARDINAL_LABELS.east : CARDINAL_LABELS.west;
+}
+
+function normalizeRoadName(step) {
+  const raw = step?.name || step?.ref || step?.street_name || '';
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  if (/unnamed/i.test(trimmed)) return null;
+  if (/^[-–—]+$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function collectPrimaryRoads(route) {
+  const roads = new Map();
+  const steps = route?.steps || [];
+
+  steps.forEach((step) => {
+    const roadName = normalizeRoadName(step);
+    if (!roadName) return;
+
+    const distance = step.distance || step.length || 0;
+    roads.set(roadName, (roads.get(roadName) || 0) + distance);
+  });
+
+  return [...roads.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([name]) => name);
+}
+
+export function summarizeDrivingRoute(route) {
+  const coordinates = route?.geometry?.coordinates || [];
+  if (coordinates.length < 2) return 'Route summary unavailable.';
+
+  const direction = getOverallDirection(coordinates[0], coordinates[coordinates.length - 1]);
+  const roads = collectPrimaryRoads(route);
+
+  if (roads.length >= 2) {
+    return `Mostly via ${roads[0]}, then ${roads[1]}.`;
+  }
+
+  if (roads.length === 1) {
+    return `Mostly via ${roads[0]} heading ${direction}.`;
+  }
+
+  return `Mostly local streets heading ${direction}.`;
 }
 
 /**
@@ -204,11 +282,24 @@ export function analyzeRouteHotspots(routePoints, reports, radiusMiles = 0.5) {
  * Forward geocode an address via Nominatim (free, no API key).
  * Returns { lat, lng, displayName } or null.
  */
-export async function forwardGeocode(address) {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
-  const res = await fetchWithTimeout(url, {}, 10000);
+export async function forwardGeocode(address, bias = null) {
+  const normalizedAddress = address
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
+
+  let url = buildNominatimSearchUrl(normalizedAddress, bias, 1);
+  let res = await fetchWithTimeout(url, {}, 10000);
   if (!res.ok) return null;
-  const data = await res.json();
+  let data = await res.json();
+
+  if ((!data || data.length === 0) && normalizedAddress !== address.trim()) {
+    url = buildNominatimSearchUrl(address.trim(), bias, 1);
+    res = await fetchWithTimeout(url, {}, 10000);
+    if (!res.ok) return null;
+    data = await res.json();
+  }
+
   if (!data || data.length === 0) return null;
   return {
     lat: parseFloat(data[0].lat),

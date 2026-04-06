@@ -1,5 +1,102 @@
 # SafeNeighbor TODO List
 
+## Signals Redesign Plan
+
+### Objective
+- Rework the `Signals` page so it reads as an operational field guide first and a reference page second.
+- Improve first-read clarity, section hierarchy, and navigability without breaking the visual language shared with `Home`, `Scenarios`, and `Record`.
+
+### Strategy
+- Reduce the number of competing messages in the hero and make the primary action unmistakable.
+- Tighten the page flow around a single operational sequence:
+  1. Alert people
+  2. Coordinate visually
+  3. Stabilize / de-escalate
+  4. Back up the signal digitally
+  5. Keep it available offline
+- Move explanatory or theory-heavy content lower unless it directly helps immediate action.
+
+### Concrete Redesign Tasks
+
+#### 1. Simplify The Hero
+- [ ] Reduce the hero to one main thesis, one supporting paragraph, one primary CTA, and one secondary CTA.
+- [ ] Convert the right rail into a lighter support column so it reinforces the hero instead of competing with it.
+- [ ] Remove or relocate at least one of the current hero support modules:
+  - signal ladder
+  - rapid action cards
+  - checklist
+- [ ] Keep the hero answer focused on: “What should I do first if I need to coordinate right now?”
+
+#### 2. Tighten Hero Typography
+- [ ] Increase contrast between headline, support copy, and helper labels so the middle of the hero does not feel typographically flat.
+- [ ] Reduce the number of mini-eyebrows and uppercase labels visible at once.
+- [ ] Make instructional copy feel distinct from reassurance/reference copy through size, spacing, and weight rather than color alone.
+
+#### 3. Re-sequence The Page
+- [ ] Keep `Alert Patterns` as the first operational section after the jump bar.
+- [ ] Move `Hierarchy of Sound` lower on the page, or fold it into the alert-patterns section as a compact reference block.
+- [ ] Preserve the order:
+  - Alert Patterns
+  - Hand Signals
+  - De-escalation
+  - Digital Backup
+  - Offline Access
+- [ ] Ensure every section answers one concrete user question before adding supporting explanation.
+
+#### 4. Refine Jump Bar Strategy
+- [ ] Keep the sticky jump bar, but reduce visual competition between the jump pills and the section headers below.
+- [ ] Consider toning down default pill emphasis while preserving the active state.
+- [ ] Preserve:
+  - distributed layout on larger screens
+  - horizontal scroll safety on smaller screens
+  - soft white active outline
+
+#### 5. Upgrade Alert Pattern Cards
+- [ ] Make the pattern cards feel more procedural and less decorative.
+- [ ] Strengthen the reading order within each card:
+  - pattern
+  - what it means
+  - what neighbors should do
+- [ ] Consider adding a small urgency label or sequence marker so the escalation logic is easier to compare at a glance.
+- [ ] Check whether the audio play control is visually balanced with the pattern block and not over-dominant.
+
+#### 6. Improve Hand Signal Comparison
+- [ ] Keep the expandable card pattern, but improve the closed state so users can compare gestures faster without opening every item.
+- [ ] Add stronger visual distinction between:
+  - gesture title
+  - meaning
+  - how to perform
+- [ ] Evaluate whether the right-side support column should stay separate or be folded into the main compare area.
+
+#### 7. Clarify De-escalation And Digital Backup
+- [ ] Make `De-escalation` feel like the page’s “stabilize after attention arrives” section, not just another card group.
+- [ ] Make `Digital Backup` explicitly frame messaging/buddy systems as support layers for the in-person protocol.
+- [ ] Reduce any repeated copy patterns that make these sections feel structurally identical to the earlier ones.
+
+#### 8. Create A Stronger Typographic System
+- [ ] Define a more deliberate hierarchy for:
+  - page title
+  - section titles
+  - operational labels
+  - body copy
+  - reference/helper text
+- [ ] Make sure repeated card families do not all use the same “small uppercase label + short paragraph” rhythm.
+- [ ] Use spacing and cadence to separate instruction from explanation more clearly.
+
+#### 9. Final UX Polish
+- [ ] Audit section density on desktop so each major block has a distinct rhythm and breathing room.
+- [ ] Verify the page still reads cleanly on mobile after any hero simplification.
+- [ ] Re-check motion timing so reveal order reinforces hierarchy instead of making all support elements feel equally important.
+- [ ] Keep install/offline access as the closing practical next step.
+
+### Verification Checklist
+- [ ] `Signals` hero has one unmistakable primary action.
+- [ ] The page flow reads top-to-bottom without strategic interruptions.
+- [ ] The jump bar helps orientation without becoming the loudest element.
+- [ ] Cards are easier to scan and compare.
+- [ ] Typography clearly distinguishes instruction, explanation, and supporting reference.
+- [ ] Desktop and mobile both feel intentional, not just responsive.
+
 ## Completed
 
 ### Mobile Fixes
