@@ -258,6 +258,530 @@
 - [ ] Ensure every section answers one concrete user question before adding supporting explanation.
 
 #### 4. Refine Jump Bar Strategy
+
+## Product Roadmap After App Audit
+
+### Audit Summary
+- SafeNeighbor already has strong foundations in:
+  - legal learning and reference
+  - scenario guidance
+  - preparedness planning
+  - post-encounter documentation
+  - community witnessing and signaling
+  - route awareness and community reports
+  - offline resources, privacy, and device security
+- The roadmap should focus less on inventing totally new categories and more on:
+  - connecting existing tools into clearer systems
+  - deepening training and repetition
+  - strengthening coordination and follow-through
+
+### Already Strong
+
+#### Legal Learning And Reference
+- [x] Constitutional rights content in `Legal`
+- [x] Status-based immigration rights guidance
+- [x] Legal directory and legal-help search
+- [x] Case law and policy updates
+- [x] Legal quiz launch surface and initial question bank
+
+#### Scenario Guidance
+- [x] Door, street, vehicle, workplace, and border scenarios
+- [x] De-escalation guidance
+- [x] Rights-card integration
+- [x] Community witnessing scenario content
+
+#### Preparedness
+- [x] Trusted contacts
+- [x] Family preparedness kit
+- [x] Emergency messaging templates
+- [x] Safety check-in timer
+
+#### Documentation And Aftercare
+- [x] Encounter log
+- [x] Witness log mode
+- [x] Post-encounter guide
+- [x] Share/export support for logs and plans
+
+#### Community Response
+- [x] Community reports
+- [x] Signals / whistle protocol
+- [x] Hand signals
+- [x] Digital backup guidance
+
+#### Offline / Privacy / Security
+- [x] Offline library
+- [x] Map tile download support
+- [x] Record / vault / backup flows
+- [x] Tech security explainer
+
+### Partial Systems That Need Expansion
+
+#### Training Layer
+- [ ] Legal quiz exists, but repeated practice is still concentrated mostly in `Legal`
+- [ ] Scenario learning is strong, but scenario drills and spaced repetition are not yet app-wide
+- [ ] Signals and witnessing content teach users well, but they do not yet have strong repeatable training loops
+
+#### Readiness Layer
+- [ ] Family Kit, Trusted Contacts, Offline Library, Safety Check-In, and Record settings exist as separate tools
+- [ ] There is no single readiness hub that shows what a user has already prepared and what is still missing
+
+#### Aftercare Layer
+- [ ] Encounter logging and post-encounter guidance are already meaningful
+- [ ] There is not yet one seamless “build a case packet / timeline / next actions” flow
+
+#### Community Coordination Layer
+- [ ] Reports, signals, witnessing, and contacts imply neighborhood coordination
+- [ ] There is not yet a clear trusted-circle or role-based coordination model
+
+#### Route Intelligence
+- [ ] Route analysis exists and is already useful
+- [ ] Confidence scoring, freshness weighting, better explanations, and destination presets are still light
+
+### Ranked Next Priorities
+
+#### 1. Training And Repetition System
+- [ ] Expand practice beyond `Legal` into:
+  - `Scenarios`
+  - `CommunityWitnessing`
+  - `Signals`
+- [ ] Add spaced repetition across:
+  - legal quiz misses
+  - scenario mistakes
+  - phrase recall drills
+  - signal recognition drills
+- [ ] Add contextual drill launchers:
+  - `Practice this amendment`
+  - `Practice this scenario`
+  - `Practice this signal`
+- [ ] Build short review packs:
+  - `60-second rights refresh`
+  - `Street stop drill`
+  - `Door encounter phrases`
+  - `Witness mode refresh`
+
+Why this is first:
+- It builds directly on content the app already has
+- It improves preparedness without inventing a whole new product category
+- It gives the user repetition, not just information
+
+#### 2. Unified Readiness Dashboard
+- [ ] Build one home-level readiness hub that pulls together:
+  - trusted contacts
+  - family kit completion
+  - offline library/install state
+  - route readiness
+  - check-in setup
+  - recording / vault readiness
+- [ ] Show missing setup items clearly:
+  - no attorney saved
+  - no emergency contacts
+  - no code word
+  - no school pickup backup
+  - no offline resources installed
+- [ ] Add recurring maintenance prompts:
+  - refresh contacts
+  - review quiz misses
+  - verify go-bag
+  - update family plan
+
+Why this is second:
+- The app already has the parts
+- What it lacks is one center of gravity for preparation
+
+#### 3. Post-Incident Case Packet Flow
+- [ ] Combine existing logs, recordings, and post-encounter checklists into one guided follow-up flow
+- [ ] Add timeline generation from:
+  - encounter log entries
+  - witness notes
+  - report timestamps
+- [ ] Add a legal-help export bundle:
+  - summary
+  - timeline
+  - contacts
+  - evidence references
+- [ ] Add urgency sequencing:
+  - next 10 minutes
+  - next 24 hours
+  - later documentation tasks
+
+Why this is third:
+- The app already has substantial aftercare pieces
+- Packaging them together would create a much stronger real-world outcome
+
+#### 4. Trusted Circles And Community Roles
+- [ ] Add simple private circle concepts:
+  - household
+  - neighborhood support group
+  - legal observer group
+- [ ] Add role templates:
+  - witness
+  - child pickup
+  - driver
+  - translator
+  - legal support
+- [ ] Add lightweight shared readiness prompts or printable role cards
+- [ ] Connect circles to:
+  - check-in
+  - trusted contacts
+  - family kit
+  - signals
+
+Why this is fourth:
+- It aligns with the product’s name and core social purpose
+- It deepens coordination rather than only serving solo users
+
+#### 5. Smarter Route And Report Intelligence
+- [ ] Add report freshness decay to route scoring
+- [ ] Add report confidence weighting:
+  - verified
+  - recent
+  - repeated
+  - stale
+- [ ] Add saved destinations:
+  - home
+  - school
+  - lawyer
+  - clinic
+- [ ] Add route explanation language:
+  - why this route is preferred
+  - what reports were nearby
+  - whether the data is sparse
+- [ ] Add route rehearsal / pre-departure mode
+
+Why this is fifth:
+- It is strategically valuable, but the app already has a functioning base here
+- The user-facing trust gain will be highest once the training/readiness layers are stronger
+
+#### 6. True Offline-First Expansion
+- [ ] Add a dedicated offline readiness dashboard
+- [ ] Show:
+  - cached library status
+  - map cache status
+  - last sync age
+  - what still requires network
+- [ ] Add offline drill packs for quiz and scenarios
+- [ ] Add printable/exportable emergency cards and phrases
+
+Why this is sixth:
+- Offline capability already exists
+- This is an important upgrade, but not the highest leverage immediate move
+
+#### 7. State And Local Legal Nuance Expansion
+- [ ] Expand state-specific recording and consent-law comparisons
+- [ ] Add state-specific protest / dispersal / observer nuance where stable
+- [ ] Add local hotline surfacing based on saved state or recent location
+- [ ] Add state-specific mini-drills in `Legal`
+
+Why this is seventh:
+- Valuable depth, but more of a content expansion than a structural product leap
+
+### Phase Plan
+
+#### Phase A: Strengthen Existing Systems
+- [ ] Expand legal quiz into app-wide training hooks
+- [ ] Add missed-item review packs
+- [ ] Add scenario drill launchers
+- [ ] Add signal drill launchers
+
+#### Phase B: Connect Existing Preparedness Tools
+- [ ] Build readiness dashboard
+- [ ] Add completion states and missing-item prompts
+- [ ] Connect home recommendations to readiness gaps
+
+#### Phase C: Package Follow-Through
+- [ ] Build post-incident packet flow
+- [ ] Add guided urgency sequencing
+- [ ] Add exportable legal summary bundle
+
+#### Phase D: Deepen Community Coordination
+- [ ] Add circles / role templates
+- [ ] Connect shared roles to check-in, contacts, and family planning
+
+#### Phase E: Improve Intelligence And Resilience
+- [ ] Upgrade route/report scoring
+- [ ] Expand offline-first capabilities
+- [ ] Add deeper state/local nuance
+
+### Recommended Immediate Build Order
+- [ ] 1. App-wide training and repetition
+- [ ] 2. Unified readiness dashboard
+- [ ] 3. Post-incident case packet flow
+
+### Decision Rule For Future Features
+- [ ] Prefer features that strengthen:
+  - preparation before pressure
+  - clarity during pressure
+  - coordination after pressure
+- [ ] Avoid adding isolated tools unless they clearly connect to one of the existing systems above
+
+## App-Wide Training And Repetition Plan
+
+### Objective
+- Turn SafeNeighbor’s existing rights, scenario, witnessing, and signals content into a connected training system.
+- Help users move from reading once to remembering under pressure.
+- Make drills easy to access from the places where users already learn, while also giving them one central place to review weak areas.
+
+### Product Thesis
+- SafeNeighbor should not only explain what to do.
+- It should help users rehearse what to say, what to notice, and what to do next until those responses are easier to access in real life.
+- The training system should feel like:
+  - calm
+  - practical
+  - repeatable
+  - integrated into the app’s real content
+
+### Best Placement Strategy
+
+#### Primary Home For Training
+- [ ] Create one central practice hub reachable from `Home`
+- [ ] Label direction ideas:
+  - `Practice`
+  - `Train`
+  - `Practice Under Pressure`
+  - `Refresh Skills`
+- [ ] Use this as the place for:
+  - mixed review
+  - missed-question review
+  - short daily refresh packs
+  - progress by domain
+
+Why:
+- Users need one clear place to return for repetition
+- This keeps training from being trapped inside only one section
+
+#### Secondary Access Points
+- [ ] Keep contextual drill launchers inside each section:
+  - `Legal`: `Practice With Quiz`
+  - `Scenarios`: `Practice this scenario`
+  - `Signals`: `Practice these signals`
+  - `Community Witnessing`: `Practice witness response`
+- [ ] Open the central training UI already filtered to that domain
+
+Why:
+- Users often want practice right after reading a specific section
+- Contextual entry keeps the training loop close to the source content
+
+#### Home Surface Recommendation
+- [ ] Add a `Practice` card to `Home`
+- [ ] Show dynamic states:
+  - `New: rights practice`
+  - `Review 4 missed questions`
+  - `2-minute street stop drill`
+  - `Refresh witness phrases`
+- [ ] Let Home act as the app’s training reminder surface
+
+Why:
+- Home already works as an orchestration layer
+- It is the best place for “come back and rehearse” prompts
+
+### Recommended Navigation Model
+
+#### Phase 1
+- [ ] Keep training as a modal or focused flow launched from:
+  - Legal hero
+  - Home practice card
+  - contextual buttons in scenarios/signals/witnessing
+
+#### Phase 2
+- [ ] Add a first-class `Practice` or `Drills` tab only if:
+  - usage is strong
+  - completion/return rates are strong
+  - the content library grows large enough to justify a dedicated destination
+
+Recommendation:
+- Do not add a bottom-nav training tab yet
+- Use `Home` as the central launcher first
+
+### Training Domains To Build
+
+#### 1. Rights Drills
+- [ ] Constitutional amendment recognition
+- [ ] Warrant recognition
+- [ ] Search-consent questions
+- [ ] Silence / lawyer invocation
+- [ ] Rights-by-status reinforcement where appropriate
+
+Launch points:
+- `Legal` hero
+- amendment cards
+- Home practice card
+
+#### 2. Scenario Drills
+- [ ] Door encounter phrase drills
+- [ ] Street stop first-response drills
+- [ ] Vehicle stop search/refusal drills
+- [ ] Workplace encounter response drills
+- [ ] Border/checkpoint response drills
+
+Launch points:
+- `Scenarios` cards
+- scenario detail pages
+- Home practice card
+
+#### 3. Witness Drills
+- [ ] What to observe
+- [ ] What not to do
+- [ ] What to say as a witness
+- [ ] What details matter most to document
+
+Launch points:
+- `Community Witnessing`
+- post-encounter pages
+- Home practice card
+
+#### 4. Signals Drills
+- [ ] Match signal pattern to meaning
+- [ ] Match signal to appropriate escalation level
+- [ ] Hand-signal recognition
+- [ ] “What should neighbors do next?” drills
+
+Launch points:
+- `Signals`
+- Home practice card
+
+#### 5. Fast First Phrases
+- [ ] Search refusal
+- [ ] Freedom-to-leave
+- [ ] Remain silent
+- [ ] Request counsel
+- [ ] Ask to see a judicial warrant
+
+Launch points:
+- `Legal`
+- `Scenarios`
+- Home practice card
+
+### Drill Types
+
+#### Mixed Review
+- [ ] Pull questions from multiple domains into one session
+- [ ] Good default for returning users
+
+#### Focused Drill
+- [ ] One domain only:
+  - Rights
+  - Scenario
+  - Witness
+  - Signals
+  - Fast Phrases
+
+#### Rapid Refresh
+- [ ] 3-question or 60-second review packs
+- [ ] Designed for frequent repetition
+
+#### Missed Review
+- [ ] Auto-build a session from:
+  - missed items
+  - low-confidence items
+  - older unreviewed items
+
+### Repetition System
+
+#### Local Persistence
+- [ ] Track per-item:
+  - correct / incorrect
+  - last seen
+  - confidence
+  - times missed
+  - source domain
+
+#### Review Logic
+- [ ] Repeat missed items in the same session
+- [ ] Resurface missed items later from Home
+- [ ] Resurface low-confidence correct answers later
+- [ ] Mix old weak items with a few new ones
+
+#### Suggested Review States
+- [ ] `Review 5 missed rights questions`
+- [ ] `Repeat 3 signal patterns`
+- [ ] `Refresh what to say at the door`
+- [ ] `Witnessing review due`
+
+### UX And Voice
+
+#### Tone
+- [ ] Keep drill language calm, grounded, and practical
+- [ ] Use the same philosophical-under-pressure tone already present in Legal and parts of Scenarios
+- [ ] Avoid school-test or gamified language
+
+#### Feedback
+- [ ] Explanations should state direct facts
+- [ ] Use “remember this” phrasing sparingly and only where helpful
+- [ ] Reinforce exact phrases and concrete decisions
+
+#### Results
+- [ ] Show:
+  - what went well
+  - where the user hesitated or missed
+  - what to review next
+- [ ] Recommend the next drill based on domain weakness
+
+### Concrete Implementation Phases
+
+#### Phase 1A: Shared Data Model
+- [ ] Generalize quiz data into a shared training schema
+- [ ] Create or extend data files for:
+  - `legalQuizData`
+  - `scenarioTrainingData`
+  - `signalsTrainingData`
+  - `witnessTrainingData`
+- [ ] Normalize fields:
+  - `id`
+  - `domain`
+  - `sourceId`
+  - `type`
+  - `prompt`
+  - `choices`
+  - `correctAnswer`
+  - `explanation`
+  - `reinforcementPhrase`
+  - `deepLinkTarget`
+  - `difficulty`
+  - `tags`
+
+#### Phase 1B: Shared Training UI
+- [ ] Refactor `LegalQuiz` into a broader `PracticeDrillModal` or similar reusable component
+- [ ] Support:
+  - intro
+  - mode selection
+  - question flow
+  - phrase drill flow
+  - immediate feedback
+  - missed review
+  - results recommendations
+
+#### Phase 1C: Home Entry
+- [ ] Add one `Practice` card or panel to `Home`
+- [ ] Surface review prompts based on saved progress
+- [ ] Launch mixed review from Home
+
+#### Phase 1D: Contextual Entry Points
+- [ ] Add drill launchers to:
+  - Legal
+  - Scenario detail pages
+  - Signals
+  - Community Witnessing
+- [ ] Each launcher should pre-filter the training modal to the relevant domain
+
+#### Phase 1E: Repetition Engine
+- [ ] Save item-level performance locally
+- [ ] Build missed-review and refresh packs
+- [ ] Add return prompts on Home
+
+### Suggested Immediate Build Order
+- [ ] 1. Expand current Legal quiz model into shared practice infrastructure
+- [ ] 2. Add `Practice` card to Home
+- [ ] 3. Add scenario drill launchers
+- [ ] 4. Add witness and signals drills
+- [ ] 5. Add spaced review prompts and missed-item sessions
+
+### Success Criteria
+- [ ] Users can access training from Home in one tap
+- [ ] Users can also launch practice from the exact content they are reading
+- [ ] Mixed review sessions feel broad and useful
+- [ ] Focused drills feel tied to real scenarios, not abstract trivia
+- [ ] Missed items come back later without feeling punitive
+- [ ] The app helps users build recall, not just recognition
 - [ ] Keep the sticky jump bar, but reduce visual competition between the jump pills and the section headers below.
 - [ ] Consider toning down default pill emphasis while preserving the active state.
 - [ ] Preserve:

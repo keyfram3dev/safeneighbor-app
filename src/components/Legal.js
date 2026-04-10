@@ -11,6 +11,11 @@ import LegalDirectory from './LegalDirectory';
 import CaseLawSearch from './CaseLawSearch';
 import LegalQuiz from './LegalQuiz';
 import {
+  consumeLegalQuizLaunchIntent,
+  readLegalQuizReturnIntent,
+  clearLegalQuizReturnIntent,
+} from '../utils/trainingLaunch';
+import {
   STATUS_PERSONAS,
   NEVER_SIGN_WARNING,
   UNDOCUMENTED_SECTIONS,
@@ -1138,6 +1143,8 @@ function Legal({ onOpenLegalResponse, onNavigate, onNavigateToScenario }) {
   const legalQuote = useRotatingQuote('legal.nietzscheQuote', 'legal.nietzscheAuthor', 'legal');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [showLegalQuiz, setShowLegalQuiz] = useState(false);
+  const [quizLaunchIntent, setQuizLaunchIntent] = useState(null);
+  const [quizReturnIntent, setQuizReturnIntent] = useState(() => readLegalQuizReturnIntent());
   const [view, setView] = useState(getInitialLegalView);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -1272,6 +1279,13 @@ function Legal({ onOpenLegalResponse, onNavigate, onNavigateToScenario }) {
   }, []);
 
   useEffect(() => {
+    const launchIntent = consumeLegalQuizLaunchIntent();
+    if (!launchIntent) return;
+    setQuizLaunchIntent(launchIntent);
+    setShowLegalQuiz(true);
+  }, []);
+
+  useEffect(() => {
     const url = new URL(window.location.href);
     if (view === 'constitution') {
       url.searchParams.delete(LEGAL_VIEW_QUERY_PARAM);
@@ -1338,20 +1352,34 @@ User question: ${input}`
   };
 
   const handleOpenQuiz = () => {
+    setQuizLaunchIntent(null);
     setShowLegalQuiz(true);
   };
 
   const handleCloseQuiz = () => {
     setShowLegalQuiz(false);
+    setQuizReturnIntent(readLegalQuizReturnIntent());
+  };
+
+  const handleResumeQuiz = () => {
+    clearLegalQuizReturnIntent();
+    setQuizReturnIntent(null);
+    setQuizLaunchIntent({
+      mode: 'resume',
+      launchId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    setShowLegalQuiz(true);
   };
 
   const handleJumpToRightsFromQuiz = (amendmentId) => {
     setShowLegalQuiz(false);
+    setQuizReturnIntent(readLegalQuizReturnIntent());
     jumpToAmendment(amendmentId);
   };
 
   const handleOpenScenariosFromQuiz = (scenarioId) => {
     setShowLegalQuiz(false);
+    setQuizReturnIntent(readLegalQuizReturnIntent());
     if (scenarioId && onNavigateToScenario) {
       onNavigateToScenario({ id: scenarioId });
       return;
@@ -1412,6 +1440,27 @@ User question: ${input}`
                 {t('legal.quizHeroCta', { defaultValue: 'Practice With Quiz' })}
               </button>
             </div>
+
+            {quizReturnIntent && !showLegalQuiz && (
+              <div className="mt-4 max-w-3xl rounded-[22px] border border-cyan-500/18 bg-gradient-to-r from-cyan-500/10 via-slate-950/88 to-blue-500/10 px-4 py-3 scenario-fade-in" style={aniDelay(0.4)}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-300/80">Quiz still in progress</p>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-200">
+                      You stepped out to read more. The round is still waiting at the next question.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResumeQuiz}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-2.5 text-sm font-bold text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15"
+                  >
+                    <Brain size={18} weight="bold" />
+                    Return to quiz
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 grid gap-3 sm:grid-cols-3 scenario-rise-in" style={aniDelay(0.44)}>
               {[
@@ -3947,6 +3996,7 @@ User question: ${input}`
         onClose={handleCloseQuiz}
         onJumpToRights={handleJumpToRightsFromQuiz}
         onOpenScenarios={handleOpenScenariosFromQuiz}
+        launchIntent={quizLaunchIntent}
       />
     </div>
   );

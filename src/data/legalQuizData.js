@@ -1,9 +1,11 @@
-export const LEGAL_QUIZ_VERSION = 3;
-export const LEGAL_QUIZ_MIXED_TOTAL = 24;
+export const LEGAL_QUIZ_VERSION = 5;
+export const LEGAL_QUIZ_MIXED_TOTAL = 30;
 
 export const legalQuizDecks = {
   constitutional: 'constitutional',
   scenarios: 'scenarios',
+  witnessing: 'witnessing',
+  signals: 'signals',
   unsafeResponses: 'unsafe-responses',
   phraseRecall: 'phrase-recall',
 };
@@ -209,7 +211,7 @@ export const legalQuizQuestions = [
     ],
     correctChoiceId: 'd',
     explanation:
-      'The 14th Amendment uses the phrase “any person,” supporting due process and equal protection regardless of immigration status.',
+      'The 14th Amendment uses the phrase “any person,” which is why due process and equal protection do not belong only to citizens.',
     reinforcement: '14th Amendment = due process and equal protection for all persons.',
     sourceRefs: ['legal.amendment14th', 'legal.fourteenthAppliesToEveryone'],
     tags: ['rights', 'due-process', 'equal-protection', '14th-amendment'],
@@ -270,7 +272,7 @@ export const legalQuizQuestions = [
     ],
     correctChoiceId: 'c',
     explanation:
-      'Direct language is better than a vague or delayed request. A clear lawyer request leaves less room for confusion.',
+      'A clear request leaves less room for confusion than a vague or delayed one. When pressure rises, plain language protects better than hints.',
     reinforcement: 'Direct is better: “I want to speak to a lawyer.”',
     sourceRefs: ['legal.fifthRequestLawyer', 'legal.sixthHowToAssert', 'scenarioData.streetStep4Script'],
     tags: ['phrase', 'lawyer', '6th-amendment'],
@@ -587,6 +589,384 @@ export const legalQuizQuestions = [
     sourceRefs: ['scenarioData.borderStep2Script', 'scenarioData.borderStep2Explanation'],
     tags: ['scenario', 'border', 'port-of-entry'],
   },
+  {
+    id: 'scenario-street-steady-first',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.scenarios,
+    category: 'street',
+    difficulty: 'easy',
+    prompt: 'If you have one brief moment before answering on the street, what steadies the encounter most?',
+    choices: [
+      { id: 'a', text: 'Take one slower breath, keep your hands visible, and use a short question.' },
+      { id: 'b', text: 'Explain your whole story quickly before they interrupt.' },
+      { id: 'c', text: 'Start arguing the law in detail right away.' },
+      { id: 'd', text: 'Reach for your phone and your wallet at the same time.' },
+    ],
+    correctChoiceId: 'a',
+    explanation:
+      'A slower breath and visible hands lower confusion for everyone. Short questions are easier to hold onto than long explanations once pressure has already narrowed attention.',
+    reinforcement:
+      'Steadiness usually begins with breath, visibility, and one clear sentence.',
+    sourceRefs: ['scenarioData.streetStep1Script', 'scenarioData.streetKeyPoint2'],
+    tags: ['scenario', 'street', 'calm', 'breathing'],
+  },
+  {
+    id: 'scenario-vehicle-announce-movement',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.scenarios,
+    category: 'vehicle',
+    difficulty: 'medium',
+    prompt: 'Before reaching for documents during a vehicle stop, what is the safest move?',
+    choices: [
+      { id: 'a', text: 'Reach quickly so officers know you are cooperating.' },
+      { id: 'b', text: 'Tell the officer what you are about to reach for, then move slowly.' },
+      { id: 'c', text: 'Turn your body away and search through every pocket at once.' },
+      { id: 'd', text: 'Wait in silence and hope they stop asking.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'Announcing movement makes the next action easier to read. Slow, visible motion is often safer than silent motion that leaves others guessing.',
+    reinforcement:
+      'Say what you are reaching for before your hands move.',
+    sourceRefs: ['scenarioData.vehicleStep3Script', 'scenarioData.vehicleKeyPoint3'],
+    tags: ['scenario', 'vehicle', 'documents', 'calm'],
+  },
+  {
+    id: 'scenario-workplace-short-answers',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.scenarios,
+    category: 'workplace',
+    difficulty: 'medium',
+    prompt: 'If fear makes your mind race at work, what kind of response is safest?',
+    choices: [
+      { id: 'a', text: 'Long answers that try to prove you have done nothing wrong.' },
+      { id: 'b', text: 'Short rights-based answers, then silence until counsel is present.' },
+      { id: 'c', text: 'Talking faster so you can get through the moment.' },
+      { id: 'd', text: 'Signing forms first and reading them later.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'When the mind races, shorter language is easier to keep true. Rights-based answers protect better than explanations built in fear.',
+    reinforcement:
+      'Under pressure, fewer words often preserve more ground.',
+    sourceRefs: ['scenarioData.workplaceStep2Script', 'scenarioData.workplaceKeyPoint2'],
+    tags: ['scenario', 'workplace', 'calm', 'phrase'],
+  },
+  {
+    id: 'witness-role-first-duty',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.witnessing,
+    category: 'witnessing',
+    difficulty: 'easy',
+    prompt: 'As a community witness, what is your first duty?',
+    choices: [
+      { id: 'a', text: 'Take over the encounter and answer for the person being stopped.' },
+      { id: 'b', text: 'Stay calm, observe, and document without escalating the scene.' },
+      { id: 'c', text: 'Move as close as possible to pressure officers with your presence.' },
+      { id: 'd', text: 'Argue immigration law on the sidewalk.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'A witness helps most by staying steady enough to observe clearly. Documentation is strongest when it does not become another source of chaos.',
+    reinforcement:
+      'Witness first. Do not become the center of the encounter.',
+    sourceRefs: ['communityWitnessing.roleBody', 'communityWitnessing.documentTitle'],
+    tags: ['witness', 'documentation', 'practice'],
+  },
+  {
+    id: 'witness-positioning-distance',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.witnessing,
+    category: 'witnessing',
+    difficulty: 'easy',
+    prompt: 'Where should a witness usually stand?',
+    choices: [
+      { id: 'a', text: 'Close enough to touch the officers if needed.' },
+      { id: 'b', text: 'At a calm, visible distance where you can record without interfering.' },
+      { id: 'c', text: 'Hidden behind a building so no one sees you.' },
+      { id: 'd', text: 'Directly between officers and the person being questioned.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'Distance protects both the witness and the person being documented. A visible, non-interfering position keeps the record clearer and the risk lower.',
+    reinforcement:
+      'Witness from distance. Visibility matters; interference does not help.',
+    sourceRefs: ['communityWitnessing.positioningBody', 'communityWitnessing.posRule1'],
+    tags: ['witness', 'positioning'],
+  },
+  {
+    id: 'witness-document-priority',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.witnessing,
+    category: 'witnessing',
+    difficulty: 'medium',
+    prompt: 'Which detail is most useful to capture early if you are recording?',
+    choices: [
+      { id: 'a', text: 'The witness talking about their own opinions.' },
+      { id: 'b', text: 'The weather and nearby storefront colors.' },
+      { id: 'c', text: 'Time, location, officer identifiers, and what is being said or done.' },
+      { id: 'd', text: 'Every rumor bystanders are repeating.' },
+    ],
+    correctChoiceId: 'c',
+    explanation:
+      'Useful records are concrete. Time, location, identifiers, and specific actions matter more than commentary or rumor.',
+    reinforcement:
+      'Capture facts that another person could verify later.',
+    sourceRefs: ['communityWitnessing.documentSubtitle', 'communityWitnessing.doc1'],
+    tags: ['witness', 'documentation'],
+  },
+  {
+    id: 'witness-agents-approach-script',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.witnessing,
+    category: 'witnessing',
+    difficulty: 'medium',
+    prompt: 'If agents approach you while you are witnessing, what response is strongest?',
+    choices: [
+      { id: 'a', text: 'I am here as a witness. I am not interfering. I am documenting this from a safe distance.' },
+      { id: 'b', text: 'You cannot talk to me because I know the Constitution.' },
+      { id: 'c', text: 'I will stop recording if you explain your badge number.' },
+      { id: 'd', text: 'I am going live right now unless you leave.' },
+    ],
+    correctChoiceId: 'a',
+    explanation:
+      'A witness needs language that is calm, plain, and hard to distort. Naming yourself as a witness and naming your distance keeps the record steady.',
+    reinforcement:
+      'Calm clarity protects better than dramatic language.',
+    sourceRefs: ['communityWitnessing.agentsScript'],
+    tags: ['witness', 'phrase'],
+  },
+  {
+    id: 'witness-do-not-become-party',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.witnessing,
+    category: 'witnessing',
+    difficulty: 'medium',
+    prompt: 'Which action turns a witness into part of the confrontation?',
+    choices: [
+      { id: 'a', text: 'Recording from a safe distance.' },
+      { id: 'b', text: 'Taking notes on time and location.' },
+      { id: 'c', text: 'Stepping into the officers’ path and physically blocking movement.' },
+      { id: 'd', text: 'Repeating what you directly observed.' },
+    ],
+    correctChoiceId: 'c',
+    explanation:
+      'A witness preserves the record. Physical intervention changes your role and can collapse the boundary between observation and confrontation.',
+    reinforcement:
+      'Do not become the incident you were trying to document.',
+    sourceRefs: ['communityWitnessing.dont1', 'communityWitnessing.witnessPartyBody'],
+    tags: ['witness', 'boundaries'],
+  },
+  {
+    id: 'witness-stoic-presence',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.witnessing,
+    category: 'witnessing',
+    difficulty: 'easy',
+    prompt: 'What kind of presence helps a witness most?',
+    choices: [
+      { id: 'a', text: 'A loud presence that dominates the encounter.' },
+      { id: 'b', text: 'A disciplined presence that stays observant and hard to rattle.' },
+      { id: 'c', text: 'A hidden presence that records nothing clearly.' },
+      { id: 'd', text: 'An impulsive presence that reacts to every new detail.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'A witness is most useful when their attention is steadier than the moment around them. Calm presence makes better memory, better video, and better testimony.',
+    reinforcement:
+      'Witnessing is a discipline before it becomes a record.',
+    sourceRefs: ['communityWitnessing.stoicBody', 'communityWitnessing.stoicQuote'],
+    tags: ['witness', 'presence'],
+  },
+  {
+    id: 'witness-adrenaline-first-step',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.witnessing,
+    category: 'witnessing',
+    difficulty: 'medium',
+    prompt: 'If your own adrenaline spikes while witnessing, what is the best first correction?',
+    choices: [
+      { id: 'a', text: 'Move closer immediately so you feel useful.' },
+      { id: 'b', text: 'Take one slower breath, widen your stance, and return to facts.' },
+      { id: 'c', text: 'Start shouting so everyone knows you care.' },
+      { id: 'd', text: 'Stop recording and improvise.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'A witness is strongest when attention returns to the concrete. One slower breath and one steadier posture can keep the record from inheriting your panic.',
+    reinforcement:
+      'Come back to breath, stance, and facts before anything else.',
+    sourceRefs: ['communityWitnessing.stoicBody', 'communityWitnessing.documentSubtitle'],
+    tags: ['witness', 'calm', 'breathing'],
+  },
+  {
+    id: 'witness-first-tool',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.witnessing,
+    category: 'witnessing',
+    difficulty: 'easy',
+    prompt: 'If there is time before officers notice you, what is the most useful first tool to start?',
+    choices: [
+      { id: 'a', text: 'A recording and a note of time and location.' },
+      { id: 'b', text: 'A legal debate with nearby strangers.' },
+      { id: 'c', text: 'A rumor chain in group chat.' },
+      { id: 'd', text: 'A loud warning shouted from very close range.' },
+    ],
+    correctChoiceId: 'a',
+    explanation:
+      'A clear record often begins before the most dramatic part of the encounter. Time, location, and an early recording give the moment a structure that memory alone may not keep.',
+    reinforcement:
+      'Start the record before the scene has a chance to blur.',
+    sourceRefs: ['communityWitnessing.doc1', 'communityWitnessing.doc2'],
+    tags: ['witness', 'recording', 'documentation'],
+  },
+  {
+    id: 'signals-one-meaning',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.signals,
+    category: 'signals',
+    difficulty: 'easy',
+    prompt: 'Why should each signal pattern have only one meaning?',
+    choices: [
+      { id: 'a', text: 'Because complicated systems look more serious.' },
+      { id: 'b', text: 'Because one pattern should cover every possible emergency.' },
+      { id: 'c', text: 'Because people need to recognize and act without guessing.' },
+      { id: 'd', text: 'Because it is easier to remember the whistle itself than the meaning.' },
+    ],
+    correctChoiceId: 'c',
+    explanation:
+      'A signal is useful only if the group can move on it immediately. Shared meaning matters more than cleverness.',
+    reinforcement:
+      'One pattern. One meaning. One response.',
+    sourceRefs: ['signals.signalOnlyDesc'],
+    tags: ['signals', 'protocol'],
+  },
+  {
+    id: 'signals-lightest-first',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.signals,
+    category: 'signals',
+    difficulty: 'easy',
+    prompt: 'What is the best first move in a signal system?',
+    choices: [
+      { id: 'a', text: 'Use the most urgent signal immediately so no one misses it.' },
+      { id: 'b', text: 'Start with the lightest recognizable pattern and escalate only if needed.' },
+      { id: 'c', text: 'Use multiple signals at once so the crowd pays attention.' },
+      { id: 'd', text: 'Skip signals and rely on shouting first.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'Escalation works best when it is deliberate. Starting light keeps the group readable and leaves room to move upward only if the moment truly worsens.',
+    reinforcement:
+      'Notice first. Urgent only when urgency is real.',
+    sourceRefs: ['signals.signal1Desc'],
+    tags: ['signals', 'escalation'],
+  },
+  {
+    id: 'signals-when-to-go-visual',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.signals,
+    category: 'signals',
+    difficulty: 'medium',
+    prompt: 'When should a group switch from sound to visible hand signals?',
+    choices: [
+      { id: 'a', text: 'Only after someone starts filming.' },
+      { id: 'b', text: 'When noise is risky, the crowd is spread out, or spoken instructions will get lost.' },
+      { id: 'c', text: 'Only indoors.' },
+      { id: 'd', text: 'Only if the whistle is missing.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'Visible coordination matters when sound could escalate the scene or fail to travel cleanly through the crowd.',
+    reinforcement:
+      'If sound raises risk, switch to something the eyes can carry.',
+    sourceRefs: ['signals.handSignalsCardDescription'],
+    tags: ['signals', 'visual'],
+  },
+  {
+    id: 'signals-three-step-flow',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.signals,
+    category: 'signals',
+    difficulty: 'medium',
+    prompt: 'Which order matches the signal field sequence?',
+    choices: [
+      { id: 'a', text: 'Coordinate, alert, stabilize' },
+      { id: 'b', text: 'Alert, coordinate, stabilize' },
+      { id: 'c', text: 'Stabilize, alert, coordinate' },
+      { id: 'd', text: 'Alert, stabilize, coordinate' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'The group first needs attention, then coordination, then a calmer structure once people have oriented to the moment.',
+    reinforcement:
+      'Attention before coordination; coordination before stabilization.',
+    sourceRefs: ['signals.communityTitle'],
+    tags: ['signals', 'flow'],
+  },
+  {
+    id: 'signals-digital-backup',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.signals,
+    category: 'signals',
+    difficulty: 'medium',
+    prompt: 'What is the role of digital backup in the signal system?',
+    choices: [
+      { id: 'a', text: 'Replace the need for shared in-person signals.' },
+      { id: 'b', text: 'Support the main signal path with buddy systems and broadcast channels.' },
+      { id: 'c', text: 'Make every alert public on the open internet.' },
+      { id: 'd', text: 'Only store photos after the event is over.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'Digital backup is a second layer, not the first move. It helps a group extend the alert or regroup without relying on one channel alone.',
+    reinforcement:
+      'The stronger system is the one with a backup path already agreed on.',
+    sourceRefs: ['signals.telegramDesc', 'signals.buddyDesc'],
+    tags: ['signals', 'comms'],
+  },
+  {
+    id: 'signals-deescalation-after-alert',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.signals,
+    category: 'signals',
+    difficulty: 'medium',
+    prompt: 'Once attention lands, what should happen next?',
+    choices: [
+      { id: 'a', text: 'Keep increasing volume so urgency never drops.' },
+      { id: 'b', text: 'Simplify movement, lower confusion, and shift the crowd into orientation.' },
+      { id: 'c', text: 'Invent a new signal pattern on the spot.' },
+      { id: 'd', text: 'Assume everyone understands the plan without further cues.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'A signal system should not leave the crowd suspended in alarm. After attention comes the quieter work of turning it into readable action.',
+    reinforcement:
+      'The alert is not the endpoint. Orientation is.',
+    sourceRefs: ['signals.dropVolumeDesc', 'signals.sitDownDesc'],
+    tags: ['signals', 'deescalation'],
+  },
+  {
+    id: 'signals-calm-after-pattern',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.signals,
+    category: 'signals',
+    difficulty: 'medium',
+    prompt: 'What helps keep an alert pattern from turning into panic?',
+    choices: [
+      { id: 'a', text: 'Adding a second urgent signal immediately whether or not it is needed.' },
+      { id: 'b', text: 'Following the alert with visible, simple cues people can mirror.' },
+      { id: 'c', text: 'Assuming the crowd already knows what to do.' },
+      { id: 'd', text: 'Changing the meaning of the pattern midstream.' },
+    ],
+    correctChoiceId: 'b',
+    explanation:
+      'An alert is only the opening move. People settle faster when the next cue is visible, simple, and shared enough to copy without guessing.',
+    reinforcement:
+      'After the alert, give the crowd something simple enough to mirror.',
+    sourceRefs: ['signals.fieldSequenceTitle', 'signals.beforeYouRely1'],
+    tags: ['signals', 'deescalation', 'visual'],
+  },
 
   {
     id: 'unsafe-door-open',
@@ -663,7 +1043,7 @@ export const legalQuizQuestions = [
     ],
     correctChoiceId: 'c',
     explanation:
-      'Signing without legal review can waive important rights and appeals.',
+      'Signing without legal review can close doors that are hard to reopen later.',
     reinforcement: 'Do not sign anything without a lawyer present.',
     sourceRefs: ['scenarioData.doorStep6Script', 'scenarioData.streetStep6Script', 'scenarioData.vehicleStep6Script'],
     tags: ['unsafe-response', 'signing'],
@@ -683,7 +1063,7 @@ export const legalQuizQuestions = [
     ],
     correctChoiceId: 'c',
     explanation:
-      'Once you consent, you undercut the protection created by a clear refusal.',
+      'Once you consent, you give away the protection that a clear refusal was meant to preserve.',
     reinforcement: 'Never talk yourself into a search to seem cooperative.',
     sourceRefs: ['legal.fourthConsent', 'scenarioData.streetBranch3aScript'],
     tags: ['unsafe-response', 'searches'],
@@ -708,6 +1088,48 @@ export const legalQuizQuestions = [
       'Use short rights language now; save the legal fight for court and counsel later.',
     sourceRefs: ['legal.heroScript1', 'legal.heroScript2', 'legal.heroScript3'],
     tags: ['unsafe-response', 'de-escalation'],
+  },
+  {
+    id: 'unsafe-overexplaining',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.unsafeResponses,
+    category: 'unsafe-response',
+    difficulty: 'medium',
+    prompt: 'Which response often becomes unsafe because fear keeps adding more words?',
+    choices: [
+      { id: 'a', text: 'I am exercising my right to remain silent.' },
+      { id: 'b', text: 'I want to speak to a lawyer.' },
+      { id: 'c', text: 'Let me explain everything from the beginning so you understand I belong here.' },
+      { id: 'd', text: 'I do not consent to any searches.' },
+    ],
+    correctChoiceId: 'c',
+    explanation:
+      'Fear often tries to buy safety with explanation. In practice, long improvised stories can give away facts, guesses, and contradictions that a shorter rights-based response would not.',
+    reinforcement:
+      'Pressure usually asks for fewer words, not more.',
+    sourceRefs: ['legal.fifthCanStaySilent', 'scenarioData.streetStep2Explanation'],
+    tags: ['unsafe-response', 'silence', 'calm'],
+  },
+  {
+    id: 'unsafe-sudden-movement',
+    type: 'multipleChoice',
+    deck: legalQuizDecks.unsafeResponses,
+    category: 'unsafe-response',
+    difficulty: 'easy',
+    prompt: 'Which action creates unnecessary danger during a tense encounter?',
+    choices: [
+      { id: 'a', text: 'Keeping your hands visible.' },
+      { id: 'b', text: 'Announcing before reaching for documents.' },
+      { id: 'c', text: 'Making a quick unannounced reach into a pocket or glove box.' },
+      { id: 'd', text: 'Slowing your breathing before answering.' },
+    ],
+    correctChoiceId: 'c',
+    explanation:
+      'Fast unexplained movement makes the moment harder to read. The safer path is visible hands, slower motion, and a short verbal warning before you reach.',
+    reinforcement:
+      'Let your movements be slower and easier to understand than the tension around you.',
+    sourceRefs: ['scenarioData.vehicleStep3Script', 'scenarioData.streetKeyPoint2'],
+    tags: ['unsafe-response', 'vehicle', 'calm'],
   },
 
   {
@@ -804,6 +1226,9 @@ export const legalQuizQuestions = [
 
 export const getLegalQuizQuestionsByDeck = (deck) =>
   legalQuizQuestions.filter((question) => question.deck === deck);
+
+export const getLegalQuizQuestionsByCategory = (category) =>
+  legalQuizQuestions.filter((question) => question.category === category);
 
 export const getLegalQuizQuestionsByTag = (tag) =>
   legalQuizQuestions.filter((question) => question.tags?.includes(tag));

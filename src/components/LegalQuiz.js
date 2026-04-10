@@ -7,15 +7,23 @@ import {
   legalQuizDecks,
   getLegalQuizRightsTarget,
   getLegalQuizScenarioTarget,
+  getLegalQuizQuestionsByCategory,
+  getLegalQuizQuestionsByDeck,
 } from '../data/legalQuizData';
-
-const LEGAL_QUIZ_STORAGE_KEY = 'safeneighbor_legal_quiz_progress';
-const LEGAL_QUIZ_SESSION_KEY = 'safeneighbor_legal_quiz_session';
-const LEGAL_QUIZ_RECENT_ROUND_KEY = 'safeneighbor_legal_quiz_recent_round';
+import {
+  LEGAL_QUIZ_SESSION_KEY,
+  LEGAL_QUIZ_RECENT_ROUND_KEY,
+  readLegalQuizProgress,
+  writeLegalQuizProgress,
+  writeLegalQuizReturnIntent,
+  clearLegalQuizReturnIntent,
+} from '../utils/trainingLaunch';
 
 const DECK_LABELS = {
   constitutional: 'Constitution',
   scenarios: 'Scenarios',
+  witnessing: 'Community Witnessing',
+  signals: 'Signals',
   'unsafe-responses': 'Avoid Mistakes',
   'phrase-recall': 'Exact Phrases',
 };
@@ -81,10 +89,12 @@ const pickQuestions = (pool, count, recentIds) => {
 const buildMixedQuiz = () => {
   const recentIds = new Set(getRecentRoundIds());
   const countsByDeck = [
-    [legalQuizDecks.constitutional, 7],
-    [legalQuizDecks.scenarios, 8],
+    [legalQuizDecks.constitutional, 6],
+    [legalQuizDecks.scenarios, 6],
+    [legalQuizDecks.witnessing, 4],
+    [legalQuizDecks.signals, 4],
     [legalQuizDecks.unsafeResponses, 4],
-    [legalQuizDecks.phraseRecall, 5],
+    [legalQuizDecks.phraseRecall, 4],
   ];
 
   const mixed = shuffle(
@@ -103,10 +113,40 @@ const buildMixedQuiz = () => {
 
 const buildDeckQuiz = (deck, count = 12) => {
   const recentIds = new Set(getRecentRoundIds());
-  const pool = legalQuizQuestions.filter((question) => question.deck === deck);
+  const pool = getLegalQuizQuestionsByDeck(deck);
   const picked = deck === legalQuizDecks.phraseRecall
     ? shuffle(pool)
     : pickQuestions(pool, Math.min(count, pool.length), recentIds);
+  setRecentRoundIds(picked.map((question) => question.id));
+  return shuffle(picked);
+};
+
+const buildFilteredQuiz = ({
+  deckId = null,
+  categories = [],
+  tags = [],
+  count = 10,
+}) => {
+  const recentIds = new Set(getRecentRoundIds());
+  const normalizedCategories = new Set(categories.filter(Boolean));
+  const normalizedTags = new Set(tags.filter(Boolean));
+
+  let pool = legalQuizQuestions.filter((question) => {
+    if (deckId && question.deck !== deckId) return false;
+    if (normalizedCategories.size && !normalizedCategories.has(question.category)) return false;
+    if (normalizedTags.size && !question.tags?.some((tag) => normalizedTags.has(tag))) return false;
+    return true;
+  });
+
+  if (!pool.length && normalizedCategories.size && deckId === legalQuizDecks.scenarios) {
+    pool = categories.flatMap((category) => getLegalQuizQuestionsByCategory(category));
+  }
+
+  if (!pool.length) {
+    return deckId ? buildDeckQuiz(deckId, count) : buildMixedQuiz();
+  }
+
+  const picked = pickQuestions(pool, Math.min(count, pool.length), recentIds);
   setRecentRoundIds(picked.map((question) => question.id));
   return shuffle(picked);
 };
@@ -115,49 +155,53 @@ const drillConfigs = [
   {
     id: 'starter',
     title: 'Mixed practice round',
-    description: 'A larger mixed round across amendments, scenarios, mistakes, and core phrases. The question mix changes each time.',
+    description: 'A fuller round across rights, scenarios, witnessing, signals, mistakes, and core phrases. The order shifts so memory has to arrive fresh.',
     accent: 'border-cyan-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-cyan-950/18',
     getQuestions: () => buildMixedQuiz(),
   },
   {
     id: 'constitutional',
     title: 'Constitution sprint',
-    description: 'Drill the 1st, 4th, 5th, 6th, and 14th Amendment foundations first.',
+    description: 'Return to the constitutional ground beneath speech, search, silence, counsel, and due process.',
     accent: 'border-violet-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-violet-950/18',
     getQuestions: () => buildDeckQuiz(legalQuizDecks.constitutional, 12),
   },
   {
     id: 'scenarios',
     title: 'Scenario practice',
-    description: 'Rehearse what to say at the door, on the street, in vehicles, at work, and near checkpoints.',
+    description: 'Rehearse the language that matters at the door, on the street, in a vehicle, at work, and near checkpoints.',
     accent: 'border-sky-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-sky-950/18',
     getQuestions: () => buildDeckQuiz(legalQuizDecks.scenarios, 12),
   },
   {
     id: 'phrases',
     title: 'Fast phrases',
-    description: 'Stay with the short lines that need to arrive intact when the room gets loud.',
+    description: 'Keep the short lines close enough that they still arrive intact when the room gets loud.',
     accent: 'border-emerald-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-emerald-950/18',
     getQuestions: () => buildDeckQuiz(legalQuizDecks.phraseRecall),
+  },
+  {
+    id: 'witnessing',
+    title: 'Witness response',
+    description: 'Practice distance, documentation, and witness language that keeps the record steadier than the moment around it.',
+    accent: 'border-teal-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-teal-950/18',
+    getQuestions: () => buildDeckQuiz(legalQuizDecks.witnessing, 10),
+  },
+  {
+    id: 'signals',
+    title: 'Signals drill',
+    description: 'Rehearse alert ladders, visible backup, and the quiet move from attention into orientation.',
+    accent: 'border-blue-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-blue-950/18',
+    getQuestions: () => buildDeckQuiz(legalQuizDecks.signals, 10),
   },
 ];
 
 const getStoredProgress = () => {
-  try {
-    const raw = localStorage.getItem(LEGAL_QUIZ_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : { missedIds: [], lastScore: null, completedAt: null };
-  } catch (error) {
-    console.warn('Failed to read legal quiz progress', error);
-    return { missedIds: [], lastScore: null, completedAt: null };
-  }
+  return readLegalQuizProgress();
 };
 
 const storeProgress = (progress) => {
-  try {
-    localStorage.setItem(LEGAL_QUIZ_STORAGE_KEY, JSON.stringify(progress));
-  } catch (error) {
-    console.warn('Failed to store legal quiz progress', error);
-  }
+  writeLegalQuizProgress(progress);
 };
 
 const PhraseRecall = ({ question, answer, setAnswer, submitted, isCorrect }) => {
@@ -238,16 +282,18 @@ const PhraseRecall = ({ question, answer, setAnswer, submitted, isCorrect }) => 
   );
 };
 
-function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
+function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchIntent = null }) {
   const prefersReducedMotion = useReducedMotion();
   const [mode, setMode] = useState('intro');
   const [questions, setQuestions] = useState([]);
   const [index, setIndex] = useState(0);
   const [selectedChoiceId, setSelectedChoiceId] = useState(null);
   const [phraseAnswer, setPhraseAnswer] = useState([]);
+  const [confidenceLevel, setConfidenceLevel] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState([]);
   const [progress, setProgress] = useState(() => getStoredProgress());
+  const [appliedLaunchId, setAppliedLaunchId] = useState(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -264,6 +310,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
         setIndex(Math.min(session.index || 0, Math.max(restoredQuestions.length - 1, 0)));
         setSelectedChoiceId(session.selectedChoiceId || null);
         setPhraseAnswer(session.phraseAnswer || []);
+        setConfidenceLevel(session.confidenceLevel || null);
         setSubmitted(Boolean(session.submitted));
         setResults(session.results || []);
         setMode('quiz');
@@ -293,10 +340,12 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
     : selectedChoiceId === currentQuestion?.correctChoiceId;
 
   const resetSessionState = useCallback((nextQuestions) => {
+    clearLegalQuizReturnIntent();
     setQuestions(nextQuestions);
     setIndex(0);
     setSelectedChoiceId(null);
     setPhraseAnswer([]);
+    setConfidenceLevel(null);
     setSubmitted(false);
     setResults([]);
     setMode('quiz');
@@ -315,8 +364,13 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
     resetSessionState(config.getQuestions());
   }, [resetSessionState, startStarterQuiz]);
 
+  const startFilteredQuiz = useCallback((filters) => {
+    resetSessionState(buildFilteredQuiz(filters || {}));
+  }, [resetSessionState]);
+
   const startMissedQuiz = useCallback(() => {
-    const missedQuestions = progress.missedIds
+    const reviewIds = Array.from(new Set([...(progress.missedIds || []), ...(progress.reinforcementIds || [])]));
+    const missedQuestions = reviewIds
       .map((id) => legalQuizQuestions.find((question) => question.id === id))
       .filter(Boolean);
 
@@ -326,7 +380,73 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
     }
 
     resetSessionState(missedQuestions);
-  }, [progress.missedIds, resetSessionState, startStarterQuiz]);
+  }, [progress.missedIds, progress.reinforcementIds, resetSessionState, startStarterQuiz]);
+
+  useEffect(() => {
+    if (!isOpen || !launchIntent?.launchId || launchIntent.launchId === appliedLaunchId) return;
+    setAppliedLaunchId(launchIntent.launchId);
+
+    if (launchIntent.mode === 'resume') {
+      return;
+    }
+
+    clearStoredSession();
+
+    if (launchIntent.mode === 'review') {
+      startMissedQuiz();
+      return;
+    }
+
+    if (launchIntent.mode === 'deck' && launchIntent.deckId) {
+      startConfiguredQuiz(launchIntent.deckId);
+      return;
+    }
+
+    if (launchIntent.mode === 'filtered') {
+      startFilteredQuiz(launchIntent);
+      return;
+    }
+
+    if (launchIntent.mode === 'intro') {
+      setMode('intro');
+      return;
+    }
+
+    startStarterQuiz();
+  }, [appliedLaunchId, isOpen, launchIntent, startConfiguredQuiz, startFilteredQuiz, startMissedQuiz, startStarterQuiz]);
+
+  const rememberQuizReturn = useCallback((destination) => {
+    if (!currentQuestion) return;
+    writeLegalQuizReturnIntent({
+      questionId: currentQuestion.id,
+      destination,
+      prompt: currentQuestion.prompt,
+      deck: currentQuestion.deck,
+      category: currentQuestion.category,
+    });
+  }, [currentQuestion]);
+
+  const handleOpenRightsReview = useCallback(() => {
+    const amendmentId = getLegalQuizRightsTarget(currentQuestion);
+    if (!amendmentId) return;
+    rememberQuizReturn({
+      type: 'rights',
+      amendmentId,
+      label: 'Return to quiz',
+    });
+    onJumpToRights?.(amendmentId);
+  }, [currentQuestion, onJumpToRights, rememberQuizReturn]);
+
+  const handleOpenScenarioGuide = useCallback(() => {
+    const scenarioId = getLegalQuizScenarioTarget(currentQuestion);
+    if (!scenarioId) return;
+    rememberQuizReturn({
+      type: 'scenario',
+      scenarioId,
+      label: 'Return to quiz',
+    });
+    onOpenScenarios?.(scenarioId);
+  }, [currentQuestion, onOpenScenarios, rememberQuizReturn]);
 
   useEffect(() => {
     if (!isOpen || mode !== 'quiz' || !questions.length) return;
@@ -336,11 +456,12 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
       index,
       selectedChoiceId,
       phraseAnswer,
+      confidenceLevel,
       submitted,
       results,
       savedAt: Date.now(),
     });
-  }, [index, isOpen, mode, phraseAnswer, questions, results, selectedChoiceId, submitted]);
+  }, [confidenceLevel, index, isOpen, mode, phraseAnswer, questions, results, selectedChoiceId, submitted]);
 
   const handleSubmit = () => {
     if (!currentQuestion) return;
@@ -350,15 +471,50 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
   };
 
   const finalizeQuiz = (nextResults) => {
+    const completedAt = new Date().toISOString();
     const missedIds = nextResults.filter((result) => !result.correct).map((result) => result.id);
+    const reinforcementIds = nextResults
+      .filter((result) => !result.correct || result.confidence === 'unsure')
+      .map((result) => result.id);
     const score = Math.round((nextResults.filter((result) => result.correct).length / nextResults.length) * 100);
+    const deckStats = nextResults.reduce((acc, result) => {
+      acc[result.deck] = acc[result.deck] || { total: 0, correct: 0, reinforcement: 0, steady: 0 };
+      acc[result.deck].total += 1;
+      if (result.correct) acc[result.deck].correct += 1;
+      if (result.correct && result.confidence === 'steady') acc[result.deck].steady += 1;
+      if (!result.correct || result.confidence === 'unsure') acc[result.deck].reinforcement += 1;
+      return acc;
+    }, {});
     const nextProgress = {
+      ...progress,
       missedIds,
+      reinforcementIds,
       lastScore: score,
-      completedAt: new Date().toISOString(),
+      completedAt,
+      lastReviewedByDeck: {
+        ...(progress.lastReviewedByDeck || {}),
+        ...Object.fromEntries(Object.keys(deckStats).map((deck) => [deck, completedAt])),
+      },
+      deckHistory: {
+        ...(progress.deckHistory || {}),
+        ...Object.fromEntries(
+          Object.entries(deckStats).map(([deck, stats]) => [
+            deck,
+            {
+              completedAt,
+              lastScore: Math.round((stats.correct / stats.total) * 100),
+              correct: stats.correct,
+              total: stats.total,
+              steady: stats.steady,
+              needsReinforcement: stats.reinforcement,
+            },
+          ])
+        ),
+      },
     };
     setProgress(nextProgress);
     storeProgress(nextProgress);
+    clearLegalQuizReturnIntent();
     clearStoredSession();
     setMode('results');
   };
@@ -368,6 +524,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
       id: currentQuestion.id,
       correct: isCurrentCorrect,
       deck: currentQuestion.deck,
+      confidence: confidenceLevel || 'unsure',
     };
     const nextResults = [...results, result];
     setResults(nextResults);
@@ -380,22 +537,24 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
     setIndex(index + 1);
     setSelectedChoiceId(null);
     setPhraseAnswer([]);
+    setConfidenceLevel(null);
     setSubmitted(false);
   };
 
   const correctCount = results.filter((result) => result.correct).length;
   const score = results.length ? Math.round((correctCount / results.length) * 100) : progress.lastScore || 0;
-  const missedQuestions = results
-    .filter((result) => !result.correct)
+  const reinforcementQuestions = results
+    .filter((result) => !result.correct || result.confidence === 'unsure')
     .map((result) => legalQuizQuestions.find((question) => question.id === result.id))
     .filter(Boolean);
+  const reinforcementCount = reinforcementQuestions.length;
 
   const recommendations = useMemo(() => {
-    const missedDecks = new Set(missedQuestions.map((question) => question.deck));
-    const missedTags = new Set(missedQuestions.flatMap((question) => question.tags || []));
+    const missedDecks = new Set(reinforcementQuestions.map((question) => question.deck));
+    const missedTags = new Set(reinforcementQuestions.flatMap((question) => question.tags || []));
     const next = [];
-    const firstRightsTarget = missedQuestions.map((question) => getLegalQuizRightsTarget(question)).find(Boolean);
-    const firstScenarioTarget = missedQuestions.map((question) => getLegalQuizScenarioTarget(question)).find(Boolean);
+    const firstRightsTarget = reinforcementQuestions.map((question) => getLegalQuizRightsTarget(question)).find(Boolean);
+    const firstScenarioTarget = reinforcementQuestions.map((question) => getLegalQuizScenarioTarget(question)).find(Boolean);
 
     if (missedDecks.has(legalQuizDecks.constitutional)) {
       next.push({
@@ -419,12 +578,92 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
       });
     }
 
+    if (missedDecks.has(legalQuizDecks.witnessing) || missedTags.has('witness')) {
+      next.push({
+        id: 'witnessing',
+        eyebrow: 'Witness practice',
+        title: 'Return to witness posture and documentation drills',
+        description: 'Go back through witness distance, observation, and response language until the role feels steadier under pressure.',
+        actionLabel: 'Drill Witnessing',
+        onClick: () => startConfiguredQuiz('witnessing'),
+      });
+    }
+
+    if (missedDecks.has(legalQuizDecks.signals) || missedTags.has('signals')) {
+      next.push({
+        id: 'signals',
+        eyebrow: 'Signals practice',
+        title: 'Run the shared signal ladder again',
+        description: 'Revisit the alert patterns, visible backup, and de-escalation sequence until the system feels teachable in a sentence.',
+        actionLabel: 'Drill Signals',
+        onClick: () => startConfiguredQuiz('signals'),
+      });
+    }
+
     if (missedDecks.has(legalQuizDecks.phraseRecall) || missedTags.has('phrase')) {
       next.push({
         id: 'phrases',
         eyebrow: 'Exact wording',
         title: 'Drill the fast phrases again',
         description: 'Repeat the short, direct lines until they come back without strain and without improvisation.',
+        actionLabel: 'Drill Fast Phrases',
+        onClick: () => startConfiguredQuiz('phrases'),
+      });
+    }
+
+    const staleDeckOrder = [
+      legalQuizDecks.scenarios,
+      legalQuizDecks.witnessing,
+      legalQuizDecks.signals,
+      legalQuizDecks.constitutional,
+      legalQuizDecks.phraseRecall,
+    ];
+    const staleDeck = staleDeckOrder.find((deck) => {
+      const completedAt = progress?.lastReviewedByDeck?.[deck];
+      if (!completedAt) return true;
+      const age = Math.floor((Date.now() - new Date(completedAt).getTime()) / (24 * 60 * 60 * 1000));
+      return age >= (deck === legalQuizDecks.phraseRecall ? 7 : 14);
+    });
+
+    if (!next.length && staleDeck === legalQuizDecks.scenarios) {
+      next.push({
+        id: 'stale-scenarios',
+        eyebrow: 'Keep it warm',
+        title: 'Return to scenario language before it drifts',
+        description: 'A calm pass through door, street, vehicle, work, and checkpoint responses keeps the first sentences easier to reach later.',
+        actionLabel: 'Open Scenario Drill',
+        onClick: () => startConfiguredQuiz('scenarios'),
+      });
+    }
+
+    if (!next.length && staleDeck === legalQuizDecks.witnessing) {
+      next.push({
+        id: 'stale-witness',
+        eyebrow: 'Keep it warm',
+        title: 'Refresh witness posture and documentation',
+        description: 'Witnessing is strongest when distance, language, and observation feel settled before the moment begins.',
+        actionLabel: 'Open Witness Drill',
+        onClick: () => startConfiguredQuiz('witnessing'),
+      });
+    }
+
+    if (!next.length && staleDeck === legalQuizDecks.signals) {
+      next.push({
+        id: 'stale-signals',
+        eyebrow: 'Keep it warm',
+        title: 'Rehearse the shared signal ladder again',
+        description: 'A signal system is easier to trust when the group can still say what each pattern means without hesitation.',
+        actionLabel: 'Open Signals Drill',
+        onClick: () => startConfiguredQuiz('signals'),
+      });
+    }
+
+    if (!next.length && staleDeck === legalQuizDecks.phraseRecall) {
+      next.push({
+        id: 'stale-phrases',
+        eyebrow: 'Keep it warm',
+        title: 'Return to the shortest phrases',
+        description: 'The smallest lines are often the first ones pressure tries to erase. Bring them back before that happens.',
         actionLabel: 'Drill Fast Phrases',
         onClick: () => startConfiguredQuiz('phrases'),
       });
@@ -442,7 +681,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
     }
 
     return next.slice(0, 3);
-  }, [missedQuestions, onJumpToRights, onOpenScenarios, startConfiguredQuiz, startStarterQuiz]);
+  }, [onJumpToRights, onOpenScenarios, progress, reinforcementQuestions, startConfiguredQuiz, startStarterQuiz]);
 
   const handleBackToDrills = () => {
     setMode('intro');
@@ -541,9 +780,9 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                 <motion.div variants={staggerContainer} className="space-y-5">
                   <motion.div variants={staggerItem} className="rounded-[26px] border border-slate-800/80 bg-slate-950/65 p-5">
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300/80">What this trains</p>
-                    <h3 className="mt-2 text-2xl font-black tracking-tight text-white">Clarity is easier to keep when it is practiced before fear arrives</h3>
+                    <h3 className="mt-2 text-2xl font-black tracking-tight text-white">What steadies the mind in pressure is usually something practiced before pressure arrived</h3>
                     <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">
-                      These drills are a place to repeat the language of rights before the moment becomes urgent. The goal is not performance. It is memory steady enough to hold when pressure tries to reorder your words.
+                      These drills are a place to return to rights, phrases, and encounter choices before urgency asks too much of memory. The goal is not speed for its own sake. It is steadiness, so the right sentence is still there when the room narrows.
                     </p>
                   </motion.div>
 
@@ -558,7 +797,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                     </motion.div>
                     <motion.div variants={staggerItem} className="rounded-[22px] border border-rose-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-rose-950/18 p-4">
                       <p className="text-[11px] font-black uppercase tracking-[0.16em] text-rose-300">Avoid mistakes</p>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-300">Notice the sentence that gives away safety before it leaves your mouth.</p>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-300">Notice the sentence that gives too much away before it leaves your mouth.</p>
                     </motion.div>
                     <motion.div variants={staggerItem} className="rounded-[22px] border border-emerald-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-emerald-950/18 p-4">
                       <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-300">Exact phrases</p>
@@ -581,7 +820,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                         >
                           <p className="text-sm font-black uppercase tracking-[0.14em] text-white">{config.title}</p>
                           <p className="mt-2 text-sm leading-relaxed text-slate-300">{config.description}</p>
-                          <p className="mt-3 text-xs font-semibold text-cyan-300">Start drill</p>
+                          <p className="mt-3 text-xs font-semibold text-cyan-300">Open drill</p>
                         </motion.button>
                       ))}
                     </motion.div>
@@ -596,7 +835,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                       className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-500 to-blue-500 px-5 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_16px_34px_rgba(37,99,235,0.3)] transition-all hover:from-cyan-400 hover:to-blue-400 active:scale-[0.98]"
                     >
                       <Lightning size={18} weight="bold" />
-                      Start Quiz
+                        Begin Mixed Practice
                     </motion.button>
                     <motion.button
                       type="button"
@@ -606,7 +845,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                       className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-700/70 bg-slate-900/80 px-5 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-slate-100 transition-colors hover:border-slate-500/70 hover:text-white active:scale-[0.98]"
                     >
                       <ArrowClockwise size={18} weight="bold" />
-                      Review Missed
+                        Return To Reinforcement
                     </motion.button>
                   </motion.div>
                 </motion.div>
@@ -620,8 +859,12 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                         <span className="font-bold text-white">{LEGAL_QUIZ_MIXED_TOTAL}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-400">Missed review ready</span>
+                        <span className="text-slate-400">Incorrect answers saved</span>
                         <span className="font-bold text-white">{progress.missedIds?.length || 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-400">Needs reinforcement</span>
+                        <span className="font-bold text-white">{progress.reinforcementIds?.length || 0}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-slate-400">Last score</span>
@@ -787,11 +1030,43 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                                 </p>
                               </div>
                             )}
+                            <div className="mt-4 rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3">
+                              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">How did that feel?</p>
+                              <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                                A correct answer that still felt shaky should come back sooner than one that felt settled.
+                              </p>
+                              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                                <button
+                                  type="button"
+                                  onClick={() => setConfidenceLevel('steady')}
+                                  className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-bold transition-colors ${
+                                    confidenceLevel === 'steady'
+                                      ? 'border-emerald-400/45 bg-emerald-500/14 text-emerald-100'
+                                      : 'border-slate-700/70 bg-slate-900/80 text-slate-200 hover:border-emerald-400/30 hover:text-white'
+                                  }`}
+                                >
+                                  <CheckCircle size={16} weight="fill" />
+                                  Felt steady
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfidenceLevel('unsure')}
+                                  className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-bold transition-colors ${
+                                    confidenceLevel === 'unsure'
+                                      ? 'border-amber-400/45 bg-amber-500/14 text-amber-100'
+                                      : 'border-slate-700/70 bg-slate-900/80 text-slate-200 hover:border-amber-400/30 hover:text-white'
+                                  }`}
+                                >
+                                  <Lightning size={16} weight="fill" />
+                                  Needs reinforcement
+                                </button>
+                              </div>
+                            </div>
                             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                               {getLegalQuizRightsTarget(currentQuestion) && (
                                 <button
                                   type="button"
-                                  onClick={() => onJumpToRights?.(getLegalQuizRightsTarget(currentQuestion))}
+                                  onClick={handleOpenRightsReview}
                                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-500/25 bg-violet-500/10 px-4 py-2.5 text-sm font-bold text-violet-100 transition-colors hover:border-violet-400/40 hover:bg-violet-500/15"
                                 >
                                   <Scroll size={16} weight="bold" />
@@ -801,7 +1076,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                               {getLegalQuizScenarioTarget(currentQuestion) && (
                                 <button
                                   type="button"
-                                  onClick={() => onOpenScenarios?.(getLegalQuizScenarioTarget(currentQuestion))}
+                                  onClick={handleOpenScenarioGuide}
                                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-2.5 text-sm font-bold text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15"
                                 >
                                   <CaretRight size={16} weight="bold" />
@@ -811,7 +1086,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                             </div>
                             {getLegalQuizScenarioTarget(currentQuestion) && (
                               <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                                Opening a scenario saves this quiz automatically. Reopen Practice With Quiz to continue where you left off.
+                                Opening a guide keeps this round waiting where you left it. Use the return path in that section to come back to the next question.
                               </p>
                             )}
                           </div>
@@ -842,7 +1117,8 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                     <button
                       type="button"
                       onClick={handleNext}
-                      className="inline-flex items-center justify-center rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-500 to-blue-500 px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_16px_34px_rgba(37,99,235,0.28)] transition-all hover:from-cyan-400 hover:to-blue-400 active:scale-[0.98]"
+                      disabled={!confidenceLevel}
+                      className="inline-flex items-center justify-center rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-500 to-blue-500 px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_16px_34px_rgba(37,99,235,0.28)] transition-all hover:from-cyan-400 hover:to-blue-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none"
                     >
                       {index === totalQuestions - 1 ? 'See Results' : 'Next Question'}
                     </button>
@@ -858,22 +1134,26 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300/80">Session complete</p>
                     <h3 className="mt-2 text-3xl font-black tracking-tight text-white">{score}% ready</h3>
                     <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">
-                      You answered {correctCount} of {results.length} correctly. The goal here is not perfection on the first pass. It is to keep the right language available when pressure spikes.
+                      You answered {correctCount} of {results.length} correctly. {reinforcementCount > 0 ? `${reinforcementCount} item${reinforcementCount === 1 ? ' still needs' : 's still need'} reinforcement before it is truly settled.` : 'What matters most is not a flawless first pass. It is whether the right language is easier to reach the next time pressure rises.'}
                     </p>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
                     {Object.entries(
                       results.reduce((acc, result) => {
-                        acc[result.deck] = acc[result.deck] || { total: 0, correct: 0 };
+                        acc[result.deck] = acc[result.deck] || { total: 0, correct: 0, reinforcement: 0 };
                         acc[result.deck].total += 1;
                         if (result.correct) acc[result.deck].correct += 1;
+                        if (!result.correct || result.confidence === 'unsure') acc[result.deck].reinforcement += 1;
                         return acc;
                       }, {})
                     ).map(([deck, stats]) => (
                       <div key={deck} className="rounded-[22px] border border-slate-800/80 bg-slate-950/60 p-4">
                         <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">{DECK_LABELS[deck] || deck}</p>
                         <p className="mt-2 text-xl font-black text-white">{stats.correct}/{stats.total}</p>
+                        <p className={`mt-1 text-xs font-semibold ${stats.reinforcement > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                          {stats.reinforcement > 0 ? `${stats.reinforcement} need reinforcement` : 'Felt steady'}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -926,7 +1206,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                         className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-500 to-blue-500 px-5 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_16px_34px_rgba(37,99,235,0.28)] transition-all hover:from-cyan-400 hover:to-blue-400 active:scale-[0.98]"
                       >
                         <ArrowClockwise size={18} weight="bold" />
-                        Retry Missed
+                        Review Reinforcement
                       </button>
                       <button
                         type="button"
@@ -947,9 +1227,9 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
 
                   <div className="rounded-[26px] border border-slate-800/80 bg-slate-950/60 p-5">
                     <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Needs more repetition</p>
-                    {missedQuestions.length ? (
+                    {reinforcementQuestions.length ? (
                       <div className="mt-3 space-y-2">
-                        {missedQuestions.slice(0, 5).map((question) => (
+                        {reinforcementQuestions.slice(0, 5).map((question) => (
                           <div key={question.id} className="rounded-2xl border border-slate-700/70 bg-slate-900/85 px-4 py-3">
                             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
                               {DECK_LABELS[question.deck] || question.deck}
@@ -959,7 +1239,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios }) {
                         ))}
                       </div>
                     ) : (
-                      <p className="mt-3 text-sm leading-relaxed text-slate-300">You cleared this round without misses. Start another mixed round to keep the language and decisions close at hand.</p>
+                      <p className="mt-3 text-sm leading-relaxed text-slate-300">This round landed cleanly and felt steady. Start another mixed round to keep the language and decisions close at hand.</p>
                     )}
                   </div>
                 </div>

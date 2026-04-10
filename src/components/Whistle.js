@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { SpeakerHigh, Megaphone, Thermometer, DeviceMobile, Warning, DownloadSimple, Eye, Hand, HandWaving, HandPointing, HandGrabbing } from '@phosphor-icons/react';
+import { SpeakerHigh, Megaphone, Thermometer, DeviceMobile, Warning, DownloadSimple, Eye, Hand, HandWaving, HandPointing, HandGrabbing, Lightning } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { tapHaptic } from '../utils/haptics';
 import { useRotatingQuote } from '../utils/quoteRotation';
@@ -187,7 +187,7 @@ const SignalsSectionHeader = ({
   </div>
 );
 
-function Whistle() {
+function Whistle({ onOpenPracticeSignals }) {
   const { t } = useTranslation();
   const whistleQuote = useRotatingQuote('signals.communityQuote', 'signals.communityQuoteAuthor', 'whistle');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
@@ -331,6 +331,18 @@ function Whistle() {
               <SpeakerHigh size={14} weight="fill" className="text-cyan-300" />
               Keep each pattern tied to one meaning so people can respond without guessing.
             </p>
+            {onOpenPracticeSignals && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={onOpenPracticeSignals}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15"
+                >
+                  <Lightning size={16} weight="bold" />
+                  Practice these signals
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>

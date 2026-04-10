@@ -10,6 +10,7 @@ import {
   ScalesIcon as Scales, NotePencilIcon as NotePencil, WifiSlashIcon as WifiSlash,
   ListChecksIcon as ListChecks,
   UsersThreeIcon as UsersThree,
+  Lightning,
 } from '@phosphor-icons/react';
 import Disclaimer from './Disclaimer';
 
@@ -103,7 +104,7 @@ const Section = ({ id, icon: Icon, title, expanded, onToggle, children, accent =
 };
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-const CommunityWitnessing = ({ onBack, onOpenLegalResponse, onOpenEncounterLog }) => {
+const CommunityWitnessing = ({ onBack, onOpenLegalResponse, onOpenEncounterLog, onOpenPracticeWitness }) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(new Set(['role']));
   const [checkedDocs, setCheckedDocs] = useState(new Set());
@@ -160,6 +161,18 @@ const CommunityWitnessing = ({ onBack, onOpenLegalResponse, onOpenEncounterLog }
           <Scales size={14} weight="bold" className="text-teal-400" />
           <span className="text-teal-300 text-xs font-medium">{t('communityWitnessing.legalBadge')}</span>
         </div>
+
+        {onOpenPracticeWitness && (
+          <div className="mt-4">
+            <button
+              onClick={onOpenPracticeWitness}
+              className="inline-flex items-center gap-2 rounded-2xl border border-teal-500/25 bg-teal-500/10 px-4 py-3 text-sm font-bold text-teal-100 transition-colors hover:border-teal-400/40 hover:bg-teal-500/15"
+            >
+              <Lightning size={16} weight="bold" />
+              Practice witness response
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sections */}

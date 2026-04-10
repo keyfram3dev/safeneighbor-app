@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Copy, Check, CaretRight, CaretLeft, Shield, BookOpen, Warning, House, User, Megaphone, VideoCamera, Car, Buildings, Scales, FileText, Prohibit, Wrench, DoorOpen, X, FlowerLotus, MapPin, PersonSimpleTaiChiIcon as PersonSimpleTaiChi, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit } from '@phosphor-icons/react';
+import { ArrowLeft, Copy, Check, CaretRight, CaretLeft, Shield, BookOpen, Warning, House, User, Megaphone, VideoCamera, Car, Buildings, Scales, FileText, Prohibit, Wrench, DoorOpen, X, FlowerLotus, MapPin, Lightning, PersonSimpleTaiChiIcon as PersonSimpleTaiChi, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit } from '@phosphor-icons/react';
 import { scenarios } from '../data/scenarioData';
+import { readLegalQuizReturnIntent } from '../utils/trainingLaunch';
 
 // Map icon string identifiers to Phosphor components
 const iconMap = {
@@ -256,7 +257,7 @@ const BreathingGuide = ({ onComplete, onSkip, containerRef = null }) => {
   );
 };
 
-function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateToScenario, handoffContext = null, onReturnToEmergency }) {
+function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateToScenario, handoffContext = null, onReturnToEmergency, onOpenPractice, onResumeQuiz }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState(initialMode);
   const [currentStep, setCurrentStep] = useState(0);
@@ -264,12 +265,17 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
   const [showBreathingGuide, setShowBreathingGuide] = useState(true);
   const [selectedBranchIdx, setSelectedBranchIdx] = useState(null);
   const [copiedBranch, setCopiedBranch] = useState(false);
+  const [quizReturnIntent, setQuizReturnIntent] = useState(() => readLegalQuizReturnIntent());
   const modeToggleRef = useRef(null);
   const scriptCardRef = useRef(null);
   const breathingGuideRef = useRef(null);
   const pendingEmergencyEntryScrollRef = useRef(false);
 
   const scenario = scenarios[scenarioId];
+
+  useEffect(() => {
+    setQuizReturnIntent(readLegalQuizReturnIntent());
+  }, [scenarioId]);
 
   useEffect(() => {
     if (!pendingEmergencyEntryScrollRef.current || mode !== 'emergency' || !showBreathingGuide) {
@@ -433,6 +439,33 @@ function ScenarioDetail({ scenarioId, onBack, initialMode = 'study', onNavigateT
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base">
               {t(scenario.description)}
             </p>
+            {onOpenPractice && (
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={onOpenPractice}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15"
+                >
+                  <Lightning size={16} weight="bold" />
+                  Practice this scenario
+                </button>
+                {quizReturnIntent?.destination?.type === 'scenario' && onResumeQuiz && (
+                  <button
+                    type="button"
+                    onClick={onResumeQuiz}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-100 transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/15"
+                  >
+                    <Check size={16} weight="bold" />
+                    Return to quiz
+                  </button>
+                )}
+              </div>
+            )}
+            {quizReturnIntent?.destination?.type === 'scenario' && (
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400">
+                This guide can stay open as long as you need. The quiz is still waiting where you left it.
+              </p>
+            )}
           </div>
         </section>
       )}

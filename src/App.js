@@ -62,6 +62,7 @@ import i18n from './i18n';
 import { ReportsProvider } from './contexts/ReportsContext';
 import useProximityAlerts from './hooks/useProximityAlerts';
 import ProximityAlert from './components/ProximityAlert';
+import { writeLegalQuizLaunchIntent } from './utils/trainingLaunch';
 
 // Auto-lock timeout: 7 minutes of inactivity
 const AUTO_LOCK_TIMEOUT_MS = 7 * 60 * 1000;
@@ -793,6 +794,12 @@ function App() {
     openScenarioDetail(scenario, { source: 'home', ensureScenariosPage: true });
   };
 
+  const openLegalPractice = (intent, source = 'practice') => {
+    writeLegalQuizLaunchIntent(intent);
+    handleNavigate('legal');
+    track('training_launch', { source, mode: intent?.mode || 'starter', deckId: intent?.deckId || null });
+  };
+
   // Handle back from scenario detail
   const handleBackFromScenario = () => {
     setSelectedScenario(null);
@@ -891,6 +898,7 @@ function App() {
                   onBack={handleBackFromScenario}
                   onOpenLegalResponse={() => { setShowLegalResponse(true); track('modal_open', { modal: 'legal_response', source: 'community_witnessing' }); }}
                   onOpenEncounterLog={() => { handleBackFromScenario(); setTimeout(() => handleNavigateToScenario({ id: 'encounter-log-witness' }), 150); }}
+                  onOpenPracticeWitness={() => openLegalPractice({ mode: 'deck', deckId: 'witnessing' }, 'community_witnessing')}
                 />
               ) : (
                 <ScenarioDetail
@@ -909,6 +917,13 @@ function App() {
                     setEmergencyHandoff(null);
                     openScenarioDetail(scenario, { source: 'scenario_detail' });
                   }}
+                  onOpenPractice={() => openLegalPractice({
+                    mode: 'filtered',
+                    deckId: 'scenarios',
+                    categories: [selectedScenario.id],
+                    count: 8,
+                  }, `scenario_${selectedScenario.id}`)}
+                  onResumeQuiz={() => openLegalPractice({ mode: 'resume' }, `scenario_resume_${selectedScenario.id}`)}
                 />
               )
             ) : (
@@ -932,7 +947,7 @@ function App() {
           />
         );
       case 'whistle':
-        return <Whistle />;
+        return <Whistle onOpenPracticeSignals={() => openLegalPractice({ mode: 'deck', deckId: 'signals' }, 'signals')} />;
       case 'faq':
         return <FAQ onBack={() => handleNavigate('home')} onNavigate={handleNavigate} />;
       case 'tech-security':

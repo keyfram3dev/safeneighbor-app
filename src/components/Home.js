@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronRight, Download, Settings, Brain } from 'lucide-react';
-import { HandWaving, SparkleIcon as Sparkle, QuestionIcon as Question } from '@phosphor-icons/react';
+import { HandWaving, SparkleIcon as Sparkle, QuestionIcon as Question, ArrowClockwise, Lightning } from '@phosphor-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Disclaimer from './Disclaimer';
@@ -13,6 +13,7 @@ import { getTrustedContacts } from '../utils/backup/accessGrants';
 import { useReports } from '../contexts/ReportsContext';
 import { getLastKnownLocation } from '../utils/locationShare';
 import { calculateDistance } from '../utils/geo';
+import { readLegalQuizProgress, writeLegalQuizLaunchIntent } from '../utils/trainingLaunch';
 import { Door, MapPin, User, Megaphone, Leaf, VideoCamera, Car, Shield, Eye, Buildings, ClipboardTextIcon as ClipboardText, UsersThreeIcon as UsersThree, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit, PathIcon as Path, ScalesIcon as Scales, TimerIcon as Timer, IdentificationCardIcon as IdentificationCard, BookOpenTextIcon as BookOpenText, ShieldCheck } from '@phosphor-icons/react';
 
 const LAST_HOME_ACTION_KEY = 'safeneighbor_home_last_action';
@@ -118,6 +119,13 @@ const formatRelativeTimestamp = (timestamp) => {
 
   const diffDays = Math.round(diffHours / 24);
   return rtf.format(diffDays, 'day');
+};
+
+const formatReviewAgeLabel = (days, fallback = 'Not practiced yet') => {
+  if (days === null) return fallback;
+  if (days === 0) return 'Practiced today';
+  if (days === 1) return 'Practiced yesterday';
+  return `${days} days since last round`;
 };
 
 const iconMap = {
@@ -267,6 +275,7 @@ const Home = ({
     familyKitReady: false,
   });
   const [reviewMarkers, setReviewMarkers] = useState(() => readReviewMarkers());
+  const [legalQuizProgress, setLegalQuizProgress] = useState(() => readLegalQuizProgress());
   const [animReady, setAnimReady] = useState(false);
   const heroTransitionTimeoutRef = useRef(null);
   const entranceFrameRef = useRef(null);
@@ -315,6 +324,13 @@ const Home = ({
       rememberAction(action);
     }
     onNavigate?.(route);
+  };
+
+  const openPractice = (intent = { mode: 'starter' }, action = { type: 'page', id: 'legal-page' }) => {
+    writeLegalQuizLaunchIntent(intent);
+    rememberAction(action);
+    setLegalQuizProgress(readLegalQuizProgress());
+    onNavigate?.('legal', action);
   };
 
   const openScenario = (id, extra = {}, action = { type: 'scenario', id }) => {
@@ -602,9 +618,26 @@ const Home = ({
   const rightsReviewAgeDays = getDaysSince(reviewMarkers.rights);
   const familyKitReviewAgeDays = getDaysSince(reviewMarkers['family-kit']);
   const contactsReviewAgeDays = getDaysSince(reviewMarkers['trusted-contacts']);
+  const legalQuizReviewAgeDays = getDaysSince(legalQuizProgress?.completedAt);
+  const constitutionalReviewAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.constitutional);
+  const scenariosPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.scenarios);
+  const witnessingPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.witnessing);
+  const signalsPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.signals);
+  const phrasesPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.['phrase-recall']);
+  const constitutionalNeedsReinforcement = (legalQuizProgress?.deckHistory?.constitutional?.needsReinforcement || 0) > 0;
+  const scenariosNeedsReinforcement = (legalQuizProgress?.deckHistory?.scenarios?.needsReinforcement || 0) > 0;
+  const witnessingNeedsReinforcement = (legalQuizProgress?.deckHistory?.witnessing?.needsReinforcement || 0) > 0;
+  const signalsNeedsReinforcement = (legalQuizProgress?.deckHistory?.signals?.needsReinforcement || 0) > 0;
+  const phrasesNeedsReinforcement = (legalQuizProgress?.deckHistory?.['phrase-recall']?.needsReinforcement || 0) > 0;
   const rightsRefreshNeeded = rightsReviewAgeDays === null || rightsReviewAgeDays >= 21;
   const familyKitRefreshNeeded = setupState.familyKitReady && (familyKitReviewAgeDays === null || familyKitReviewAgeDays >= 45);
   const contactsRefreshNeeded = setupState.contactsReady && (contactsReviewAgeDays === null || contactsReviewAgeDays >= 30);
+  const legalQuizReinforcementCount = legalQuizProgress?.reinforcementIds?.length || 0;
+  const legalQuizRefreshNeeded = legalQuizReviewAgeDays === null || legalQuizReviewAgeDays >= 14;
+  const scenariosRefreshNeeded = scenariosNeedsReinforcement || scenariosPracticeAgeDays === null || scenariosPracticeAgeDays >= 10;
+  const witnessingRefreshNeeded = witnessingNeedsReinforcement || witnessingPracticeAgeDays === null || witnessingPracticeAgeDays >= 14;
+  const signalsRefreshNeeded = signalsNeedsReinforcement || signalsPracticeAgeDays === null || signalsPracticeAgeDays >= 14;
+  const phrasesRefreshNeeded = phrasesNeedsReinforcement || phrasesPracticeAgeDays === null || phrasesPracticeAgeDays >= 7;
   const nearbyCluster = nearbyReportsCount >= 3;
   const recentCluster = recentReportsCount >= 6;
   const liveAwarenessState = nearbyCluster
@@ -947,6 +980,28 @@ const Home = ({
             });
 
   const retentionPrompts = [
+    legalQuizReinforcementCount > 0 && {
+      id: 'practice-review',
+      label: t('home.retentionPracticeLabel', { defaultValue: 'Reinforcement round ready' }),
+      detail: t('home.retentionPracticeDetail', {
+        defaultValue: legalQuizReinforcementCount === 1
+          ? '1 training item needs reinforcement'
+          : `${legalQuizReinforcementCount} training items need reinforcement`,
+      }),
+      onClick: () => openPractice({ mode: 'review' }, { type: 'page', id: 'legal-page' }),
+    },
+    scenariosRefreshNeeded && {
+      id: 'scenario-practice-refresh',
+      label: 'Scenario language refresh',
+      detail: formatReviewAgeLabel(scenariosPracticeAgeDays, 'Not practiced yet'),
+      onClick: () => openPractice({ mode: 'deck', deckId: 'scenarios' }, { type: 'page', id: 'legal-page' }),
+    },
+    signalsRefreshNeeded && {
+      id: 'signals-practice-refresh',
+      label: 'Signals drill ready',
+      detail: formatReviewAgeLabel(signalsPracticeAgeDays, 'Not practiced yet'),
+      onClick: () => openPractice({ mode: 'deck', deckId: 'signals' }, { type: 'page', id: 'legal-page' }),
+    },
     rightsRefreshNeeded && {
       id: 'rights-refresh',
       label: t('home.retentionRightsLabel', { defaultValue: 'Rights guidance refresh' }),
@@ -972,6 +1027,128 @@ const Home = ({
       onClick: () => openScenario('family-kit'),
     },
   ].filter(Boolean);
+
+  const practiceItems = [
+    {
+      id: 'practice-mixed',
+      iconNode: <Brain size={24} className="text-cyan-300" />,
+      title: t('home.practiceMixedTitle', { defaultValue: 'Mixed practice round' }),
+      description: t('home.practiceMixedDesc', {
+        defaultValue: 'Move across rights, encounter decisions, witness posture, shared signals, mistakes, and fast first phrases in one fuller review.',
+      }),
+      ctaLabel: t('home.practiceMixedCta', { defaultValue: 'Begin mixed round' }),
+      accent: 'cyan',
+      badge: t('home.practiceMixedBadge', { defaultValue: 'Full rehearsal' }),
+      onClick: () => openPractice({ mode: 'starter' }, { type: 'page', id: 'legal-page' }),
+    },
+    {
+      id: 'practice-review',
+      iconNode: <ArrowClockwise size={24} weight="bold" className="text-amber-300" />,
+      title: legalQuizReinforcementCount > 0
+        ? t('home.practiceReviewTitle', {
+            defaultValue: legalQuizReinforcementCount === 1 ? 'Review the item that still feels shaky' : `Review ${legalQuizReinforcementCount} items that still need reinforcement`,
+          })
+        : t('home.practiceReviewEmptyTitle', { defaultValue: 'Refresh weak spots' }),
+      description: legalQuizReinforcementCount > 0
+        ? t('home.practiceReviewDesc', { defaultValue: 'Come back to the questions that were missed or did not feel fully settled, and repeat them before pressure decides for you.' })
+        : t('home.practiceReviewEmptyDesc', { defaultValue: 'If an answer is missed or still feels uncertain, it will return here for a reinforcement round.' }),
+      ctaLabel: t('home.practiceReviewCta', { defaultValue: legalQuizReinforcementCount > 0 ? 'Review reinforcement' : 'Open practice' }),
+      accent: 'amber',
+      badge: t('home.practiceReviewBadge', { defaultValue: 'Needs reinforcement' }),
+      onClick: () => openPractice(
+        legalQuizReinforcementCount > 0 ? { mode: 'review' } : { mode: 'starter' },
+        { type: 'page', id: 'legal-page' }
+      ),
+    },
+    {
+      id: 'practice-scenarios',
+      iconNode: <BookOpenText size={24} weight="bold" className="text-sky-300" />,
+      title: 'Scenario language',
+      description: `Door, street, vehicle, work, and checkpoint response drills. ${formatReviewAgeLabel(scenariosPracticeAgeDays)}`,
+      ctaLabel: 'Open scenario drill',
+      accent: 'blue',
+      badge: scenariosNeedsReinforcement ? 'Needs reinforcement' : scenariosRefreshNeeded ? 'Ready to refresh' : 'In rotation',
+      onClick: () => openPractice({ mode: 'deck', deckId: 'scenarios' }, { type: 'page', id: 'legal-page' }),
+    },
+    {
+      id: 'practice-witnessing',
+      iconNode: <Eye size={24} weight="bold" className="text-teal-300" />,
+      title: 'Witness response',
+      description: `Documentation, distance, and witness language under pressure. ${formatReviewAgeLabel(witnessingPracticeAgeDays)}`,
+      ctaLabel: 'Open witness drill',
+      accent: 'teal',
+      badge: witnessingNeedsReinforcement ? 'Needs reinforcement' : witnessingRefreshNeeded ? 'Ready to refresh' : 'Steadying the role',
+      onClick: () => openPractice({ mode: 'deck', deckId: 'witnessing' }, { type: 'page', id: 'legal-page' }),
+    },
+    {
+      id: 'practice-signals',
+      iconNode: <Megaphone size={24} weight="bold" className="text-blue-300" />,
+      title: 'Signals and coordination',
+      description: `Alert ladders, visible backup, and orientation after the alert. ${formatReviewAgeLabel(signalsPracticeAgeDays)}`,
+      ctaLabel: 'Open signals drill',
+      accent: 'cyan',
+      badge: signalsNeedsReinforcement ? 'Needs reinforcement' : signalsRefreshNeeded ? 'Ready to refresh' : 'Shared protocol',
+      onClick: () => openPractice({ mode: 'deck', deckId: 'signals' }, { type: 'page', id: 'legal-page' }),
+    },
+    {
+      id: 'practice-phrases',
+      iconNode: <Lightning size={24} weight="bold" className="text-emerald-300" />,
+      title: t('home.practicePhrasesTitle', { defaultValue: 'Fast first phrases' }),
+      description: t('home.practicePhrasesDesc', { defaultValue: `Drill the shortest lines until they return without strain. ${formatReviewAgeLabel(phrasesPracticeAgeDays)}` }),
+      ctaLabel: t('home.practicePhrasesCta', { defaultValue: 'Drill phrases' }),
+      accent: 'emerald',
+      badge: phrasesNeedsReinforcement ? t('home.practicePhrasesBadge', { defaultValue: 'Needs reinforcement' }) : phrasesRefreshNeeded ? t('home.practicePhrasesBadge', { defaultValue: 'Ready to refresh' }) : t('home.practicePhrasesBadge', { defaultValue: 'Exact wording' }),
+      onClick: () => openPractice({ mode: 'deck', deckId: 'phrases' }, { type: 'page', id: 'legal-page' }),
+    },
+  ];
+
+  const leadingPracticeItemId = legalQuizReinforcementCount > 0
+    ? 'practice-review'
+    : legalQuizRefreshNeeded
+      ? 'practice-mixed'
+      : scenariosRefreshNeeded
+        ? 'practice-scenarios'
+        : signalsRefreshNeeded
+          ? 'practice-signals'
+          : 'practice-phrases';
+
+  const practiceReadiness = [
+    {
+      id: 'constitutional',
+      label: 'Rights',
+      detail: formatReviewAgeLabel(constitutionalReviewAgeDays),
+      ready: constitutionalReviewAgeDays !== null && constitutionalReviewAgeDays < 14 && !constitutionalNeedsReinforcement,
+      reinforcement: constitutionalNeedsReinforcement,
+    },
+    {
+      id: 'scenarios',
+      label: 'Scenarios',
+      detail: formatReviewAgeLabel(scenariosPracticeAgeDays),
+      ready: !scenariosRefreshNeeded,
+      reinforcement: scenariosNeedsReinforcement,
+    },
+    {
+      id: 'witnessing',
+      label: 'Witnessing',
+      detail: formatReviewAgeLabel(witnessingPracticeAgeDays),
+      ready: !witnessingRefreshNeeded,
+      reinforcement: witnessingNeedsReinforcement,
+    },
+    {
+      id: 'signals',
+      label: 'Signals',
+      detail: formatReviewAgeLabel(signalsPracticeAgeDays),
+      ready: !signalsRefreshNeeded,
+      reinforcement: signalsNeedsReinforcement,
+    },
+    {
+      id: 'phrases',
+      label: 'Fast phrases',
+      detail: formatReviewAgeLabel(phrasesPracticeAgeDays),
+      ready: !phrasesRefreshNeeded,
+      reinforcement: phrasesNeedsReinforcement,
+    },
+  ];
 
   const featuredQuickActions = frequentActions.filter((item) => !['community-reports', 'check-route'].includes(item.id)).slice(0, 3);
   const quietStateSupport = isPreparedReturningUser && retentionPrompts.length === 0
@@ -1582,6 +1759,63 @@ const Home = ({
               {t('home.exploreRights')}
             </button>
           </div>
+        </div>
+      </HomeSection>
+
+      <HomeSection
+        className="page-section-item"
+        eyebrow={t('home.practiceEyebrow', { defaultValue: 'Practice under pressure' })}
+        title={t('home.practiceTitle', { defaultValue: 'Return to the language before pressure asks for it' })}
+        description={t('home.practiceDesc', {
+          defaultValue: legalQuizReinforcementCount > 0
+            ? `${legalQuizReinforcementCount} quiz items still need reinforcement. The rest of the practice system can stay warm through mixed rounds, scenario drills, witness practice, signals, and fast phrases.`
+            : 'Use mixed rounds, domain drills, and phrase review to keep rights language, witness posture, and community coordination closer to hand when pressure rises.',
+        })}
+      >
+        <div className="rounded-[26px] border border-slate-800/80 bg-gradient-to-br from-slate-900/85 via-slate-950/96 to-slate-950 p-5 shadow-[0_20px_55px_rgba(2,6,23,0.22)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300/80">Readiness snapshot</p>
+              <h3 className="mt-2 text-[1.35rem] font-black tracking-tight text-white">A steadier response comes from return, not urgency alone</h3>
+              <p className="mt-2 max-w-3xl text-sm leading-[1.65] text-slate-300">
+                This surface remembers what has been practiced recently and what is beginning to fade, so you do not have to guess where another pass would help most.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-700/70 bg-slate-900/85 px-4 py-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Mixed round size</p>
+              <p className="mt-1 text-lg font-black text-white">30 questions</p>
+              <p className="mt-1 text-xs leading-[1.5] text-slate-500">
+                {legalQuizReinforcementCount > 0
+                  ? `${legalQuizReinforcementCount} item${legalQuizReinforcementCount === 1 ? '' : 's'} waiting for reinforcement`
+                  : 'No queued reinforcement right now'}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-5">
+            {practiceReadiness.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-slate-800/80 bg-slate-950/65 px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
+                  <span className={`inline-flex h-2.5 w-2.5 rounded-full ${item.ready ? 'bg-emerald-400' : item.reinforcement ? 'bg-rose-400' : 'bg-amber-400'}`} />
+                </div>
+                <p className={`mt-2 text-sm font-semibold ${item.ready ? 'text-emerald-100' : item.reinforcement ? 'text-rose-100' : 'text-amber-100'}`}>
+                  {item.ready ? 'Fresh enough' : item.reinforcement ? 'Needs reinforcement' : 'Worth a return'}
+                </p>
+                <p className="mt-1 text-xs leading-[1.5] text-slate-500">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {practiceItems.map((item) => (
+            <HomeCard
+              key={item.id}
+              item={item}
+              variant={item.id === leadingPracticeItemId ? 'featured' : 'standard'}
+            />
+          ))}
         </div>
       </HomeSection>
 
