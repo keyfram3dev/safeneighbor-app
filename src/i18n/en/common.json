@@ -626,7 +626,7 @@
   },
   "legalResponse": {
     "title": "Get Legal Help",
-    "buttonLabel": "Search Legal Questions with AI",
+    "buttonLabel": "Get Legal Help",
     "homeCardDesc": "Instantly reach an attorney, hotline, or local legal aid.",
     "yourAttorney": "Your Legal Contacts",
     "noAttorney": "No attorney or legal aid saved.",
@@ -1798,7 +1798,7 @@
     "gotIt": "Got it"
   },
   "legal": {
-    "title": "Legal Assistant",
+    "title": "Legal Assistance & Knowledge",
     "subtitle": "Ask questions about your constitutional rights",
     "tabAskAi": "Ask AI",
     "tabRights": "Rights",

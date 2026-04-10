@@ -924,7 +924,13 @@ function App() {
       case 'record':
         return <Record isDuressMode={isDuressMode} onNavigate={handleNavigate} />;
       case 'legal':
-        return <Legal onOpenLegalResponse={() => { setShowLegalResponse(true); track('modal_open', { modal: 'legal_response', source: 'legal_section' }); }} onNavigate={handleNavigate} />;
+        return (
+          <Legal
+            onOpenLegalResponse={() => { setShowLegalResponse(true); track('modal_open', { modal: 'legal_response', source: 'legal_section' }); }}
+            onNavigate={handleNavigate}
+            onNavigateToScenario={handleNavigateToScenario}
+          />
+        );
       case 'whistle':
         return <Whistle />;
       case 'faq':

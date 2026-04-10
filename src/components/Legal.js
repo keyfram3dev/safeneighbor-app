@@ -9,6 +9,7 @@ import FaqCta from './FaqCta';
 import { useRotatingQuote } from '../utils/quoteRotation';
 import LegalDirectory from './LegalDirectory';
 import CaseLawSearch from './CaseLawSearch';
+import LegalQuiz from './LegalQuiz';
 import {
   STATUS_PERSONAS,
   NEVER_SIGN_WARNING,
@@ -1132,10 +1133,11 @@ const recordRequest = () => {
   localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(requests));
 };
 
-function Legal({ onOpenLegalResponse, onNavigate }) {
+function Legal({ onOpenLegalResponse, onNavigate, onNavigateToScenario }) {
   const { t } = useTranslation();
   const legalQuote = useRotatingQuote('legal.nietzscheQuote', 'legal.nietzscheAuthor', 'legal');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const [showLegalQuiz, setShowLegalQuiz] = useState(false);
   const [view, setView] = useState(getInitialLegalView);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -1151,12 +1153,29 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
   const directorySectionRef = useRef(null);
   const tabBarRef = useRef(null);
   const pendingHeroScrollRef = useRef(null);
+  const pendingAmendmentScrollRef = useRef(null);
+  const amendmentRefs = useRef({
+    '1st': null,
+    '4th': null,
+    '5th': null,
+    '6th': null,
+    '14th': null,
+  });
 
   const scrollToLegalSection = (sectionRef) => {
     if (!sectionRef?.current) return false;
     // Scroll section to just below the main nav (84px), tab bar scrolls away
     const sectionTop = sectionRef.current.getBoundingClientRect().top;
     const scrollTarget = window.scrollY + sectionTop - 96;
+    window.scrollTo({ top: Math.max(scrollTarget, 0), behavior: 'smooth' });
+    return true;
+  };
+
+  const scrollToAmendmentCard = (amendmentId) => {
+    const targetNode = amendmentRefs.current[amendmentId];
+    if (!targetNode) return false;
+    const cardTop = targetNode.getBoundingClientRect().top;
+    const scrollTarget = window.scrollY + cardTop - 108;
     window.scrollTo({ top: Math.max(scrollTarget, 0), behavior: 'smooth' });
     return true;
   };
@@ -1185,6 +1204,29 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
     setView(targetView);
   };
 
+  const jumpToAmendment = (amendmentId) => {
+    if (!amendmentId) {
+      jumpToLegalView('constitution');
+      return;
+    }
+
+    setExpandedAmendments((prev) => {
+      const next = new Set(prev);
+      next.add(amendmentId);
+      return next;
+    });
+
+    if (view === 'constitution') {
+      window.setTimeout(() => {
+        scrollToAmendmentCard(amendmentId);
+      }, 220);
+      return;
+    }
+
+    pendingAmendmentScrollRef.current = amendmentId;
+    jumpToLegalView('constitution');
+  };
+
   useEffect(() => {
     if (!pendingHeroScrollRef.current || pendingHeroScrollRef.current !== view) return undefined;
 
@@ -1202,6 +1244,22 @@ function Legal({ onOpenLegalResponse, onNavigate }) {
 
     return () => window.cancelAnimationFrame(frame);
   }, [view]);
+
+  useEffect(() => {
+    if (view !== 'constitution' || !pendingAmendmentScrollRef.current) return undefined;
+
+    const amendmentId = pendingAmendmentScrollRef.current;
+    const frame = window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const didScroll = scrollToAmendmentCard(amendmentId);
+        if (didScroll) {
+          pendingAmendmentScrollRef.current = null;
+        }
+      }, 220);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [expandedAmendments, view]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -1279,6 +1337,28 @@ User question: ${input}`
     }
   };
 
+  const handleOpenQuiz = () => {
+    setShowLegalQuiz(true);
+  };
+
+  const handleCloseQuiz = () => {
+    setShowLegalQuiz(false);
+  };
+
+  const handleJumpToRightsFromQuiz = (amendmentId) => {
+    setShowLegalQuiz(false);
+    jumpToAmendment(amendmentId);
+  };
+
+  const handleOpenScenariosFromQuiz = (scenarioId) => {
+    setShowLegalQuiz(false);
+    if (scenarioId && onNavigateToScenario) {
+      onNavigateToScenario({ id: scenarioId });
+      return;
+    }
+    onNavigate?.('scenarios', { type: 'page', id: 'scenarios' });
+  };
+
   return (
     <div className="page-transition-in page-section-stagger mx-auto max-w-5xl px-4 pb-24 pt-3">
       {/* Hero Card */}
@@ -1323,6 +1403,13 @@ User question: ${input}`
               >
                 <Scales size={20} weight="bold" />
                 {t('legalResponse.buttonLabel')}
+              </button>
+              <button
+                onClick={handleOpenQuiz}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/35 bg-gradient-to-r from-slate-900 via-slate-900 to-cyan-950/35 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-cyan-100 shadow-[0_12px_32px_rgba(8,47,73,0.18)] transition-all hover:border-cyan-400/45 hover:text-white active:scale-[0.98]"
+              >
+                <Brain size={20} weight="bold" />
+                {t('legal.quizHeroCta', { defaultValue: 'Practice With Quiz' })}
               </button>
             </div>
 
@@ -1619,7 +1706,10 @@ User question: ${input}`
           />
 
           {/* 1st Amendment - Collapsible */}
-          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-purple-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/5 hover:-translate-y-0.5">
+          <div
+            ref={(node) => { amendmentRefs.current['1st'] = node; }}
+            className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-purple-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/5 hover:-translate-y-0.5"
+          >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(147,51,234,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
@@ -1780,7 +1870,10 @@ User question: ${input}`
           </div>
 
           {/* 4th Amendment - Collapsible */}
-          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-red-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 hover:-translate-y-0.5">
+          <div
+            ref={(node) => { amendmentRefs.current['4th'] = node; }}
+            className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-red-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/5 hover:-translate-y-0.5"
+          >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
@@ -1857,7 +1950,10 @@ User question: ${input}`
           </div>
 
           {/* 5th Amendment - Collapsible */}
-          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-blue-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 hover:-translate-y-0.5">
+          <div
+            ref={(node) => { amendmentRefs.current['5th'] = node; }}
+            className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-blue-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 hover:-translate-y-0.5"
+          >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
@@ -1933,7 +2029,10 @@ User question: ${input}`
           </div>
 
           {/* 6th Amendment - Collapsible */}
-          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-emerald-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5">
+          <div
+            ref={(node) => { amendmentRefs.current['6th'] = node; }}
+            className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-emerald-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
+          >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
@@ -2017,7 +2116,10 @@ User question: ${input}`
           </div>
 
           {/* 14th Amendment - Collapsible */}
-          <div className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-amber-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 hover:-translate-y-0.5">
+          <div
+            ref={(node) => { amendmentRefs.current['14th'] = node; }}
+            className="scenario-section-item group relative bg-gradient-to-br from-slate-900 via-slate-900/96 to-amber-950/20 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 hover:-translate-y-0.5"
+          >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.08),transparent_48%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-2xl" />
             <button
               onClick={() => setExpandedAmendments(prev => {
@@ -3840,6 +3942,12 @@ User question: ${input}`
       </div>
 
       <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
+      <LegalQuiz
+        isOpen={showLegalQuiz}
+        onClose={handleCloseQuiz}
+        onJumpToRights={handleJumpToRightsFromQuiz}
+        onOpenScenarios={handleOpenScenariosFromQuiz}
+      />
     </div>
   );
 }

@@ -1,5 +1,219 @@
 # SafeNeighbor TODO List
 
+## Legal Quiz Implementation Plan
+
+### Objective
+- Add an interactive legal-preparedness quiz that helps users remember core constitutional protections and rehearse what to say in real SafeNeighbor encounter scenarios.
+- Start with `Legal` as the launch surface, using a hero CTA first, and expand later into deeper scenario-linked practice.
+
+### Product Direction
+- Launch from the `Legal` hero as a secondary action next to `Get Legal Help`.
+- Use a focused quiz experience rather than embedding the full quiz UI inside the hero card.
+- On mobile, open as a full-screen or near-full-screen stepper/modal.
+- On desktop, open as a large modal or panel inside the Legal experience.
+- Keep the long-term option open for a dedicated `Quiz` tab later, but do not add that in v1.
+
+### Learning Strategy
+- Combine:
+  - multiple-choice questions
+  - short “tap the exact phrase” recall drills
+- Emphasize:
+  - retrieval practice
+  - immediate corrective feedback
+  - repetition of missed items
+  - phrase-level recall under pressure
+- Prefer SafeNeighbor’s own scripts and rights language over generic civics trivia.
+
+### Source Material To Reuse
+- Constitutional rights content already in `Legal`:
+  - 1st Amendment
+  - 4th Amendment
+  - 5th Amendment
+  - 6th Amendment
+  - 14th Amendment
+- Phrase drills already reflected in the app:
+  - `I do not consent to a search.`
+  - `Am I free to leave?`
+  - `I want to speak to a lawyer.`
+  - `I am exercising my right to remain silent.`
+- Scenario-based language already in `scenarioData`:
+  - `door`
+  - `street`
+  - `vehicle`
+  - `workplace`
+  - `border`
+- Rights-card language already in `RightsCard`.
+
+### Recommended Placement
+
+#### Phase 1 Placement
+- [ ] Add a new hero CTA in `Legal`:
+  - label idea: `Practice With Quiz`
+  - position: next to `Get Legal Help`
+- [ ] Open a dedicated quiz modal/stepper from that CTA.
+- [ ] Keep the rest of the Legal hero visually calm and unchanged except for the new button.
+
+#### Future Placement
+- [ ] Add “Practice this amendment” entry points from each amendment card.
+- [ ] Add “Quiz this scenario” entry points from scenario cards or scenario-detail pages.
+- [ ] Consider a permanent `Quiz` tab in `Legal` if usage and completion rates justify it.
+
+### Phase 1 Content Scope
+
+#### Constitutional Foundations
+- [ ] 1st Amendment: speech, assembly, recording in public
+- [ ] 4th Amendment: unreasonable search/seizure, consent, judicial vs administrative warrant
+- [ ] 5th Amendment: right to remain silent
+- [ ] 6th Amendment: right to ask for a lawyer
+- [ ] 14th Amendment: due process and equal protection for all persons
+
+#### Applied Scenario Practice
+- [ ] Door encounter
+- [ ] Street stop
+- [ ] Vehicle stop
+- [ ] Workplace encounter
+- [ ] Border / checkpoint encounter
+
+#### Core Phrase Reinforcement
+- [ ] Search refusal phrase
+- [ ] Freedom-to-leave question
+- [ ] Silence invocation phrase
+- [ ] Lawyer request phrase
+
+### Question Design For V1
+
+#### Multiple Choice
+- [ ] “Which amendment protects this?” questions
+- [ ] “What should you say next?” questions
+- [ ] “Which response is safest?” questions
+- [ ] “Which one is wrong?” trap-recognition questions
+- [ ] Judicial vs administrative warrant recognition questions
+
+#### Phrase Recall
+- [ ] Build short tap-to-reconstruct phrase drills using exact SafeNeighbor language.
+- [ ] Start with 3-5 high-value phrases only.
+- [ ] Show the exact phrase again after completion as reinforcement.
+
+#### Feedback Pattern
+- [ ] After each answer, show:
+  - correct answer
+  - short explanation
+  - exact phrase or takeaway to remember
+- [ ] For missed questions, store them for a retry round in the same session.
+
+### Initial Question Bank Plan
+
+#### V1 Question Count
+- [ ] 10 constitutional-rights questions
+- [ ] 10 scenario-based response questions
+- [ ] 5 “spot the unsafe response” questions
+- [ ] 3-5 exact-phrase recall drills
+
+#### Strong First Questions To Include
+- [ ] Which amendment most directly protects recording police or ICE in public?
+- [ ] Which amendment protects against unreasonable searches?
+- [ ] Which phrase should you use to refuse consent to a search?
+- [ ] Which phrase should you use to invoke silence?
+- [ ] Which phrase should you use to ask for a lawyer?
+- [ ] Does an administrative warrant signed by ICE allow entry into your home?
+- [ ] At the door, what should you ask them to show?
+- [ ] On the street, what is the first question you should ask?
+- [ ] During a vehicle stop, what should you say about searches?
+- [ ] Which rights apply to all persons regardless of immigration status?
+
+### Technical Implementation Plan
+
+#### Phase 1A: Content Model
+- [ ] Create `src/data/legalQuizData.js`
+- [ ] Define a structured schema for each quiz item:
+  - `id`
+  - `type` (`multipleChoice` or `phraseRecall`)
+  - `category`
+  - `sourceSection`
+  - `prompt`
+  - `choices`
+  - `correctAnswer`
+  - `explanation`
+  - `reinforcementPhrase`
+  - `tags`
+  - `difficulty`
+- [ ] Tag content by amendment and scenario so later filtering is easy.
+
+#### Phase 1B: UI
+- [ ] Create `src/components/LegalQuiz.js`
+- [ ] Build quiz states:
+  - intro
+  - in-progress question view
+  - answer feedback
+  - retry missed items
+  - results summary
+- [ ] Support mobile-first stepper behavior.
+- [ ] Make the UI visually match `Legal` and `Scenarios`.
+
+#### Phase 1C: Launch Integration
+- [ ] Add the new hero CTA to `src/components/Legal.js`
+- [ ] Connect CTA to open the quiz
+- [ ] Preserve keyboard-safe, mobile-friendly behavior if the quiz ever includes typed or tap-recall interactions
+
+#### Phase 1D: Persistence
+- [ ] Save lightweight quiz progress locally:
+  - last completed date
+  - last score
+  - missed question IDs
+  - phrase drills needing review
+- [ ] Add a simple “Review missed questions” entry for repeat practice later
+
+### Phase 2 Expansion
+
+#### Deeper Scenario Training
+- [ ] Generate quiz sets directly from `scenarioData` decision branches
+- [ ] Add “What should you say?” drills tied to specific scenario steps
+- [ ] Link feedback screens back to the full scenario guide
+
+#### More Legal Coverage
+- [ ] Add protest / civil disobedience questions
+- [ ] Add community witness / recording-rights questions
+- [ ] Add rights-by-status quiz variants where content differs meaningfully
+- [ ] Add state-specific recording-consent quiz items later if that content is stable enough to support practice
+
+#### Adaptive Review
+- [ ] Increase frequency of missed or low-confidence questions
+- [ ] Repeat correct-but-low-confidence items in the same session
+- [ ] Add short “60-second refresh” quiz packs
+
+### Phase 3 Long-Term Enhancements
+- [ ] Add a dedicated `Quiz` tab inside `Legal` if engagement is strong
+- [ ] Add streaks, session summaries, or “review 3 phrases” nudges
+- [ ] Add scenario-specific practice launchers across the app
+- [ ] Add analytics dashboards for:
+  - quiz starts
+  - completion rate
+  - most missed questions
+  - most missed phrases
+  - highest-friction scenario categories
+
+### Copy / UX Decisions To Lock During Build
+- [ ] Finalize hero CTA label:
+  - `Practice With Quiz`
+  - `Rights Quiz`
+  - `Practice Rights`
+- [ ] Decide whether the intro screen says:
+  - “Learn your rights”
+  - “Practice what to say”
+  - or both
+- [ ] Keep feedback language calm, practical, and non-punitive
+- [ ] Avoid framing scores in a way that feels gamified at the expense of preparedness
+
+### Verification Checklist
+- [ ] Users can launch the quiz from the Legal hero without confusion
+- [ ] The first version covers 1st, 4th, 5th, 6th, and 14th Amendments
+- [ ] The first version includes scenario-based “what should you say?” questions
+- [ ] Phrase recall drills use exact SafeNeighbor language
+- [ ] Feedback explains why an answer is correct, not just whether it is correct
+- [ ] Missed questions can be repeated for reinforcement
+- [ ] Mobile flow feels clean and focused, not cramped
+- [ ] The quiz feels like part of SafeNeighbor, not a bolted-on trivia module
+
 ## Signals Redesign Plan
 
 ### Objective
