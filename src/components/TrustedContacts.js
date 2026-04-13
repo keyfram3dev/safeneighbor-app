@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, UsersThree, Plus, Trash, EnvelopeSimple, Phone, ChatText, PaperPlaneTilt, WarningCircle, UserCirclePlus, CaretDown, CaretUp, DownloadSimple, MagnifyingGlass, Spinner, MapPin } from '@phosphor-icons/react';
 import { getTrustedContacts, addTrustedContact, removeTrustedContact } from '../utils/backup/accessGrants';
 import { buildLocationSmsUri, reverseGeocode } from '../utils/locationShare';
+import { isKeyWrapped, unwrapMasterKeyWithPin } from '../utils/crypto';
+import PinEntry from './PinEntry';
 import Disclaimer from './Disclaimer';
 import InstallHelp from './InstallHelp';
 
@@ -55,13 +57,21 @@ const TrustedContacts = ({ onBack, onOpenLegalResponse }) => {
   const [expandedTemplate, setExpandedTemplate] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [saveError, setSaveError] = useState('');
+  const [needsPin, setNeedsPin] = useState(false);
+  const [pendingContact, setPendingContact] = useState(null);
   const [userName, setUserName] = useState(() => localStorage.getItem('safeneighbor_user_name') || '');
   const [showNamePrompt, setShowNamePrompt] = useState(() => !localStorage.getItem('safeneighbor_user_name'));
   const [isSending, setIsSending] = useState(false); // GPS acquisition in progress
 
   useEffect(() => {
     (async () => {
-      setContacts(await getTrustedContacts());
+      const contacts = await getTrustedContacts();
+      setContacts(contacts);
+      // If contacts appear empty but encrypted data exists and key is PIN-locked,
+      // the data is there but unreadable — prompt for PIN to decrypt
+      if (contacts.length === 0 && isKeyWrapped() && localStorage.getItem('safeneighbor_trusted_contacts') !== null) {
+        setNeedsPin(true);
+      }
     })();
   }, []);
 
@@ -70,19 +80,50 @@ const TrustedContacts = ({ onBack, onOpenLegalResponse }) => {
     if (!formData.name.trim()) return;
     setSaveError('');
 
+    const contact = {
+      name: formData.name.trim(),
+      phone: formData.phone.trim(),
+      email: formData.email.trim(),
+      relationship: formData.relationship || 'Other',
+    };
+
     try {
-      await addTrustedContact({
-        name: formData.name.trim(),
-        phone: formData.phone.trim(),
-        email: formData.email.trim(),
-        relationship: formData.relationship || 'Other',
-      });
+      await addTrustedContact(contact);
       setContacts(await getTrustedContacts());
       setFormData({ name: '', phone: '', email: '', relationship: '' });
       setShowForm(false);
     } catch (error) {
       console.error('Failed to save trusted contact:', error);
+      if (isKeyWrapped()) {
+        setPendingContact(contact);
+        setNeedsPin(true);
+      } else {
+        setSaveError(t('trustedContacts.saveContactFailed'));
+      }
+    }
+  };
+
+  const handlePinUnlock = async (isDuress, pin) => {
+    if (isDuress || !pin) {
+      setNeedsPin(false);
+      setPendingContact(null);
+      return;
+    }
+    try {
+      await unwrapMasterKeyWithPin(pin);
+      if (pendingContact) {
+        await addTrustedContact(pendingContact);
+        setFormData({ name: '', phone: '', email: '', relationship: '' });
+        setShowForm(false);
+        setPendingContact(null);
+      }
+      setContacts(await getTrustedContacts());
+      setNeedsPin(false);
+    } catch (err) {
+      console.error('Failed to unlock and save contact:', err);
       setSaveError(t('trustedContacts.saveContactFailed'));
+      setNeedsPin(false);
+      setPendingContact(null);
     }
   };
 
@@ -154,6 +195,19 @@ const TrustedContacts = ({ onBack, onOpenLegalResponse }) => {
     localStorage.setItem('safeneighbor_user_name', userName);
     setShowNamePrompt(false);
   };
+
+  if (needsPin) {
+    return (
+      <div className="max-w-4xl mx-auto pb-24 px-4 pt-3">
+        <PinEntry
+          onUnlock={handlePinUnlock}
+          inline
+          title="Unlock Contacts"
+          subtitle="Your contacts are encrypted. Enter your PIN to view and manage them."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto pb-24 px-4">

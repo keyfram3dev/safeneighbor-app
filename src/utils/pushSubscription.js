@@ -94,3 +94,40 @@ export function getPermissionState() {
   if (!('Notification' in window)) return 'unsupported';
   return Notification.permission; // 'default' | 'granted' | 'denied'
 }
+
+/**
+ * Register a training review reminder push.
+ * @param {object} subscription — PushSubscription JSON
+ * @param {string} nextReviewAt — ISO date string for when to send the reminder
+ */
+export async function registerTrainingReminder(subscription, nextReviewAt) {
+  const res = await fetch(`${FUNCTIONS_BASE}/registerTrainingReminder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      subscription: { endpoint: subscription.endpoint, keys: subscription.keys },
+      nextReviewAt,
+    }),
+  });
+  if (!res.ok) throw new Error(`Training reminder register failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Clear a pending training reminder from the server.
+ * @param {object} subscription — PushSubscription JSON
+ */
+export async function clearTrainingReminder(subscription) {
+  try {
+    await fetch(`${FUNCTIONS_BASE}/registerTrainingReminder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: { endpoint: subscription.endpoint, keys: subscription.keys },
+        nextReviewAt: null,
+      }),
+    });
+  } catch {
+    // best-effort
+  }
+}

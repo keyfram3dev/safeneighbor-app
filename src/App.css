@@ -314,14 +314,12 @@ input[type="time"] {
 .scenario-fade-in {
   opacity: 1;
   animation: scenarioFadeIn 0.52s ease-out backwards;
-  will-change: opacity;
 }
 
 .scenario-rise-in {
   opacity: 1;
   transform: translateY(0);
   animation: scenarioRiseIn 0.74s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  will-change: transform, opacity;
 }
 
 .scenario-return-marker {
@@ -378,7 +376,26 @@ input[type="time"] {
   opacity: 1;
   transform: translateY(0);
   animation: scenarioRiseIn 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--page-item-delay, 0s) backwards;
-  will-change: transform, opacity;
+}
+
+/* Only animate items visible above the fold — rest appear instantly */
+.page-section-stagger > .page-section-item:nth-child(n+3) {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+@media (min-width: 768px) {
+  .page-section-stagger > .page-section-item:nth-child(n+3) {
+    animation: scenarioRiseIn 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--page-item-delay, 0s) backwards;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .page-section-stagger > .page-section-item:nth-child(n+5) {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .page-section-stagger > .page-section-item:nth-child(1) {
@@ -395,38 +412,6 @@ input[type="time"] {
 
 .page-section-stagger > .page-section-item:nth-child(4) {
   --page-item-delay: 0.28s;
-}
-
-.page-section-stagger > .page-section-item:nth-child(5) {
-  --page-item-delay: 0.36s;
-}
-
-.page-section-stagger > .page-section-item:nth-child(6) {
-  --page-item-delay: 0.44s;
-}
-
-.page-section-stagger > .page-section-item:nth-child(7) {
-  --page-item-delay: 0.52s;
-}
-
-.page-section-stagger > .page-section-item:nth-child(8) {
-  --page-item-delay: 0.6s;
-}
-
-.page-section-stagger > .page-section-item:nth-child(9) {
-  --page-item-delay: 0.68s;
-}
-
-.page-section-stagger > .page-section-item:nth-child(10) {
-  --page-item-delay: 0.76s;
-}
-
-.page-section-stagger > .page-section-item:nth-child(11) {
-  --page-item-delay: 0.84s;
-}
-
-.page-section-stagger > .page-section-item:nth-child(12) {
-  --page-item-delay: 0.92s;
 }
 
 .home-enter-armed .page-section-item,

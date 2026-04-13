@@ -11,6 +11,10 @@ const defaultQuizProgress = {
   completedAt: null,
   lastReviewedByDeck: {},
   deckHistory: {},
+  // SRS: per-question scheduling data { [questionId]: { interval, easeFactor, repetitions, dueDate } }
+  srsData: {},
+  // Per-question attempt history { [questionId]: { attempts, correct, lastResult, lastConfidence, lastAttemptedAt } }
+  questionHistory: {},
 };
 
 export const readLegalQuizProgress = () => {

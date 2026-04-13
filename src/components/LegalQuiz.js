@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { CheckCircle, XCircle, X, ArrowClockwise, Scroll, Lightning, ShieldCheck, CaretRight, ArrowLeft } from '@phosphor-icons/react';
+import { CheckCircle, XCircle, X, ArrowClockwise, Scroll, Lightning, ShieldCheck, CaretRight, ArrowLeft, Bell, BellSlash, BookOpen, ChartBar } from '@phosphor-icons/react';
 import {
   LEGAL_QUIZ_MIXED_TOTAL,
   legalQuizQuestions,
@@ -18,6 +18,14 @@ import {
   writeLegalQuizReturnIntent,
   clearLegalQuizReturnIntent,
 } from '../utils/trainingLaunch';
+import {
+  isPushSupported,
+  getPermissionState,
+  subscribeToPush,
+  getExistingSubscription,
+  registerTrainingReminder,
+  clearTrainingReminder,
+} from '../utils/pushSubscription';
 
 const DECK_LABELS = {
   constitutional: 'Constitution',
@@ -75,9 +83,38 @@ const clearStoredSession = () => {
   }
 };
 
-const pickQuestions = (pool, count, recentIds) => {
+const pickQuestions = (pool, count, recentIds, { srsData = {}, lastScore = null } = {}) => {
+  const now = Date.now();
   const freshPool = pool.filter((question) => !recentIds.has(question.id));
-  const firstPass = shuffle(freshPool).slice(0, count);
+
+  // Partition: SRS-due questions get priority over not-yet-due
+  const dueFresh = freshPool.filter((question) => {
+    const srs = srsData[question.id];
+    return srs && new Date(srs.dueDate).getTime() <= now;
+  });
+  const notDueFresh = freshPool.filter((question) => {
+    const srs = srsData[question.id];
+    return !srs || new Date(srs.dueDate).getTime() > now;
+  });
+
+  // Adaptive difficulty: order not-due items by difficulty preference based on recent score
+  const orderByDifficulty = (items) => {
+    if (!lastScore || items.length <= 1) return shuffle(items);
+    const diffOrder = lastScore >= 85
+      ? ['hard', 'medium', 'easy']
+      : lastScore < 50
+        ? ['easy', 'medium', 'hard']
+        : null;
+    if (!diffOrder) return shuffle(items);
+    const grouped = { hard: [], medium: [], easy: [] };
+    items.forEach((question) => {
+      const d = question.difficulty || 'medium';
+      (grouped[d] || grouped.medium).push(question);
+    });
+    return diffOrder.flatMap((d) => shuffle(grouped[d]));
+  };
+
+  const firstPass = [...shuffle(dueFresh), ...orderByDifficulty(notDueFresh)].slice(0, count);
 
   if (firstPass.length >= count) return firstPass;
 
@@ -87,7 +124,9 @@ const pickQuestions = (pool, count, recentIds) => {
 };
 
 const buildMixedQuiz = () => {
+  const progress = getStoredProgress();
   const recentIds = new Set(getRecentRoundIds());
+  const pickOpts = { srsData: progress.srsData || {}, lastScore: progress.lastScore };
   const countsByDeck = [
     [legalQuizDecks.constitutional, 6],
     [legalQuizDecks.scenarios, 6],
@@ -102,7 +141,8 @@ const buildMixedQuiz = () => {
       pickQuestions(
         legalQuizQuestions.filter((question) => question.deck === deck),
         count,
-        recentIds
+        recentIds,
+        pickOpts
       )
     )
   ).slice(0, LEGAL_QUIZ_MIXED_TOTAL);
@@ -112,11 +152,13 @@ const buildMixedQuiz = () => {
 };
 
 const buildDeckQuiz = (deck, count = 12) => {
+  const progress = getStoredProgress();
   const recentIds = new Set(getRecentRoundIds());
+  const pickOpts = { srsData: progress.srsData || {}, lastScore: progress.lastScore };
   const pool = getLegalQuizQuestionsByDeck(deck);
   const picked = deck === legalQuizDecks.phraseRecall
     ? shuffle(pool)
-    : pickQuestions(pool, Math.min(count, pool.length), recentIds);
+    : pickQuestions(pool, Math.min(count, pool.length), recentIds, pickOpts);
   setRecentRoundIds(picked.map((question) => question.id));
   return shuffle(picked);
 };
@@ -127,7 +169,9 @@ const buildFilteredQuiz = ({
   tags = [],
   count = 10,
 }) => {
+  const progress = getStoredProgress();
   const recentIds = new Set(getRecentRoundIds());
+  const pickOpts = { srsData: progress.srsData || {}, lastScore: progress.lastScore };
   const normalizedCategories = new Set(categories.filter(Boolean));
   const normalizedTags = new Set(tags.filter(Boolean));
 
@@ -146,7 +190,7 @@ const buildFilteredQuiz = ({
     return deckId ? buildDeckQuiz(deckId, count) : buildMixedQuiz();
   }
 
-  const picked = pickQuestions(pool, Math.min(count, pool.length), recentIds);
+  const picked = pickQuestions(pool, Math.min(count, pool.length), recentIds, pickOpts);
   setRecentRoundIds(picked.map((question) => question.id));
   return shuffle(picked);
 };
@@ -294,6 +338,9 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
   const [results, setResults] = useState([]);
   const [progress, setProgress] = useState(() => getStoredProgress());
   const [appliedLaunchId, setAppliedLaunchId] = useState(null);
+  const [remindersEnabled, setRemindersEnabled] = useState(() => localStorage.getItem('safeneighbor_training_reminders') === 'on');
+  const [reminderLoading, setReminderLoading] = useState(false);
+  const [reminderStatus, setReminderStatus] = useState(null); // 'success' | 'error' | null
 
   useEffect(() => {
     if (!isOpen) return;
@@ -472,6 +519,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
 
   const finalizeQuiz = (nextResults) => {
     const completedAt = new Date().toISOString();
+    const now = Date.now();
     const missedIds = nextResults.filter((result) => !result.correct).map((result) => result.id);
     const reinforcementIds = nextResults
       .filter((result) => !result.correct || result.confidence === 'unsure')
@@ -485,6 +533,43 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
       if (!result.correct || result.confidence === 'unsure') acc[result.deck].reinforcement += 1;
       return acc;
     }, {});
+
+    // SRS (SM-2 simplified) + per-question attempt logging
+    const updatedSrsData = { ...(progress.srsData || {}) };
+    const updatedQuestionHistory = { ...(progress.questionHistory || {}) };
+    for (const result of nextResults) {
+      const prev = updatedSrsData[result.id] || { interval: 1, easeFactor: 2.5, repetitions: 0 };
+      let { interval, easeFactor, repetitions } = prev;
+      if (!result.correct) {
+        // Wrong: reset interval, reduce ease
+        interval = 1;
+        easeFactor = Math.max(1.3, easeFactor - 0.2);
+        repetitions = 0;
+      } else if (result.confidence === 'steady') {
+        // Correct + confident: advance interval (SM-2 schedule)
+        if (repetitions === 0) interval = 1;
+        else if (repetitions === 1) interval = 4;
+        else interval = Math.round(interval * easeFactor);
+        easeFactor = Math.min(3.0, easeFactor + 0.1);
+        repetitions += 1;
+      } else {
+        // Correct but unsure: shorten interval, don't advance ease
+        interval = Math.max(1, Math.round(interval * 0.6));
+        repetitions = Math.max(0, repetitions - 1);
+      }
+      const dueDate = new Date(now + interval * 24 * 60 * 60 * 1000).toISOString();
+      updatedSrsData[result.id] = { interval, easeFactor, repetitions, dueDate };
+
+      const prevHistory = updatedQuestionHistory[result.id] || { attempts: 0, correct: 0 };
+      updatedQuestionHistory[result.id] = {
+        attempts: prevHistory.attempts + 1,
+        correct: prevHistory.correct + (result.correct ? 1 : 0),
+        lastResult: result.correct ? 'correct' : 'incorrect',
+        lastConfidence: result.confidence,
+        lastAttemptedAt: completedAt,
+      };
+    }
+
     const nextProgress = {
       ...progress,
       missedIds,
@@ -511,6 +596,8 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
           ])
         ),
       },
+      srsData: updatedSrsData,
+      questionHistory: updatedQuestionHistory,
     };
     setProgress(nextProgress);
     storeProgress(nextProgress);
@@ -682,6 +769,96 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
 
     return next.slice(0, 3);
   }, [onJumpToRights, onOpenScenarios, progress, reinforcementQuestions, startConfiguredQuiz, startStarterQuiz]);
+
+  // ── SRS / Mastery stats (computed from current progress) ──
+  const srsNow = Date.now();
+  const srsValues = Object.values(progress.srsData || {});
+  const srsDueNow = srsValues.filter((s) => s.dueDate && new Date(s.dueDate).getTime() <= srsNow).length;
+  const srsDueSoon = srsValues.filter((s) => {
+    const t = s.dueDate ? new Date(s.dueDate).getTime() : 0;
+    return t > srsNow && t <= srsNow + 3 * 24 * 60 * 60 * 1000;
+  }).length;
+  const historyValues = Object.values(progress.questionHistory || {});
+  const totalStudied = historyValues.length;
+  const totalAttempts = historyValues.reduce((sum, h) => sum + (h.attempts || 0), 0);
+  const totalCorrect = historyValues.reduce((sum, h) => sum + (h.correct || 0), 0);
+  const overallAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : null;
+  const allFutureDueDates = srsValues
+    .map((s) => (s.dueDate ? new Date(s.dueDate).getTime() : 0))
+    .filter((t) => t > srsNow)
+    .sort((a, b) => a - b);
+  const nextReviewMs = allFutureDueDates[0] || null;
+  const nextReviewLabel = nextReviewMs
+    ? Math.floor((nextReviewMs - srsNow) / (24 * 60 * 60 * 1000)) === 0
+      ? 'Today'
+      : Math.floor((nextReviewMs - srsNow) / (24 * 60 * 60 * 1000)) === 1
+        ? 'Tomorrow'
+        : `In ${Math.floor((nextReviewMs - srsNow) / (24 * 60 * 60 * 1000))} days`
+    : srsDueNow > 0
+      ? 'Due now'
+      : null;
+
+  // Compute next review ISO string for reminder registration (min 6 hours from now)
+  const computeNextReviewAt = useCallback((srsData) => {
+    const vals = Object.values(srsData || {});
+    const earliest = vals
+      .map((s) => (s.dueDate ? new Date(s.dueDate).getTime() : 0))
+      .filter((t) => t > 0)
+      .sort((a, b) => a - b)[0];
+    const minTime = Date.now() + 6 * 60 * 60 * 1000; // at least 6h from now
+    return new Date(Math.max(earliest || minTime, minTime)).toISOString();
+  }, []);
+
+  const handleToggleReminders = useCallback(async () => {
+    if (!isPushSupported()) {
+      setReminderStatus('error');
+      return;
+    }
+
+    if (remindersEnabled) {
+      localStorage.setItem('safeneighbor_training_reminders', 'off');
+      setRemindersEnabled(false);
+      setReminderStatus(null);
+      try {
+        const sub = await getExistingSubscription();
+        if (sub) clearTrainingReminder(sub);
+      } catch {}
+      return;
+    }
+
+    setReminderLoading(true);
+    setReminderStatus(null);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setReminderStatus('error');
+        setReminderLoading(false);
+        return;
+      }
+      const sub = await subscribeToPush();
+      if (!sub) throw new Error('No subscription');
+      const nextReviewAt = computeNextReviewAt(progress.srsData);
+      await registerTrainingReminder(sub, nextReviewAt);
+      localStorage.setItem('safeneighbor_training_reminders', 'on');
+      setRemindersEnabled(true);
+      setReminderStatus('success');
+    } catch {
+      setReminderStatus('error');
+    }
+    setReminderLoading(false);
+  }, [computeNextReviewAt, progress.srsData, remindersEnabled]);
+
+  // When quiz finishes, sync next review time to server if reminders are on
+  useEffect(() => {
+    if (mode !== 'results' || !remindersEnabled) return;
+    const srsData = progress.srsData;
+    if (!srsData || !Object.keys(srsData).length) return;
+    getExistingSubscription().then((sub) => {
+      if (!sub) return;
+      const nextReviewAt = computeNextReviewAt(srsData);
+      registerTrainingReminder(sub, nextReviewAt).catch(() => {});
+    });
+  }, [mode, remindersEnabled, progress.srsData, computeNextReviewAt]);
 
   const handleBackToDrills = () => {
     setMode('intro');
@@ -1224,6 +1401,81 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
                       </button>
                     </div>
                   </div>
+
+                  {(totalStudied > 0 || srsDueNow > 0) && (
+                    <div className="rounded-[26px] border border-slate-800/80 bg-slate-950/60 p-5">
+                      <div className="flex items-center gap-2">
+                        <ChartBar size={15} weight="bold" className="text-cyan-400" />
+                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Your progress</p>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        {overallAccuracy !== null && (
+                          <div className="rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">All-time accuracy</p>
+                            <p className={`mt-1 text-lg font-black ${overallAccuracy >= 80 ? 'text-emerald-300' : overallAccuracy >= 60 ? 'text-amber-300' : 'text-rose-300'}`}>{overallAccuracy}%</p>
+                          </div>
+                        )}
+                        {totalStudied > 0 && (
+                          <div className="rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Questions practiced</p>
+                            <p className="mt-1 text-lg font-black text-white">{totalStudied}</p>
+                          </div>
+                        )}
+                        <div className="rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Due for review</p>
+                          <p className={`mt-1 text-lg font-black ${srsDueNow > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                            {srsDueNow > 0 ? srsDueNow : '—'}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Next review</p>
+                          <p className={`mt-1 text-sm font-black ${srsDueNow > 0 ? 'text-amber-300' : 'text-slate-200'}`}>
+                            {nextReviewLabel || '—'}
+                          </p>
+                        </div>
+                      </div>
+                      {srsDueSoon > 0 && (
+                        <p className="mt-3 text-xs text-slate-400">
+                          {srsDueSoon} more question{srsDueSoon === 1 ? '' : 's'} coming up in the next 3 days.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {isPushSupported() && getPermissionState() !== 'denied' && (
+                    <div className="rounded-[26px] border border-slate-800/80 bg-slate-950/60 p-5">
+                      <div className="flex items-center gap-2">
+                        <Bell size={15} weight="bold" className="text-cyan-400" />
+                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Review reminders</p>
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                        {remindersEnabled
+                          ? 'You\'ll receive a push notification when questions are scheduled for review.'
+                          : 'Get notified when spaced-repetition questions come due so reviews stay on schedule.'}
+                      </p>
+                      {reminderStatus === 'success' && (
+                        <p className="mt-2 text-xs font-semibold text-emerald-400">Reminder set. You\'ll hear from us when review is due.</p>
+                      )}
+                      {reminderStatus === 'error' && (
+                        <p className="mt-2 text-xs font-semibold text-rose-400">
+                          {getPermissionState() === 'denied' ? 'Notification permission is blocked in your browser.' : 'Could not enable reminders. Check notification permissions.'}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleToggleReminders}
+                        disabled={reminderLoading}
+                        className={`mt-3 inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-black uppercase tracking-[0.12em] transition-colors disabled:opacity-50 ${
+                          remindersEnabled
+                            ? 'border-slate-600/70 bg-slate-800/80 text-slate-300 hover:border-slate-500/70 hover:text-white'
+                            : 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:border-cyan-400/50 hover:bg-cyan-500/15'
+                        }`}
+                      >
+                        {remindersEnabled ? <BellSlash size={15} weight="bold" /> : <Bell size={15} weight="bold" />}
+                        {reminderLoading ? 'Enabling…' : remindersEnabled ? 'Disable reminders' : 'Enable reminders'}
+                      </button>
+                    </div>
+                  )}
 
                   <div className="rounded-[26px] border border-slate-800/80 bg-slate-950/60 p-5">
                     <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Needs more repetition</p>

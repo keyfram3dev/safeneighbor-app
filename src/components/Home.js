@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Download, Settings, Brain } from 'lucide-react';
 import { HandWaving, SparkleIcon as Sparkle, QuestionIcon as Question, ArrowClockwise, Lightning } from '@phosphor-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -159,10 +159,10 @@ const colorMap = {
 
 const cardButtonClassName = (borderClass, hoverBorderClass, hoverShadowClass, variant = 'standard') => {
   const variantClassName = variant === 'featured'
-    ? 'rounded-[26px] p-6 sm:p-7 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-950 border-white/5 shadow-[0_24px_70px_rgba(15,23,42,0.32)]'
-    : 'rounded-2xl p-5 bg-gradient-to-br from-slate-800/80 to-slate-900/80';
+    ? 'rounded-[26px] p-6 sm:p-7 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border-white/5 shadow-[0_24px_70px_rgba(15,23,42,0.32)]'
+    : 'rounded-2xl p-5 bg-gradient-to-br from-slate-800 to-slate-900';
 
-  return `group relative w-full text-left backdrop-blur-sm border ${borderClass} ${variantClassName} transition-all duration-300 ${hoverBorderClass} hover:shadow-lg ${hoverShadowClass} hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-white/80`;
+  return `group relative w-full text-left border ${borderClass} ${variantClassName} transition-[transform,box-shadow,border-color] duration-300 ${hoverBorderClass} hover:shadow-lg ${hoverShadowClass} hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-white/80`;
 };
 
 const ScenarioIcon = ({ iconName, size = 28, className = '', weight = 'bold' }) => {
@@ -187,10 +187,10 @@ const HomeCard = ({ item, variant = 'standard' }) => {
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/5 blur-3xl pointer-events-none" />
         </>
       )}
-      <div className={`absolute inset-0 bg-gradient-to-br from-blue-500/0 to-purple-500/0 ${c.gradFrom} ${c.gradTo} ${isFeatured ? 'rounded-[26px]' : 'rounded-2xl'} transition-all duration-300 pointer-events-none`} />
+      <div className={`absolute inset-0 bg-gradient-to-br from-blue-500/0 to-purple-500/0 ${c.gradFrom} ${c.gradTo} ${isFeatured ? 'rounded-[26px]' : 'rounded-2xl'} transition-[opacity] duration-300 pointer-events-none`} />
 
       <div className={`relative flex h-full items-start ${isFeatured ? 'gap-5' : 'gap-4'}`}>
-        <div className={`shrink-0 ${isFeatured ? 'p-4 rounded-2xl' : 'p-3 rounded-xl'} bg-slate-800 border border-slate-700/50 ${c.iconBorder} transition-all`}>
+        <div className={`shrink-0 ${isFeatured ? 'p-4 rounded-2xl' : 'p-3 rounded-xl'} bg-slate-800 border border-slate-700/50 ${c.iconBorder} transition-[border-color]`}>
           {item.iconName ? <ScenarioIcon iconName={item.iconName} size={isFeatured ? 28 : 24} className={c.icon} /> : item.iconNode}
         </div>
 
@@ -225,7 +225,7 @@ const HomeCard = ({ item, variant = 'standard' }) => {
 const HomeSection = ({ eyebrow, title, description, children, className = '' }) => (
   <section className={`relative mt-14 sm:mt-16 ${className}`}>
     <div className="pointer-events-none absolute -top-6 left-6 right-6 h-px bg-gradient-to-r from-transparent via-slate-700/60 to-transparent" />
-    <div className="mb-5 relative overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-950/65 px-5 py-4 backdrop-blur-sm">
+    <div className="mb-5 relative overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-950 px-5 py-4">
       <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-gradient-to-b from-red-500 via-cyan-400 to-emerald-400" />
       <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-transparent to-transparent pointer-events-none" />
       <div className="absolute -right-10 top-1/2 h-24 w-24 -translate-y-1/2 rounded-full bg-slate-700/10 blur-3xl pointer-events-none" />
@@ -361,9 +361,18 @@ const Home = ({
     }, 170);
   };
 
+  const markInstallComplete = () => {
+    localStorage.setItem('safeneighbor_install_confirmed', 'true');
+    setSetupState((prev) => ({ ...prev, installReady: true }));
+  };
+
   const handleInstall = () => {
     if (window.deferredPrompt) {
       window.deferredPrompt.prompt();
+      window.deferredPrompt.userChoice.then((choice) => {
+        if (choice.outcome === 'accepted') markInstallComplete();
+        window.deferredPrompt = null;
+      });
     } else {
       setShowInstallHelp(true);
     }
@@ -406,7 +415,8 @@ const Home = ({
       const location = await getLastKnownLocation().catch(() => null);
       const installReady = Boolean(
         window.matchMedia?.('(display-mode: standalone)').matches ||
-        window.navigator.standalone === true
+        window.navigator.standalone === true ||
+        localStorage.getItem('safeneighbor_install_confirmed') === 'true'
       );
 
       if (cancelled) {
@@ -422,11 +432,13 @@ const Home = ({
       setLastKnownLocation(location);
     };
 
-    loadSetupState();
+    // Defer past the entrance animation so the re-render doesn't compete with it
+    const initTimer = setTimeout(loadSetupState, 400);
     window.addEventListener('appinstalled', loadSetupState);
 
     return () => {
       cancelled = true;
+      clearTimeout(initTimer);
       window.removeEventListener('appinstalled', loadSetupState);
     };
   }, []);
@@ -634,6 +646,12 @@ const Home = ({
   const contactsRefreshNeeded = setupState.contactsReady && (contactsReviewAgeDays === null || contactsReviewAgeDays >= 30);
   const legalQuizReinforcementCount = legalQuizProgress?.reinforcementIds?.length || 0;
   const legalQuizRefreshNeeded = legalQuizReviewAgeDays === null || legalQuizReviewAgeDays >= 14;
+  const srsQuestionsDue = useMemo(() => {
+    const now = Date.now();
+    return Object.values(legalQuizProgress?.srsData || {}).filter(
+      (s) => s.dueDate && new Date(s.dueDate).getTime() <= now
+    ).length;
+  }, [legalQuizProgress]);
   const scenariosRefreshNeeded = scenariosNeedsReinforcement || scenariosPracticeAgeDays === null || scenariosPracticeAgeDays >= 10;
   const witnessingRefreshNeeded = witnessingNeedsReinforcement || witnessingPracticeAgeDays === null || witnessingPracticeAgeDays >= 14;
   const signalsRefreshNeeded = signalsNeedsReinforcement || signalsPracticeAgeDays === null || signalsPracticeAgeDays >= 14;
@@ -980,7 +998,17 @@ const Home = ({
             });
 
   const retentionPrompts = [
-    legalQuizReinforcementCount > 0 && {
+    srsQuestionsDue > 0 && {
+      id: 'srs-review',
+      label: t('home.retentionSrsLabel', { defaultValue: 'Scheduled review ready' }),
+      detail: t('home.retentionSrsDetail', {
+        defaultValue: srsQuestionsDue === 1
+          ? '1 question is due for spaced-repetition review'
+          : `${srsQuestionsDue} questions are due for spaced-repetition review`,
+      }),
+      onClick: () => openPractice({ mode: 'review' }, { type: 'page', id: 'legal-page' }),
+    },
+    !srsQuestionsDue && legalQuizReinforcementCount > 0 && {
       id: 'practice-review',
       label: t('home.retentionPracticeLabel', { defaultValue: 'Reinforcement round ready' }),
       detail: t('home.retentionPracticeDetail', {
@@ -1161,19 +1189,13 @@ const Home = ({
     : null;
   return (
     <div className={`max-w-4xl mx-auto pb-24 px-4 relative ${animReady ? 'home-enter-active page-section-stagger' : 'home-enter-armed'}`}>
-      <div
-        className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-        }}
-      />
 
       <div className="mb-10 pt-5 relative sm:mb-12 sm:pt-6 page-section-item">
         <div className="absolute inset-x-10 -top-14 h-40 bg-gradient-to-b from-blue-500/15 via-cyan-500/5 to-transparent blur-3xl pointer-events-none" />
 
         <div className="xl:grid xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)] xl:items-stretch xl:gap-4">
           <motion.div
-            className="relative overflow-hidden rounded-[28px] border border-slate-800/80 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-950 px-6 py-8 text-center shadow-[0_24px_80px_rgba(2,6,23,0.45)] sm:px-10 xl:text-left"
+            className="relative overflow-hidden rounded-[28px] border border-slate-800/80 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-950 px-6 py-8 text-center shadow-[0_24px_80px_rgba(2,6,23,0.45)] backdrop-blur-sm sm:px-10 xl:text-left"
             animate={heroTransition === 'rights' ? {
               scale: [1, 1.01, 1],
               borderColor: ['rgba(30,41,59,0.8)', 'rgba(56,189,248,0.35)', 'rgba(30,41,59,0.8)'],
@@ -1182,11 +1204,7 @@ const Home = ({
                 '0 28px 90px rgba(8,47,73,0.5)',
                 '0 24px 80px rgba(2,6,23,0.45)',
               ],
-            } : {
-              scale: 1,
-              borderColor: 'rgba(30,41,59,0.8)',
-              boxShadow: '0 24px 80px rgba(2,6,23,0.45)',
-            }}
+            } : { scale: 1 }}
             transition={{ duration: 0.32, ease: 'easeOut' }}
           >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.12),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.04),transparent_32%)] pointer-events-none" />
@@ -1331,7 +1349,7 @@ const Home = ({
               key={reason.id}
               type="button"
               onClick={reason.onClick}
-              className={`scenario-section-item min-w-[250px] snap-start rounded-2xl border px-4 py-4 text-left backdrop-blur-sm shadow-[0_12px_28px_rgba(2,6,23,0.12)] transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 md:min-w-0 ${reason.className}`}
+              className={`scenario-section-item min-w-[250px] snap-start rounded-2xl border px-4 py-4 text-left shadow-[0_12px_28px_rgba(2,6,23,0.12)] transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 md:min-w-0 ${reason.className}`}
             >
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-slate-950/50">
@@ -1767,9 +1785,11 @@ const Home = ({
         eyebrow={t('home.practiceEyebrow', { defaultValue: 'Practice under pressure' })}
         title={t('home.practiceTitle', { defaultValue: 'Return to the language before pressure asks for it' })}
         description={t('home.practiceDesc', {
-          defaultValue: legalQuizReinforcementCount > 0
-            ? `${legalQuizReinforcementCount} quiz items still need reinforcement. The rest of the practice system can stay warm through mixed rounds, scenario drills, witness practice, signals, and fast phrases.`
-            : 'Use mixed rounds, domain drills, and phrase review to keep rights language, witness posture, and community coordination closer to hand when pressure rises.',
+          defaultValue: srsQuestionsDue > 0
+            ? `${srsQuestionsDue} question${srsQuestionsDue === 1 ? '' : 's'} scheduled for review by spaced repetition. The rest of the system stays warm through mixed rounds, scenario drills, and fast phrases.`
+            : legalQuizReinforcementCount > 0
+              ? `${legalQuizReinforcementCount} quiz item${legalQuizReinforcementCount === 1 ? '' : 's'} still need reinforcement. The rest of the practice system can stay warm through mixed rounds, scenario drills, witness practice, signals, and fast phrases.`
+              : 'Use mixed rounds, domain drills, and phrase review to keep rights language, witness posture, and community coordination closer to hand when pressure rises.',
         })}
       >
         <div className="rounded-[26px] border border-slate-800/80 bg-gradient-to-br from-slate-900/85 via-slate-950/96 to-slate-950 p-5 shadow-[0_20px_55px_rgba(2,6,23,0.22)]">
@@ -1785,9 +1805,11 @@ const Home = ({
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Mixed round size</p>
               <p className="mt-1 text-lg font-black text-white">30 questions</p>
               <p className="mt-1 text-xs leading-[1.5] text-slate-500">
-                {legalQuizReinforcementCount > 0
-                  ? `${legalQuizReinforcementCount} item${legalQuizReinforcementCount === 1 ? '' : 's'} waiting for reinforcement`
-                  : 'No queued reinforcement right now'}
+                {srsQuestionsDue > 0
+                  ? `${srsQuestionsDue} question${srsQuestionsDue === 1 ? '' : 's'} due for review`
+                  : legalQuizReinforcementCount > 0
+                    ? `${legalQuizReinforcementCount} item${legalQuizReinforcementCount === 1 ? '' : 's'} waiting for reinforcement`
+                    : 'No queued reinforcement right now'}
               </p>
             </div>
           </div>
@@ -1876,7 +1898,7 @@ const Home = ({
         </Disclaimer>
       </div>
 
-      <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} />
+      <InstallHelp isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} onInstalled={markInstallComplete} />
     </div>
   );
 };

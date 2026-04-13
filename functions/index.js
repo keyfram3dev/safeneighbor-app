@@ -812,6 +812,105 @@ exports.unregisterPushSubscription = functions.https.onRequest((req, res) => {
 });
 
 /**
+ * Register or update a training reminder push subscription.
+ * Stores the subscription + nextReviewAt timestamp.
+ * A scheduled function checks this hourly and fires the reminder push.
+ */
+exports.registerTrainingReminder = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    try {
+      const { subscription, nextReviewAt } = req.body;
+      if (!subscription || !subscription.endpoint) {
+        return res.status(400).json({ error: 'Subscription endpoint required' });
+      }
+      if (typeof subscription.endpoint !== 'string' ||
+          !subscription.endpoint.startsWith('https://') ||
+          subscription.endpoint.length > 2048) {
+        return res.status(400).json({ error: 'Invalid subscription endpoint' });
+      }
+      if (subscription.keys && (
+          typeof subscription.keys.p256dh !== 'string' ||
+          typeof subscription.keys.auth !== 'string')) {
+        return res.status(400).json({ error: 'Invalid subscription keys' });
+      }
+
+      // nextReviewAt must be a valid future ISO date string
+      const reviewAt = nextReviewAt ? new Date(nextReviewAt) : null;
+      const isValidDate = reviewAt && !isNaN(reviewAt.getTime());
+
+      const cleanSubscription = {
+        endpoint: subscription.endpoint,
+        ...(subscription.keys && { keys: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth } }),
+      };
+
+      const endpointHash = crypto.createHash('sha256').update(subscription.endpoint).digest('hex').substring(0, 32);
+
+      await db.collection('pushSubscriptions').doc(endpointHash).set({
+        subscription: cleanSubscription,
+        trainingReminderAt: isValidDate ? reviewAt.toISOString() : null,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('registerTrainingReminder error:', error);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+});
+
+/**
+ * Scheduled training reminder sender — runs every hour.
+ * Finds subscriptions with trainingReminderAt <= now and sends a push.
+ */
+exports.sendTrainingReminders = functions.pubsub.schedule('every 1 hours').onRun(async () => {
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+    console.log('VAPID keys not configured — skipping training reminders');
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const subsSnap = await db.collection('pushSubscriptions').get();
+  if (subsSnap.empty) return;
+
+  let sent = 0;
+  let cleaned = 0;
+
+  for (const subDoc of subsSnap.docs) {
+    const data = subDoc.data();
+    const { subscription, trainingReminderAt } = data;
+    if (!subscription || !trainingReminderAt) continue;
+    if (trainingReminderAt > now) continue; // not yet due
+
+    const payload = JSON.stringify({
+      title: 'Review time',
+      body: 'Questions are scheduled for review. Keep your knowledge close.',
+      icon: '/logo192.png',
+      badge: '/favicon-32x32.png',
+      data: { url: '/?tab=legal', type: 'training-reminder' },
+    });
+
+    try {
+      await webpush.sendNotification(subscription, payload);
+      // Clear so it doesn't fire again until next registration
+      await subDoc.ref.update({ trainingReminderAt: null });
+      sent++;
+    } catch (err) {
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        await subDoc.ref.delete();
+        cleaned++;
+      } else {
+        console.error('Training reminder send error:', err.statusCode, err.message);
+      }
+    }
+  }
+
+  console.log(`Training reminders: ${sent} sent, ${cleaned} expired subscriptions cleaned`);
+});
+
+/**
  * Server-side geohash-5 encoder (same algorithm as client).
  * Used to convert report lat/lng to a geohash prefix for matching.
  */
