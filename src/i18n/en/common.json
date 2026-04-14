@@ -1814,6 +1814,7 @@
     "aiPlaceholder": "Ask about your rights...",
     "aiSend": "Send",
     "aiError": "Sorry, I encountered an error. Please try again.",
+    "aiOffline": "You're offline. Connect to the internet to use the AI assistant. Your rights guide, training, and scenarios all work without a connection.",
     "aiNoResponse": "No response received",
     "rateLimitMinute": "Too many requests. Please wait a minute before asking another question.",
     "rateLimitHour": "Hourly limit reached (30 questions/hour). Please try again later.",

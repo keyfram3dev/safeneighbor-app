@@ -22,16 +22,85 @@ import {
   CloudArrowUp,
   CloudSlash,
   ArrowSquareOut,
+  FileText,
 } from '@phosphor-icons/react';
 import { acquireLocation, reverseGeocode, buildLocationSmsUri } from '../utils/locationShare';
 import { getTrustedContacts } from '../utils/backup/accessGrants';
 import { generateEncounterReport } from '../utils/encounterLogDocument';
+import { openEncounterEvidencePackage } from '../utils/encounterEvidencePackage';
 import { useEncounterSync } from '../hooks/useEncounterSync';
 import { readEncrypted, writeEncrypted } from '../utils/encryptedStorage';
+import { deleteEncounterAttachment, getRecentRecordings, saveEncounterAttachment } from '../utils/localStorageDB';
+import {
+  consumePendingEncounterAttachmentIntent,
+  writeEncounterAttachmentLaunchIntent,
+} from '../utils/encounterAttachmentLaunch';
 import Disclaimer from './Disclaimer';
 
 const STORAGE_KEY = 'safeneighbor_encounter_logs';
 const MAX_LOGS = 20;
+const DRAFT_STORAGE_PREFIX = 'safeneighbor_encounter_log_draft';
+const AUTO_RESTORE_DRAFT_MAX_AGE_MS = 5 * 60 * 1000;
+
+const createDefaultEvidenceDetails = () => ({
+  agency: '',
+  agentIdentifiers: '',
+  vehicleDetails: '',
+  witnessDetails: '',
+  injuries: '',
+  propertyDamage: '',
+  attachmentNotes: '',
+  chainOfCustody: '',
+});
+
+const normalizeLogEvidenceDetails = (log) => ({
+  ...log,
+  evidenceDetails: {
+    ...createDefaultEvidenceDetails(),
+    ...(log?.evidenceDetails || {}),
+  },
+  attachments: Array.isArray(log?.attachments) ? log.attachments : [],
+});
+
+const getEventSortValue = (event) => new Date(event.timestamp).getTime();
+
+const getDraftStorageKey = ({ afterMode = false, witnessMode = false } = {}) =>
+  `${DRAFT_STORAGE_PREFIX}:${witnessMode ? 'witness' : afterMode ? 'after' : 'live'}`;
+
+const readEncounterDraft = ({ afterMode = false, witnessMode = false } = {}) => {
+  try {
+    const raw = window.sessionStorage.getItem(getDraftStorageKey({ afterMode, witnessMode }));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.log?.id || parsed.log.endedAt) return null;
+    return {
+      ...parsed,
+      log: normalizeLogEvidenceDetails(parsed.log),
+    };
+  } catch {
+    return null;
+  }
+};
+
+const writeEncounterDraft = (log, { afterMode = false, witnessMode = false, source = 'autosave' } = {}) => {
+  try {
+    if (!log || log.endedAt) {
+      window.sessionStorage.removeItem(getDraftStorageKey({ afterMode, witnessMode }));
+      return;
+    }
+    window.sessionStorage.setItem(getDraftStorageKey({ afterMode, witnessMode }), JSON.stringify({
+      source,
+      savedAt: Date.now(),
+      log: normalizeLogEvidenceDetails(log),
+    }));
+  } catch {}
+};
+
+const clearEncounterDraft = ({ afterMode = false, witnessMode = false } = {}) => {
+  try {
+    window.sessionStorage.removeItem(getDraftStorageKey({ afterMode, witnessMode }));
+  } catch {}
+};
 
 // EVENT_CATEGORIES is defined inside the component to access t()
 
@@ -81,7 +150,8 @@ const track = (event, data) => {
 // ── Persistence helpers ─────────────────────────────────
 const loadLogs = async () => {
   try {
-    return await readEncrypted(STORAGE_KEY, []);
+    const stored = await readEncrypted(STORAGE_KEY, []);
+    return stored.map(normalizeLogEvidenceDetails);
   } catch {
     return [];
   }
@@ -96,7 +166,7 @@ const saveLogs = async (logs) => {
 
 // ── Component ───────────────────────────────────────────
 
-const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = false, onOpenBackupSettings }) => {
+const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = false, onOpenBackupSettings, onOpenRecord }) => {
   const { t } = useTranslation();
 
   // Quick-tap event categories (inside component for t() access)
@@ -207,6 +277,7 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
   const [logs, setLogs] = useState([]);
   const [activeLog, setActiveLog] = useState(null);
   const [resumeCandidate, setResumeCandidate] = useState(null);
+  const draftContext = useMemo(() => ({ afterMode, witnessMode }), [afterMode, witnessMode]);
 
   // Async load from encrypted storage on mount
   useEffect(() => {
@@ -215,16 +286,50 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
       if (cancelled) return;
       setLogs(stored);
       const candidate = stored.find((l) => !l.endedAt && (witnessMode ? l.witnessLog : (afterMode ? l.afterTheFact : !l.afterTheFact && !l.witnessLog))) || null;
-      setResumeCandidate(candidate);
+      const draft = readEncounterDraft({ afterMode, witnessMode });
+
+      if (
+        draft?.log &&
+        draft.source === 'attachment-picker' &&
+        Date.now() - Number(draft.savedAt || 0) < AUTO_RESTORE_DRAFT_MAX_AGE_MS
+      ) {
+        setActiveLog(draft.log);
+        setResumeCandidate(null);
+        return;
+      }
+
+      const chosenCandidate = (() => {
+        if (!draft?.log) return candidate;
+        if (!candidate) return draft.log;
+        return new Date(draft.log.updatedAt || draft.log.startedAt || 0).getTime()
+          > new Date(candidate.updatedAt || candidate.startedAt || 0).getTime()
+          ? draft.log
+          : candidate;
+      })();
+
+      setResumeCandidate(chosenCandidate);
     });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [afterMode, witnessMode]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLog, setShareLog] = useState(null);
   const [copied, setCopied] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [detailNoteFor, setDetailNoteFor] = useState(null);
   const [detailNoteText, setDetailNoteText] = useState('');
+  const [exportingPackage, setExportingPackage] = useState(false);
+  const [recentRecordings, setRecentRecordings] = useState([]);
+  const [loadingRecentRecordings, setLoadingRecentRecordings] = useState(false);
+  const [importingAttachment, setImportingAttachment] = useState(false);
+  const [manualAttachment, setManualAttachment] = useState({
+    attachmentType: 'document',
+    label: '',
+    storage: '',
+    notes: '',
+  });
+  const [pendingImportedFiles, setPendingImportedFiles] = useState([]);
+  const [lastImportedFilesLabel, setLastImportedFilesLabel] = useState('');
+  const attachmentImportRef = useRef(null);
 
   // After-mode date/time state (defaults to now)
   const [afterDate, setAfterDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -252,13 +357,36 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
     deleteRemoteLog,
   } = useEncounterSync(activeLog, logs);
 
-  // Debounced auto-save
+  // Debounced auto-save — 50ms to batch rapid state changes while still being
+  // nearly-immediate so the log is in storage before any potential page disruption.
   const save = useCallback((allLogs) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveLogs(allLogs);
-    }, 500);
+    }, 50);
   }, []);
+
+  const persistLogImmediately = useCallback(async (nextActiveLog = activeLog) => {
+    if (!nextActiveLog) return;
+    const existingLogs = await loadLogs();
+    const normalizedNextLog = normalizeLogEvidenceDetails(nextActiveLog);
+    const idx = existingLogs.findIndex((log) => log.id === normalizedNextLog.id);
+    const nextLogs = idx >= 0
+      ? existingLogs.map((log, index) => (index === idx ? normalizedNextLog : normalizeLogEvidenceDetails(log)))
+      : [normalizedNextLog, ...existingLogs.map(normalizeLogEvidenceDetails)];
+    await saveLogs(nextLogs);
+  }, [activeLog]);
+
+  useEffect(() => {
+    if (!activeLog) {
+      return;
+    }
+    if (activeLog.endedAt) {
+      clearEncounterDraft(draftContext);
+      return;
+    }
+    writeEncounterDraft(activeLog, { ...draftContext, source: 'autosave' });
+  }, [activeLog, draftContext]);
 
   // Sync active log back into logs array and save
   useEffect(() => {
@@ -273,8 +401,39 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
     });
   }, [activeLog, save]);
 
-  // Cleanup timer on unmount
-  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
+  // Always-current ref so the unmount cleanup (empty-dep effect) sees the latest activeLog.
+  const activeLogRef = useRef(activeLog);
+  useEffect(() => { activeLogRef.current = activeLog; }, [activeLog]);
+
+  // On unmount, cancel the debounced save and immediately flush the latest log to storage
+  // so an in-progress encounter survives SPA navigation away from this screen.
+  // Uses activeLogRef (not activeLog in closure) so it always gets the freshest value.
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      const log = activeLogRef.current;
+      if (log && !log.endedAt) {
+        // Fire-and-forget: page is still alive (SPA nav), async write will complete.
+        writeEncounterDraft(log, { ...draftContext, source: 'autosave' });
+        persistLogImmediately(log).catch(() => {});
+      }
+    };
+  }, [draftContext, persistLogImmediately]);
+
+  // Best-effort save on full page unload (e.g. browser refresh, iOS pull-to-refresh
+  // if it somehow fires). Async writes may not complete before the page terminates,
+  // but this gives the browser a chance to flush if it lingers long enough.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const log = activeLogRef.current;
+      if (log && !log.endedAt) {
+        writeEncounterDraft(log, { ...draftContext, source: 'autosave' });
+        persistLogImmediately(log).catch(() => {});
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [draftContext, persistLogImmediately]);
 
   // Running timer (only in "now" mode)
   useEffect(() => {
@@ -307,16 +466,60 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
     }
   }, [detailNoteFor]);
 
+  const activeLogId = activeLog?.id;
+  const encounterScenarioId = witnessMode ? 'encounter-log-witness' : afterMode ? 'encounter-log-after' : 'encounter-log';
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activeLogId) return undefined;
+
+    setLoadingRecentRecordings(true);
+    getRecentRecordings(8)
+      .then((items) => {
+        if (!cancelled) setRecentRecordings(items || []);
+      })
+      .catch((error) => {
+        console.error('Failed to load recent recordings for encounter attachments:', error);
+        if (!cancelled) setRecentRecordings([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRecentRecordings(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLogId]);
+
+  useEffect(() => {
+    if (!activeLogId) return;
+    const pendingIntent = consumePendingEncounterAttachmentIntent();
+    if (!pendingIntent || pendingIntent.logId !== activeLogId || !pendingIntent.attachment) return;
+
+    setActiveLog((prev) => {
+      if (!prev) return prev;
+      if ((prev.attachments || []).some((attachment) => attachment.id === pendingIntent.attachment.id || attachment.recordingId === pendingIntent.attachment.recordingId)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        attachments: [...(prev.attachments || []), pendingIntent.attachment],
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  }, [activeLogId]);
+
   // ── Resume / New handlers ──────────────────────────────
 
   const handleResumeLog = () => {
     if (resumeCandidate) {
-      setActiveLog(resumeCandidate);
+      setActiveLog(normalizeLogEvidenceDetails(resumeCandidate));
       setResumeCandidate(null);
     }
   };
 
   const handleNewLog = () => {
+    clearEncounterDraft(draftContext);
     if (resumeCandidate) {
       // End the old log so it moves to past logs
       const ended = { ...resumeCandidate, endedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
@@ -366,6 +569,8 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
       events: [],
       notes: '',
       updatedAt: now,
+      evidenceDetails: createDefaultEvidenceDetails(),
+      attachments: [],
       ...(useAfterMode && { afterTheFact: true }),
       ...(witnessMode && { witnessLog: true }),
     };
@@ -382,6 +587,7 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
       endedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }));
+    clearEncounterDraft(draftContext);
     track('encounter_log', { action: 'end', events: activeLog.events.length });
   };
 
@@ -427,6 +633,20 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
     track('encounter_log_event', { category, label });
   };
 
+  const getFirstEventForOption = useCallback((category, label) => {
+    const matches = (activeLog?.events || [])
+      .filter((event) => event.category === category && event.label === label)
+      .sort((a, b) => getEventSortValue(a) - getEventSortValue(b));
+    return matches[0] || null;
+  }, [activeLog?.events]);
+
+  const getEventOrder = useCallback((eventId) => {
+    if (!eventId) return null;
+    const sorted = [...(activeLog?.events || [])].sort((a, b) => getEventSortValue(a) - getEventSortValue(b));
+    const index = sorted.findIndex((event) => event.id === eventId);
+    return index >= 0 ? index + 1 : null;
+  }, [activeLog?.events]);
+
   const handleSubmitDetailNote = () => {
     if (!activeLog || !detailNoteFor) return;
 
@@ -469,6 +689,15 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
     });
   };
 
+  const handleRemoveEvent = (eventId) => {
+    if (!activeLog) return;
+    setActiveLog((prev) => ({
+      ...prev,
+      events: (prev.events || []).filter((event) => event.id !== eventId),
+      updatedAt: new Date().toISOString(),
+    }));
+  };
+
   // Scroll wheel handler for date/time inputs — increment/decrement on wheel
   const handleWheelTime = (e, eventId, field) => {
     e.preventDefault();
@@ -498,13 +727,174 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
     }));
   };
 
+  const handleUpdateEvidenceDetail = (field, value) => {
+    if (!activeLog) return;
+    setActiveLog((prev) => ({
+      ...prev,
+      evidenceDetails: {
+        ...createDefaultEvidenceDetails(),
+        ...(prev.evidenceDetails || {}),
+        [field]: value,
+      },
+      updatedAt: new Date().toISOString(),
+    }));
+  };
+
+  const handleAddVaultAttachment = (recording) => {
+    if (!recording || !activeLog) return;
+    setActiveLog((prev) => {
+      if ((prev.attachments || []).some((attachment) => attachment.recordingId === recording.id)) {
+        return prev;
+      }
+
+      const providers = [recording.backups?.r2?.backedUp && 'R2', recording.backups?.google_drive?.backedUp && 'Google Drive']
+        .filter(Boolean)
+        .join(', ');
+
+      const attachment = {
+        id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        sourceType: 'vault-recording',
+        attachmentType: recording.type || 'recording',
+        recordingId: recording.id,
+        label: recording.title || `${recording.type || 'recording'} attachment`,
+        createdAt: recording.createdAt || new Date().toISOString(),
+        storage: 'Encrypted local vault',
+        notes: recording.source === 'imported' ? 'Imported into the encrypted vault.' : 'Captured in the encrypted vault.',
+        backupStatus: recording.backedUp ? `Backed up${providers ? ` (${providers})` : ''}` : recording.markedForBackup ? 'Marked for backup' : 'Local only',
+      };
+
+      return {
+        ...prev,
+        attachments: [...(prev.attachments || []), attachment],
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  };
+
+  const handleRemoveAttachment = (attachmentId) => {
+    if (!activeLog) return;
+    const target = (activeLog.attachments || []).find((attachment) => attachment.id === attachmentId);
+    if (target?.importedFileId) {
+      deleteEncounterAttachment(target.importedFileId).catch((error) => {
+        console.error('Failed to delete imported encounter attachment:', error);
+      });
+    }
+    setActiveLog((prev) => ({
+      ...prev,
+      attachments: (prev.attachments || []).filter((attachment) => attachment.id !== attachmentId),
+      updatedAt: new Date().toISOString(),
+    }));
+  };
+
+  const handleUpdateAttachment = (attachmentId, field, value) => {
+    if (!activeLog) return;
+    setActiveLog((prev) => ({
+      ...prev,
+      attachments: (prev.attachments || []).map((attachment) => (
+        attachment.id === attachmentId ? { ...attachment, [field]: value } : attachment
+      )),
+      updatedAt: new Date().toISOString(),
+    }));
+  };
+
+  const handleOpenRecordForAttachment = () => {
+    if (!activeLogId || !onOpenRecord) return;
+    writeEncounterAttachmentLaunchIntent({
+      logId: activeLogId,
+      scenarioId: encounterScenarioId,
+    });
+    onOpenRecord();
+  };
+
+  const handlePrepareAttachmentPicker = () => {
+    // Suppress pull-to-refresh while the native file picker is open. On iOS the
+    // sheet-close animation fires a downward swipe on the document (scrollY still 0)
+    // that exceeds the pull threshold and triggers window.location.reload().
+    // We cannot use window.focus to clear the flag because focus fires *before*
+    // the sheet-close touch events arrive, clearing the guard too early.
+    // Instead: set the flag now, clear it in handleImportedFiles' finally block (file
+    // selected) or after a 30-second timeout (picker cancelled without selection).
+    window.__filePickerActive = true;
+    window.__filePickerActiveUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    clearTimeout(window.__filePickerActiveTimer);
+    window.__filePickerActiveTimer = setTimeout(() => { window.__filePickerActive = false; window.__filePickerActiveUrl = null; }, 30000);
+    if (activeLog) {
+      writeEncounterDraft(activeLog, { ...draftContext, source: 'attachment-picker' });
+    }
+    persistLogImmediately().catch((error) => {
+      console.error('Failed to persist encounter log before opening attachment picker:', error);
+    });
+  };
+
+  const formatImportedFilesLabel = useCallback((files) => {
+    if (!files?.length) return '';
+    if (files.length === 1) return files[0].name;
+    if (files.length === 2) return `${files[0].name} and ${files[1].name}`;
+    return `${files[0].name} and ${files.length - 1} more`;
+  }, []);
+
+  const handleImportedFiles = async (files) => {
+    if (!activeLog || !files?.length) return;
+    setImportingAttachment(true);
+    try {
+      await persistLogImmediately();
+      const importedAttachments = [];
+      for (const file of files) {
+        const mimeType = file.type || 'application/octet-stream';
+        const saved = await saveEncounterAttachment({
+          blob: file,
+          originalName: file.name,
+          size: file.size,
+          mimeType,
+          lastModified: file.lastModified || null,
+        });
+
+        importedAttachments.push({
+          id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          sourceType: 'imported-file',
+          attachmentType: mimeType.startsWith('image/') ? 'photo' : mimeType.startsWith('video/') ? 'video' : mimeType.startsWith('audio/') ? 'audio' : 'document',
+          label: file.name,
+          createdAt: saved.createdAt,
+          storage: 'Encrypted encounter attachment store',
+          notes: '',
+          backupStatus: 'Imported on device',
+          importedFileId: saved.id,
+          mimeType: saved._mimeType || mimeType,
+          size: file.size,
+        });
+      }
+
+      setActiveLog((prev) => ({
+        ...prev,
+        attachments: [...(prev.attachments || []), ...importedAttachments],
+        updatedAt: new Date().toISOString(),
+      }));
+      setLastImportedFilesLabel(formatImportedFilesLabel(files));
+      setPendingImportedFiles([]);
+    } catch (error) {
+      console.error('Failed to import encounter attachment files:', error);
+      alert(t('encounterLog.attachmentsImportFailed', { defaultValue: 'Could not import one or more files into the encounter attachment store.' }));
+    } finally {
+      // Clear the pull-to-refresh guard now that the picker is fully done.
+      window.__filePickerActive = false;
+      window.__filePickerActiveUrl = null;
+      clearTimeout(window.__filePickerActiveTimer);
+      setImportingAttachment(false);
+      // Clear the native control so selecting the same file again still fires onChange.
+      if (attachmentImportRef.current) attachmentImportRef.current.value = '';
+    }
+  };
+
   const handleDeleteLog = (logId) => {
     setLogs((prev) => {
       const updated = prev.filter((l) => l.id !== logId);
       saveLogs(updated);
       return updated;
     });
-    if (activeLog?.id === logId) setActiveLog(null);
+    if (activeLog?.id === logId) {
+      clearEncounterDraft(draftContext);
+      setActiveLog(null);
+    }
     setDeleteConfirm(null);
     // Clean up cloud copy
     deleteRemoteLog(logId);
@@ -514,6 +904,7 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
     setLogs([]);
     setActiveLog(null);
     setResumeCandidate(null);
+    clearEncounterDraft(draftContext);
     saveLogs([]);
     setClearAllConfirm(false);
   };
@@ -553,13 +944,28 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
   };
 
   const handlePrint = () => {
-    const report = getReport();
-    track('encounter_log_share', { method: 'print' });
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(`<pre style="font-family:monospace;white-space:pre-wrap;max-width:700px;margin:auto;padding:24px;font-size:13px;">${report.replace(/</g, '&lt;')}</pre>`);
-      w.document.close();
-      w.print();
+    track('encounter_log_share', { method: 'print_evidence_package' });
+    handleExportEvidencePackage();
+  };
+
+  const handleExportEvidencePackage = async () => {
+    if (!shareLog || exportingPackage) return;
+    setExportingPackage(true);
+    track('encounter_log_share', { method: 'evidence_package' });
+    try {
+      const opened = await openEncounterEvidencePackage(shareLog);
+      if (!opened) {
+        alert(t('encounterLog.evidencePackagePopupBlocked', {
+          defaultValue: 'Could not open the evidence package window. Please allow pop-ups and try again.',
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to export evidence package:', error);
+      alert(t('encounterLog.evidencePackageFailed', {
+        defaultValue: 'Could not export the evidence package right now.',
+      }));
+    } finally {
+      setExportingPackage(false);
     }
   };
 
@@ -620,6 +1026,9 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
             : afterMode
               ? t('encounterLog.subtitleAfter')
               : t('encounterLog.subtitleNow')}
+        </p>
+        <p className="text-slate-500 text-xs mt-2 max-w-2xl leading-relaxed">
+          {t('encounterLog.recordingExplainer', { defaultValue: 'This encounter log records a timestamped written event trail with notes and location. It does not capture audio or video by itself. Use the Record section if you need media evidence.' })}
         </p>
 
         {/* Cloud backup toggle / setup link */}
@@ -807,9 +1216,20 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
                 </span>
               </div>
               {!activeLog.afterTheFact && (
-                <div className="flex items-center gap-1.5 text-slate-400">
-                  <Clock size={14} weight="bold" />
-                  <span className="text-sm font-mono font-bold">{elapsedTime}</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 text-slate-400">
+                    <Clock size={14} weight="bold" />
+                    <span className="text-sm font-mono font-bold">{elapsedTime}</span>
+                  </div>
+                  {!activeLog.endedAt && (
+                    <button
+                      type="button"
+                      onClick={handleEndEncounter}
+                      className="rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-white hover:bg-slate-800/80"
+                    >
+                      {t('encounterLog.stop', { defaultValue: 'Stop' })}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -847,15 +1267,66 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
                     {isExpanded && (
                       <div className="px-3 pb-3">
                         <div className="grid grid-cols-2 gap-2">
-                          {cat.events.map((eventLabel) => (
-                            <button
-                              key={eventLabel}
-                              onClick={() => handleAddEvent(cat.id, eventLabel)}
-                              className={`${colors.btn} border font-semibold text-xs py-2.5 px-3 rounded-lg transition-all text-start`}
-                            >
-                              {eventLabel}
-                            </button>
-                          ))}
+                          {cat.events.map((eventLabel) => {
+                            const selectedEvent = getFirstEventForOption(cat.id, eventLabel);
+                            const selectedOrder = selectedEvent ? getEventOrder(selectedEvent.id) : null;
+                            const selectedTime = selectedEvent ? formatTime(selectedEvent.timestamp) : null;
+                            return (
+                              <div key={eventLabel}>
+                                <button
+                                  onClick={() => handleAddEvent(cat.id, eventLabel)}
+                                  className={`${colors.btn} border font-semibold text-xs py-2.5 px-3 rounded-lg transition-all text-start w-full ${selectedEvent ? 'ring-1 ring-white/20' : ''}`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span>{eventLabel}</span>
+                                    {selectedEvent && (
+                                      <span className="flex items-center gap-1.5 shrink-0">
+                                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/15 text-[10px] font-black text-white">
+                                          {selectedOrder}
+                                        </span>
+                                        <span className="text-[11px] font-black text-white">✓</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                  {selectedEvent && (
+                                    <div className="mt-1 text-[10px] uppercase tracking-wider text-white/70">
+                                      {selectedTime}
+                                    </div>
+                                  )}
+                                </button>
+                                {selectedEvent && (
+                                  <div className="mt-2 rounded-lg border border-white/10 bg-slate-950/55 p-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                        {t('encounterLog.optionOrder', { defaultValue: 'Order' })} #{selectedOrder}
+                                      </span>
+                                      <input
+                                        type="date"
+                                        value={new Date(selectedEvent.timestamp).getFullYear() + '-' + String(new Date(selectedEvent.timestamp).getMonth() + 1).padStart(2, '0') + '-' + String(new Date(selectedEvent.timestamp).getDate()).padStart(2, '0')}
+                                        onChange={(e) => handleUpdateEventTime(selectedEvent.id, 'date', e.target.value)}
+                                        onWheel={(e) => handleWheelTime(e, selectedEvent.id, 'date')}
+                                        className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300 text-[11px] focus:outline-none focus:border-amber-500 transition-colors w-[118px]"
+                                      />
+                                      <input
+                                        type="time"
+                                        value={String(new Date(selectedEvent.timestamp).getHours()).padStart(2, '0') + ':' + String(new Date(selectedEvent.timestamp).getMinutes()).padStart(2, '0')}
+                                        onChange={(e) => handleUpdateEventTime(selectedEvent.id, 'time', e.target.value)}
+                                        onWheel={(e) => handleWheelTime(e, selectedEvent.id, 'time')}
+                                        className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300 text-[11px] focus:outline-none focus:border-amber-500 transition-colors w-[84px]"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveEvent(selectedEvent.id)}
+                                        className="ms-auto text-[11px] font-bold uppercase tracking-wider text-red-300 hover:text-red-200"
+                                      >
+                                        {t('encounterLog.removeEvent', { defaultValue: 'Remove' })}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                         {/* Detail note input */}
                         {detailNoteFor && detailNoteFor.category === cat.id && (
@@ -897,6 +1368,338 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
               rows={3}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors resize-none"
             />
+          </div>
+
+          {/* Evidence detail fields */}
+          <div className="mb-6 bg-slate-900/50 border border-slate-700/40 rounded-2xl p-4 sm:p-5">
+            <div className="mb-4">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                {t('encounterLog.evidenceDetailsTitle', { defaultValue: 'Evidence details' })}
+              </h3>
+              <p className="text-slate-500 text-xs mt-1">
+                {t('encounterLog.evidenceDetailsSubtitle', { defaultValue: 'Capture the identifiers and supporting facts an attorney will want to review with the timeline.' })}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
+                  {t('encounterLog.evidenceAgency', { defaultValue: 'Agency or unit' })}
+                </label>
+                <input
+                  type="text"
+                  value={activeLog.evidenceDetails?.agency || ''}
+                  onChange={(e) => handleUpdateEvidenceDetail('agency', e.target.value)}
+                  placeholder={t('encounterLog.evidenceAgencyPlaceholder', { defaultValue: 'ICE, HSI, local police, task force...' })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
+                  {t('encounterLog.evidenceAgentIdentifiers', { defaultValue: 'Agent identifiers' })}
+                </label>
+                <input
+                  type="text"
+                  value={activeLog.evidenceDetails?.agentIdentifiers || ''}
+                  onChange={(e) => handleUpdateEvidenceDetail('agentIdentifiers', e.target.value)}
+                  placeholder={t('encounterLog.evidenceAgentIdentifiersPlaceholder', { defaultValue: 'Badge numbers, names, uniforms, patches...' })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
+                  {t('encounterLog.evidenceVehicleDetails', { defaultValue: 'Vehicle details' })}
+                </label>
+                <textarea
+                  value={activeLog.evidenceDetails?.vehicleDetails || ''}
+                  onChange={(e) => handleUpdateEvidenceDetail('vehicleDetails', e.target.value)}
+                  placeholder={t('encounterLog.evidenceVehicleDetailsPlaceholder', { defaultValue: 'Vehicle types, colors, plates, markings...' })}
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
+                  {t('encounterLog.evidenceWitnessDetails', { defaultValue: 'Witness details' })}
+                </label>
+                <textarea
+                  value={activeLog.evidenceDetails?.witnessDetails || ''}
+                  onChange={(e) => handleUpdateEvidenceDetail('witnessDetails', e.target.value)}
+                  placeholder={t('encounterLog.evidenceWitnessDetailsPlaceholder', { defaultValue: 'Names, contact methods, where they stood, what they observed...' })}
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
+                  {t('encounterLog.evidenceInjuries', { defaultValue: 'Injuries or medical concerns' })}
+                </label>
+                <textarea
+                  value={activeLog.evidenceDetails?.injuries || ''}
+                  onChange={(e) => handleUpdateEvidenceDetail('injuries', e.target.value)}
+                  placeholder={t('encounterLog.evidenceInjuriesPlaceholder', { defaultValue: 'Pain, bruising, restraints, denied medication, emergency care...' })}
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
+                  {t('encounterLog.evidencePropertyDamage', { defaultValue: 'Property damage or seized items' })}
+                </label>
+                <textarea
+                  value={activeLog.evidenceDetails?.propertyDamage || ''}
+                  onChange={(e) => handleUpdateEvidenceDetail('propertyDamage', e.target.value)}
+                  placeholder={t('encounterLog.evidencePropertyDamagePlaceholder', { defaultValue: 'Broken locks, doors, phones, documents taken, bags searched...' })}
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
+                  {t('encounterLog.evidenceAttachmentNotes', { defaultValue: 'Attachment notes' })}
+                </label>
+                <textarea
+                  value={activeLog.evidenceDetails?.attachmentNotes || ''}
+                  onChange={(e) => handleUpdateEvidenceDetail('attachmentNotes', e.target.value)}
+                  placeholder={t('encounterLog.evidenceAttachmentNotesPlaceholder', { defaultValue: 'Photos, screenshots, video clips, warrant images, where they are stored...' })}
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
+                  {t('encounterLog.evidenceChainOfCustody', { defaultValue: 'Preservation / chain of custody' })}
+                </label>
+                <textarea
+                  value={activeLog.evidenceDetails?.chainOfCustody || ''}
+                  onChange={(e) => handleUpdateEvidenceDetail('chainOfCustody', e.target.value)}
+                  placeholder={t('encounterLog.evidenceChainOfCustodyPlaceholder', { defaultValue: 'Who preserved the files, cloud backup status, device used, transfer notes...' })}
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Attachment manifest */}
+          <div className="mb-6 bg-slate-900/50 border border-slate-700/40 rounded-2xl p-4 sm:p-5">
+            <div className="mb-4">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                {t('encounterLog.attachmentsTitle', { defaultValue: 'Attachment manifest' })}
+              </h3>
+              <p className="text-slate-500 text-xs mt-1">
+                {t('encounterLog.attachmentsSubtitle', { defaultValue: 'Link recent encrypted vault recordings and add manual references for photos, screenshots, warrants, or other supporting files.' })}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                    {t('encounterLog.attachmentsVaultTitle', { defaultValue: 'Recent vault recordings' })}
+                  </p>
+                  {loadingRecentRecordings && (
+                    <span className="text-[11px] text-slate-500">
+                      {t('encounterLog.attachmentsLoading', { defaultValue: 'Loading…' })}
+                    </span>
+                  )}
+                </div>
+                {onOpenRecord && (
+                  <button
+                    type="button"
+                    onClick={handleOpenRecordForAttachment}
+                    className="mb-3 w-full rounded-xl border border-blue-600/40 bg-blue-600/10 px-3 py-2.5 text-sm font-bold text-blue-300 hover:bg-blue-600/15 transition-colors"
+                  >
+                    {t('encounterLog.attachmentsOpenRecord', { defaultValue: 'Open Record Vault to attach a recording' })}
+                  </button>
+                )}
+                <div className="space-y-2">
+                  {recentRecordings.length === 0 && !loadingRecentRecordings && (
+                    <p className="text-xs text-slate-500">
+                      {t('encounterLog.attachmentsNoVaultRecordings', { defaultValue: 'No recent vault recordings found.' })}
+                    </p>
+                  )}
+                  {recentRecordings.map((recording) => {
+                    const attached = (activeLog.attachments || []).some((attachment) => attachment.recordingId === recording.id);
+                    return (
+                      <div key={recording.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2.5">
+                        <div className="min-w-0">
+                          <p className="text-sm text-white font-semibold truncate">{recording.title || `${recording.type} recording`}</p>
+                          <p className="text-[11px] text-slate-500">
+                            {(recording.type || 'recording').toUpperCase()} • {new Date(recording.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleAddVaultAttachment(recording)}
+                          disabled={attached}
+                          className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${attached ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-700/40' : 'bg-blue-700 hover:bg-blue-600 text-white'}`}
+                        >
+                          {attached
+                            ? t('encounterLog.attachmentsAttached', { defaultValue: 'Attached' })
+                            : t('encounterLog.attachmentsAttach', { defaultValue: 'Attach' })}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">
+                  {t('encounterLog.attachmentsManualTitle', { defaultValue: 'Manual reference details' })}
+                </p>
+                <div className="mb-3 rounded-xl border border-emerald-600/40 bg-emerald-600/10 px-3 py-3">
+                  <label className="mb-2 block text-sm font-bold text-emerald-300">
+                    {importingAttachment
+                      ? t('encounterLog.attachmentsImporting', { defaultValue: 'Importing files…' })
+                      : t('encounterLog.attachmentsImportFiles', { defaultValue: 'Import files into encounter attachments' })}
+                  </label>
+                  <input
+                    ref={attachmentImportRef}
+                    type="file"
+                    multiple
+                    disabled={importingAttachment}
+                    onClick={handlePrepareAttachmentPicker}
+                    onChange={(e) => setPendingImportedFiles(Array.from(e.target.files || []))}
+                    className="block w-full cursor-pointer rounded-lg border border-emerald-500/30 bg-slate-950/70 px-3 py-2 text-sm text-slate-200 file:me-3 file:rounded-lg file:border-0 file:bg-emerald-500 file:px-3 file:py-2 file:text-sm file:font-bold file:text-white hover:file:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.rtf,.heic,.heif"
+                  />
+                  {pendingImportedFiles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleImportedFiles(pendingImportedFiles)}
+                      disabled={importingAttachment}
+                      className="mt-3 w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold py-2.5 px-4 transition-colors"
+                    >
+                      {importingAttachment
+                        ? t('encounterLog.attachmentsImporting', { defaultValue: 'Importing files…' })
+                        : t('encounterLog.attachmentsAddImported', { defaultValue: 'Add imported file' })}
+                    </button>
+                  )}
+                  {lastImportedFilesLabel && pendingImportedFiles.length === 0 && !importingAttachment && (
+                    <p className="mt-2 text-[11px] text-emerald-300">
+                      {t('encounterLog.attachmentsLastImported', {
+                        defaultValue: 'Last imported: {{files}}',
+                        files: lastImportedFilesLabel,
+                      })}
+                    </p>
+                  )}
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    {t('encounterLog.attachmentsImportHint', { defaultValue: 'Choose screenshots, photos, PDFs, audio, or video directly from your device.' })}
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <select
+                    value={manualAttachment.attachmentType}
+                    onChange={(e) => setManualAttachment((prev) => ({ ...prev, attachmentType: e.target.value }))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  >
+                    <option value="document">Document</option>
+                    <option value="photo">Photo</option>
+                    <option value="screenshot">Screenshot</option>
+                    <option value="video">Video</option>
+                    <option value="audio">Audio</option>
+                    <option value="warrant">Warrant image</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={manualAttachment.label}
+                    onChange={(e) => setManualAttachment((prev) => ({ ...prev, label: e.target.value }))}
+                    placeholder={t('encounterLog.attachmentsManualLabelPlaceholder', { defaultValue: 'Attachment label or filename' })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                  <input
+                    type="text"
+                    value={manualAttachment.storage}
+                    onChange={(e) => setManualAttachment((prev) => ({ ...prev, storage: e.target.value }))}
+                    placeholder={t('encounterLog.attachmentsManualStoragePlaceholder', { defaultValue: 'Where it is stored: Photos, Drive, email, attorney, etc.' })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                  <textarea
+                    value={manualAttachment.notes}
+                    onChange={(e) => setManualAttachment((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder={t('encounterLog.attachmentsManualNotesPlaceholder', { defaultValue: 'What it shows or why it matters' })}
+                    rows={3}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    {t('encounterLog.attachmentsManualHint', {
+                      defaultValue: 'Manual reference fields are optional notes for attorney context. Imported files should be added with the button above.',
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {(activeLog.attachments || []).length > 0 && (
+              <div className="mt-4 space-y-3">
+                {(activeLog.attachments || []).map((attachment) => (
+                  <div key={attachment.id} className="rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{attachment.label}</p>
+                        <p className="text-[11px] text-slate-500 uppercase tracking-wider mt-1">
+                          {(attachment.attachmentType || 'attachment').replace('-', ' ')} • {attachment.sourceType === 'vault-recording'
+                            ? 'Vault link'
+                            : attachment.importedFileId
+                              ? 'Imported file'
+                              : 'Manual reference'}
+                        </p>
+                        {attachment.importedFileId && (
+                          <p className="text-[11px] text-emerald-400 mt-1">
+                            {t('encounterLog.attachmentsImportedStored', { defaultValue: 'Stored in encrypted attachment vault on this device.' })}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAttachment(attachment.id)}
+                        className="text-[11px] font-bold uppercase tracking-wider text-red-400 hover:text-red-300"
+                      >
+                        {t('encounterLog.attachmentsRemove', { defaultValue: 'Remove' })}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                      <input
+                        type="text"
+                        value={attachment.storage || ''}
+                        onChange={(e) => handleUpdateAttachment(attachment.id, 'storage', e.target.value)}
+                        placeholder={t('encounterLog.attachmentsStoragePlaceholder', { defaultValue: 'Storage or location reference' })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                      />
+                      <input
+                        type="text"
+                        value={attachment.backupStatus || ''}
+                        onChange={(e) => handleUpdateAttachment(attachment.id, 'backupStatus', e.target.value)}
+                        placeholder={t('encounterLog.attachmentsBackupStatusPlaceholder', { defaultValue: 'Backup / preservation status' })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                      />
+                    </div>
+                    <textarea
+                      value={attachment.notes || ''}
+                      onChange={(e) => handleUpdateAttachment(attachment.id, 'notes', e.target.value)}
+                      placeholder={t('encounterLog.attachmentsNotesPlaceholder', { defaultValue: 'Describe what this attachment shows' })}
+                      rows={2}
+                      className="mt-3 w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Event timeline */}
@@ -1116,6 +1919,15 @@ const EncounterLog = ({ onBack, autoStart, afterMode = false, witnessMode = fals
             <p className="text-slate-400 text-xs mb-5">{t('encounterLog.shareSubtitle')}</p>
 
             <div className="space-y-3">
+              <button onClick={handleExportEvidencePackage} disabled={exportingPackage} className="w-full bg-blue-700 hover:bg-blue-600 disabled:opacity-60 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 active:scale-95">
+                <FileText size={20} weight="bold" />
+                <span>
+                  {exportingPackage
+                    ? t('encounterLog.preparingEvidencePackage', { defaultValue: 'Preparing evidence package…' })
+                    : t('encounterLog.exportEvidencePackage', { defaultValue: 'Export legal evidence package' })}
+                </span>
+              </button>
+
               <button onClick={handleSendToContacts} className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 active:scale-95">
                 <PaperPlaneTilt size={20} weight="bold" />
                 <span>{t('encounterLog.sendToTrustedContacts')}</span>

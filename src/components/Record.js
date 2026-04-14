@@ -24,6 +24,11 @@ import {
 } from '../utils/crypto';
 import { pulseHaptic } from '../utils/haptics';
 import { readEncrypted, writeEncrypted } from '../utils/encryptedStorage';
+import {
+  clearEncounterAttachmentLaunchIntent,
+  readEncounterAttachmentLaunchIntent,
+  writePendingEncounterAttachmentIntent,
+} from '../utils/encounterAttachmentLaunch';
 
 const aniDelay = (s) => ({ animationDelay: `${s}s` });
 const SETTINGS_KEY = 'safeneighbor_backup_settings';
@@ -116,7 +121,7 @@ const RecordSectionHeader = ({ eyebrow, title, description, accent = 'text-blue-
   </div>
 );
 
-const Record = ({ isDuressMode = false, onNavigate }) => {
+const Record = ({ isDuressMode = false, onNavigate, onNavigateToScenario }) => {
   const { t } = useTranslation();
   const recordQuote = useRotatingQuote('record.aureliusQuote', 'record.aureliusAuthor', 'record');
   const [activeTab, setActiveTab] = useState('video');
@@ -144,6 +149,7 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
   const [vaultRecordings, setVaultRecordings] = useState([]);
   const [vaultLoaded, setVaultLoaded] = useState(false);
   const [selectedVaultItem, setSelectedVaultItem] = useState(null);
+  const [encounterAttachmentIntent, setEncounterAttachmentIntent] = useState(() => readEncounterAttachmentLaunchIntent());
 
   // Purge state
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
@@ -189,6 +195,13 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
     }, 7000);
 
     return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const refreshIntent = () => setEncounterAttachmentIntent(readEncounterAttachmentLaunchIntent());
+    refreshIntent();
+    window.addEventListener('focus', refreshIntent);
+    return () => window.removeEventListener('focus', refreshIntent);
   }, []);
 
   // Refs
@@ -985,6 +998,34 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
       console.error('Failed to load vault item:', err);
       setError(t('record.failedLoadRecording'));
     }
+  };
+
+  const handleAttachRecordingToEncounter = (recording) => {
+    if (!encounterAttachmentIntent?.logId || !encounterAttachmentIntent?.scenarioId || !onNavigateToScenario || !recording) return;
+
+    const providers = [recording.backups?.r2?.backedUp && 'R2', recording.backups?.google_drive?.backedUp && 'Google Drive']
+      .filter(Boolean)
+      .join(', ');
+
+    writePendingEncounterAttachmentIntent({
+      logId: encounterAttachmentIntent.logId,
+      scenarioId: encounterAttachmentIntent.scenarioId,
+      attachment: {
+        id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        sourceType: 'vault-recording',
+        attachmentType: recording.type || 'recording',
+        recordingId: recording.id,
+        label: recording.title || `${recording.type || 'recording'} attachment`,
+        createdAt: recording.createdAt || new Date().toISOString(),
+        storage: 'Encrypted local vault',
+        notes: recording.source === 'imported' ? 'Imported into the encrypted vault.' : 'Captured in the encrypted vault.',
+        backupStatus: recording.backedUp ? `Backed up${providers ? ` (${providers})` : ''}` : recording.markedForBackup ? 'Marked for backup' : 'Local only',
+      },
+    });
+
+    clearEncounterAttachmentLaunchIntent();
+    setEncounterAttachmentIntent(null);
+    onNavigateToScenario({ id: encounterAttachmentIntent.scenarioId });
   };
 
   const downloadRecording = async (rec) => {
@@ -2713,6 +2754,31 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
           </button>
         </div>
 
+        {encounterAttachmentIntent && !isDuressMode && (
+          <div className="mx-4 mt-4 rounded-2xl border border-blue-500/30 bg-blue-950/20 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-blue-300">
+                  {t('record.attachToEncounterTitle', { defaultValue: 'Attach evidence to active encounter log' })}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">
+                  {t('record.attachToEncounterDesc', { defaultValue: 'Choose a vault recording below and send it back into the encounter log as a linked evidence attachment.' })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  clearEncounterAttachmentLaunchIntent();
+                  setEncounterAttachmentIntent(null);
+                }}
+                className="shrink-0 rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-300 hover:text-white"
+              >
+                {t('record.cancelAttachToEncounter', { defaultValue: 'Cancel' })}
+              </button>
+            </div>
+          </div>
+        )}
+
       {/* Purge Confirmation Modal */}
       {showPurgeConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 safe-modal-frame">
@@ -2859,6 +2925,16 @@ const Record = ({ isDuressMode = false, onNavigate }) => {
                     {rec.backedUp ? <Cloud size={12} weight="bold" /> : rec.markedForBackup ? <Cloud size={12} weight="bold" /> : <CloudSlash size={12} weight="bold" />}
                     {rec.backedUp ? t('record.backedUp') : rec.markedForBackup ? t('record.pending') : t('record.backupLabel')}
                   </button>
+                  {encounterAttachmentIntent && !isDuressMode && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleAttachRecordingToEncounter(rec); }}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 border border-blue-500/30"
+                    >
+                      <ClipboardText size={12} weight="bold" />
+                      {t('record.attachToEncounterCta', { defaultValue: 'Attach' })}
+                    </button>
+                  )}
                   <span className={`text-xs uppercase px-2 py-1 rounded ${rec.type === 'video' ? 'bg-red-600/20 text-red-400 border border-red-500/30' : 'bg-blue-600/20 text-blue-400 border border-blue-500/30'}`}>{rec.type}</span>
                   {rec.template === 'witness-report' && (
                     <span className="text-[10px] uppercase px-2 py-1 rounded bg-teal-600/20 text-teal-400 border border-teal-500/30 font-bold tracking-wider flex items-center gap-1">

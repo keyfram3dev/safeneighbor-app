@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safeneighbor-v23';
+const CACHE_NAME = 'safeneighbor-v24';
 const TILES_CACHE = 'safeneighbor-tiles-v2';
 const MAX_TILES = 1000;
 
@@ -6,6 +6,11 @@ const MAX_TILES = 1000;
 const SHELL_URLS = [
   '/',
   '/index.html',
+  '/?page=scenarios&scenario=rights-card',
+  '/?page=legal',
+  '/?modal=offline-library',
+  '/?page=scenarios&scenario=de-escalation',
+  '/?page=scenarios&scenario=follow-ice',
   '/manifest.json',
   '/logo192.png',
   '/logo512.png',

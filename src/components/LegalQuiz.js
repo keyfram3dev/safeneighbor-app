@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { CheckCircle, XCircle, X, ArrowClockwise, Scroll, Lightning, ShieldCheck, CaretRight, ArrowLeft, Bell, BellSlash, BookOpen, ChartBar } from '@phosphor-icons/react';
+import { CheckCircle, XCircle, X, ArrowClockwise, Scroll, Lightning, ShieldCheck, CaretRight, ArrowLeft, Bell, BellSlash, ChartBar } from '@phosphor-icons/react';
 import {
   LEGAL_QUIZ_MIXED_TOTAL,
   legalQuizQuestions,

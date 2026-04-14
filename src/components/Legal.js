@@ -7,6 +7,7 @@ import Disclaimer from './Disclaimer';
 import InstallHelp from './InstallHelp';
 import FaqCta from './FaqCta';
 import { useRotatingQuote } from '../utils/quoteRotation';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import LegalDirectory from './LegalDirectory';
 import CaseLawSearch from './CaseLawSearch';
 import LegalQuiz from './LegalQuiz';
@@ -1140,6 +1141,7 @@ const recordRequest = () => {
 
 function Legal({ onOpenLegalResponse, onNavigate, onNavigateToScenario }) {
   const { t } = useTranslation();
+  const { isOnline } = useOnlineStatus();
   const legalQuote = useRotatingQuote('legal.nietzscheQuote', 'legal.nietzscheAuthor', 'legal');
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [showLegalQuiz, setShowLegalQuiz] = useState(false);
@@ -1309,6 +1311,16 @@ function Legal({ onOpenLegalResponse, onNavigate, onNavigateToScenario }) {
       return;
     }
 
+    // Check connectivity before adding the user message to the thread
+    if (!isOnline) {
+      setMessages(prev => [...prev,
+        { role: 'user', content: input },
+        { role: 'assistant', content: t('legal.aiOffline') }
+      ]);
+      setInput('');
+      return;
+    }
+
     const userMessage = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
@@ -1434,10 +1446,16 @@ User question: ${input}`
               </button>
               <button
                 onClick={handleOpenQuiz}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/35 bg-gradient-to-r from-slate-900 via-slate-900 to-cyan-950/35 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-cyan-100 shadow-[0_12px_32px_rgba(8,47,73,0.18)] transition-all hover:border-cyan-400/45 hover:text-white active:scale-[0.98]"
+                className="relative inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/35 bg-gradient-to-r from-slate-900 via-slate-900 to-cyan-950/35 px-6 py-3.5 text-sm font-black uppercase tracking-widest text-cyan-100 shadow-[0_12px_32px_rgba(8,47,73,0.18)] transition-all hover:border-cyan-400/45 hover:text-white active:scale-[0.98]"
               >
                 <Brain size={20} weight="bold" />
                 {t('legal.quizHeroCta', { defaultValue: 'Practice With Quiz' })}
+                {!isOnline && (
+                  <span className="absolute -top-2 -right-2 inline-flex items-center gap-1 rounded-full bg-emerald-700/90 border border-emerald-500/50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-100 shadow-sm">
+                    <span className="w-1 h-1 rounded-full bg-emerald-300" />
+                    Offline
+                  </span>
+                )}
               </button>
             </div>
 
@@ -1721,6 +1739,13 @@ User question: ${input}`
               </div>
             )}
           </div>
+
+          {!isOnline && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-900/30 border border-amber-700/40 text-amber-300 text-xs font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+              {t('legal.aiOfflineBanner', { defaultValue: 'You\'re offline — AI assistant unavailable. Rights guide, training, and scenarios work without a connection.' })}
+            </div>
+          )}
 
           <div className="scenario-section-item flex gap-4">
             <input

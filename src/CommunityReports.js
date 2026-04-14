@@ -3,7 +3,7 @@ import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import L from 'leaflet';
-import { UsersThree, MapPinSimple, MapPinSimpleArea, MapTrifold, ShieldCheckIcon, Scales, X, Check, Shield, LockKey, Eye, EyeSlash, Timer, UserCircle, Fire, Buildings, Path, FlagBannerIcon } from '@phosphor-icons/react';
+import { UsersThree, MapPinSimple, MapPinSimpleArea, MapTrifold, ShieldCheckIcon, Scales, X, Check, Shield, LockKey, Eye, EyeSlash, Timer, UserCircle, Fire, Buildings, Path, FlagBannerIcon, CaretRight } from '@phosphor-icons/react';
 import { Download } from 'lucide-react';
 import Disclaimer from './components/Disclaimer';
 import FaqCta from './components/FaqCta';
@@ -3058,7 +3058,7 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
                     ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
                     : 'border-amber-500/20 bg-amber-500/10 text-amber-300'
                 }`}>
-                  <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                   {isOnline ? t('reports.systemsOnline') : t('reports.offlineQueuing')}
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-blue-200">
@@ -3430,6 +3430,11 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
                 <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
                   {t('reports.hotspots', { count: dynamicHubs.length })}
                 </p>
+                {dynamicHubs.length === 0 && (
+                  <p className="text-[12px] text-slate-600 italic">
+                    {t('reports.noHotspotsYet', { defaultValue: 'No activity clusters in the current view.' })}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2.5">
                   {dynamicHubs.map((hub) => {
                     const isActive = activeHubId === hub.name;
@@ -3785,7 +3790,8 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
                             </span>
                           )}
                           {isPending && (
-                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-200">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-200">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
                               {t('reports.syncing')}
                             </span>
                           )}
@@ -3808,8 +3814,9 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
                       </div>
 
                       <div className="flex shrink-0 flex-row gap-2 lg:flex-col lg:items-end">
-                        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-red-300">
                           {t('reports.focusMap')}
+                          <CaretRight size={11} weight="bold" />
                         </span>
                         {!isPending && verifierCount > 0 && !reportIsVerified && (
                           <span className="rounded-full border border-slate-700/70 bg-slate-900/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
@@ -3898,7 +3905,9 @@ const CommunityReports = ({ isDuressMode = false, onOpenCheckRoute, onNavigateTo
 
             {!isDuressMode && sortedReports.length === 0 && (
               <div className="rounded-[32px] border border-dashed border-slate-800 bg-slate-950/35 py-20 text-center">
-                <div className="mb-4 text-5xl opacity-20 grayscale">🕒</div>
+                <div className="mb-4 flex justify-center">
+                  <Timer size={48} weight="bold" className="text-slate-700" />
+                </div>
                 <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
                   {t('reports.noActivityLast12Hours')}
                 </p>

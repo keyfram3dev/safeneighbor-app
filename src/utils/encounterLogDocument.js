@@ -127,6 +127,40 @@ export function generateEncounterReport(log) {
     lines.push('');
   }
 
+  const evidenceDetails = log.evidenceDetails || {};
+  const hasEvidenceDetails = Object.values(evidenceDetails).some((value) => String(value || '').trim());
+  if (hasEvidenceDetails) {
+    lines.push(divider);
+    lines.push('EVIDENCE DETAILS');
+    lines.push(divider);
+    if (evidenceDetails.agency) lines.push(`Agency or unit: ${evidenceDetails.agency}`);
+    if (evidenceDetails.agentIdentifiers) lines.push(`Agent identifiers: ${evidenceDetails.agentIdentifiers}`);
+    if (evidenceDetails.vehicleDetails) lines.push(`Vehicle details: ${evidenceDetails.vehicleDetails}`);
+    if (evidenceDetails.witnessDetails) lines.push(`Witness details: ${evidenceDetails.witnessDetails}`);
+    if (evidenceDetails.injuries) lines.push(`Injuries or medical concerns: ${evidenceDetails.injuries}`);
+    if (evidenceDetails.propertyDamage) lines.push(`Property damage or seized items: ${evidenceDetails.propertyDamage}`);
+    if (evidenceDetails.attachmentNotes) lines.push(`Attachment notes: ${evidenceDetails.attachmentNotes}`);
+    if (evidenceDetails.chainOfCustody) lines.push(`Preservation / chain of custody: ${evidenceDetails.chainOfCustody}`);
+    lines.push('');
+  }
+
+  const attachments = Array.isArray(log.attachments) ? log.attachments : [];
+  if (attachments.length > 0) {
+    lines.push(divider);
+    lines.push('ATTACHMENT MANIFEST');
+    lines.push(divider);
+    attachments.forEach((attachment, index) => {
+      lines.push(`${index + 1}. ${attachment.label || 'Attachment'}`);
+      lines.push(`   Type: ${attachment.attachmentType || 'attachment'}`);
+      lines.push(`   Source: ${attachment.sourceType || 'reference'}`);
+      if (attachment.storage) lines.push(`   Storage: ${attachment.storage}`);
+      if (attachment.backupStatus) lines.push(`   Preservation: ${attachment.backupStatus}`);
+      if (attachment.createdAt) lines.push(`   Created: ${formatDate(attachment.createdAt)} at ${formatTime(attachment.createdAt)}`);
+      if (attachment.notes) lines.push(`   Notes: ${attachment.notes}`);
+      lines.push('');
+    });
+  }
+
   // Footer
   lines.push(heavyDivider);
   if (log.witnessLog) {

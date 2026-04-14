@@ -56,7 +56,10 @@ const OfflineLibrary = ({ isOpen = true, onClose, onInstall }) => {
   useEffect(() => {
     if (!isOpen) return;
     if ('caches' in window) {
-      caches.has('safeneighbor-v21')
+      // Detect any versioned app cache — avoids hardcoding the version string
+      // which would drift every time service-worker.js bumps CACHE_NAME.
+      caches.keys()
+        .then(names => names.some(n => n.startsWith('safeneighbor-') && !n.includes('tiles')))
         .then(setIsReady)
         .catch(() => setIsReady(false));
     } else {

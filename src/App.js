@@ -313,6 +313,7 @@ function App() {
   // Live location tracking state
   const [liveShareId, setLiveShareId] = useState(null);
   const [isLiveTracking, setIsLiveTracking] = useState(false);
+  const [liveTrackingFailed, setLiveTrackingFailed] = useState(false);
   const [liveViewShareId, setLiveViewShareId] = useState(initialUrlState.liveViewShareId);
   const [showStopPinPrompt, setShowStopPinPrompt] = useState(false);
   const [showShareWarning, setShowShareWarning] = useState(false);
@@ -348,6 +349,9 @@ function App() {
   const pullDistanceRef = useRef(0);
   const touchStartY = useRef(0);
   const isPulling = useRef(false);
+  // Always-current ref so the pull-to-refresh handler (empty-dep useEffect) can
+  // see the latest selectedScenario without stale-closure issues.
+  const selectedScenarioRef = useRef(selectedScenario);
 
   // Reset the auto-lock timer on any user activity
   const resetLockTimer = useCallback(() => {
@@ -548,6 +552,11 @@ function App() {
     window.__safeneighbor_currentPage = currentPage;
   }, [currentPage]);
 
+  // Keep selectedScenarioRef current so the pull-to-refresh stale closure can read it.
+  useEffect(() => {
+    selectedScenarioRef.current = selectedScenario;
+  }, [selectedScenario]);
+
   // Keep liveShareIdRef in sync for watchPosition callback closure
   useEffect(() => {
     liveShareIdRef.current = liveShareId;
@@ -618,6 +627,20 @@ function App() {
   // Browser back/forward restores app state from the URL
   useEffect(() => {
     const handlePopState = () => {
+      // On iOS, opening a native file picker sheet pushes a history entry and
+      // fires popstate when the sheet closes. If we let this through it calls
+      // applyUrlState with the pre-picker URL, which may lack ?scenario=...,
+      // causing setSelectedScenario(null) and unmounting the active EncounterLog.
+      // Block all popstate navigation while the file picker is open.
+      if (window.__filePickerActive) {
+        // Restore the URL that was active before the picker opened so the
+        // history stack doesn't drift.
+        if (window.__filePickerActiveUrl) {
+          window.history.replaceState({}, '', window.__filePickerActiveUrl);
+        }
+        return;
+      }
+
       const nextUrlState = parseAppLocation(window.location);
 
       if (nextUrlState.sharedPayload) {
@@ -677,7 +700,16 @@ function App() {
   useEffect(() => {
     const PULL_THRESHOLD = 80;
 
+    // Pull-to-refresh is completely disabled while any encounter-log variant is active.
+    // Reloading mid-encounter would wipe the user's active log (a safety-critical loss).
+    // It is also disabled while a native file picker is open: the iOS sheet-close
+    // animation fires a downward swipe on the document (scrollY still 0) that would
+    // otherwise exceed the threshold and trigger window.location.reload().
+    const isEncounterActive = () =>
+      selectedScenarioRef.current?.id?.includes('encounter-log');
+
     const handleTouchStart = (e) => {
+      if (isEncounterActive() || window.__filePickerActive) return;
       if (window.scrollY === 0) {
         touchStartY.current = e.touches[0].clientY;
         isPulling.current = true;
@@ -698,7 +730,7 @@ function App() {
     };
 
     const handleTouchEnd = () => {
-      if (pullDistanceRef.current > PULL_THRESHOLD) {
+      if (!isEncounterActive() && !window.__filePickerActive && pullDistanceRef.current > PULL_THRESHOLD) {
         setPullDistance(0);
         setTimeout(() => window.location.reload(), 300);
       } else {
@@ -865,6 +897,10 @@ function App() {
                     handleNavigate('record');
                     setTimeout(() => window.dispatchEvent(new CustomEvent('openBackupSettings')), 300);
                   }}
+                  onOpenRecord={() => {
+                    handleBackFromScenario();
+                    handleNavigate('record');
+                  }}
                 />
               ) : selectedScenario.id === 'encounter-log-after' ? (
                 <EncounterLog
@@ -875,6 +911,10 @@ function App() {
                     handleNavigate('record');
                     setTimeout(() => window.dispatchEvent(new CustomEvent('openBackupSettings')), 300);
                   }}
+                  onOpenRecord={() => {
+                    handleBackFromScenario();
+                    handleNavigate('record');
+                  }}
                 />
               ) : selectedScenario.id === 'encounter-log-witness' ? (
                 <EncounterLog
@@ -884,6 +924,10 @@ function App() {
                     handleBackFromScenario();
                     handleNavigate('record');
                     setTimeout(() => window.dispatchEvent(new CustomEvent('openBackupSettings')), 300);
+                  }}
+                  onOpenRecord={() => {
+                    handleBackFromScenario();
+                    handleNavigate('record');
                   }}
                 />
               ) : selectedScenario.id === 'post-encounter' ? (
@@ -937,7 +981,7 @@ function App() {
       case 'reports':
         return <CommunityReports isDuressMode={isDuressMode} onOpenCheckRoute={() => { setShowCheckRoute(true); track('modal_open', { modal: 'check_route', source: 'reports' }); }} onNavigateToScenario={handleNavigateToScenario} onNavigate={handleNavigate} />;
       case 'record':
-        return <Record isDuressMode={isDuressMode} onNavigate={handleNavigate} />;
+        return <Record isDuressMode={isDuressMode} onNavigate={handleNavigate} onNavigateToScenario={handleNavigateToScenario} />;
       case 'legal':
         return (
           <Legal
@@ -1163,6 +1207,7 @@ function App() {
         shareId = null;
         keyString = null;
         liveEncKeyRef.current = null;
+        setLiveTrackingFailed(true);
       }
 
       const message = buildLocationMessage(userName, location.lat, location.lng, address, shareId, keyString);
@@ -1929,6 +1974,15 @@ function App() {
                       </div>
                     )}
 
+                    {liveTrackingFailed && !isLiveTracking && (
+                      <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-700/30 bg-amber-950/25 px-3 py-2">
+                        <WarningCircle size={14} weight="bold" className="text-amber-400 shrink-0" />
+                        <span className="text-xs text-amber-300">
+                          {t('location.liveTrackingOffline', { defaultValue: 'Offline — live tracking unavailable. Static coordinates were sent.' })}
+                        </span>
+                      </div>
+                    )}
+
                     {isLiveTracking && (
                       <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-700/30 bg-green-950/30 px-3 py-2">
                         <span className="relative flex h-2.5 w-2.5">
@@ -1954,6 +2008,7 @@ function App() {
                           onClick={() => {
                             setLocationShared(false);
                             setLocationError(null);
+                            setLiveTrackingFailed(false);
                             setShowShareWarning(true);
                           }}
                           className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-300 transition-colors hover:bg-amber-500/15 hover:text-amber-200"
@@ -1968,7 +2023,7 @@ function App() {
                         {t('emergency.recommendationChooseGuide')}
                       </button>
                       <button
-                        onClick={() => { setLocationShared(false); setLastSharedLocation(null); setLocationError(null); }}
+                        onClick={() => { setLocationShared(false); setLastSharedLocation(null); setLocationError(null); setLiveTrackingFailed(false); }}
                         className="text-xs font-medium uppercase tracking-wider text-slate-500 transition-colors hover:text-slate-300"
                       >
                         {t('location.clear')}
@@ -2124,7 +2179,7 @@ function App() {
 
               </div>
 
-              <div className="space-y-4 xl:sticky xl:top-6">
+              <div className="xl:sticky xl:top-6">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2155,7 +2210,7 @@ function App() {
                     </p>
                   </button>
                 )}
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <div className="grid gap-3 xl:grid-cols-1">
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{t('emergency.desktopRailLocationLabel')}</p>
                     <p className="mt-1 text-sm font-semibold text-white">{locationStatusTitle}</p>
@@ -2171,8 +2226,10 @@ function App() {
                 </div>
               </div>
             </motion.div>
+              </div>
+            </div>
 
-            <div className="relative mb-5 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 px-4 py-4 sm:mb-6">
+            <div className="relative mb-5 mt-6 overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 px-4 py-4 sm:mb-6">
               <div className="absolute inset-y-4 left-0 w-1 rounded-full bg-gradient-to-b from-cyan-400 via-blue-400 to-emerald-400" />
               <div className="pl-4">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
@@ -2184,40 +2241,37 @@ function App() {
               </div>
             </div>
 
-            <div className="mb-6 grid gap-3 sm:mb-8">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  onClick={() => {
-                    recordEmergencyUsage('support:log-now', { type: 'support' });
-                    handleEmergencyScenario('encounter-log');
-                  }}
-                  className="group relative overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-900/75 p-4 text-left text-white shadow-[0_10px_24px_rgba(2,6,23,0.14)] transition-all hover:border-slate-600/70 hover:bg-slate-900/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                >
-                  <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-slate-300/30 to-transparent" />
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/35">
-                    <NotePencil size={20} weight="bold" />
-                  </div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
-                  <p className="mt-2 text-base font-bold tracking-[0.02em]">{t('emergency.logNowTitle')}</p>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-300">{t('emergency.logNowDesc')}</p>
-                </button>
-                <button
-                  onClick={() => {
-                    recordEmergencyUsage('support:log-after', { type: 'support' });
-                    handleEmergencyScenario('encounter-log-after');
-                  }}
-                  className="group relative overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-900/75 p-4 text-left text-white shadow-[0_10px_24px_rgba(2,6,23,0.14)] transition-all hover:border-slate-600/70 hover:bg-slate-900/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                >
-                  <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-slate-300/30 to-transparent" />
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/35">
-                    <Clock2 size={20} weight="bold" />
-                  </div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
-                  <p className="mt-2 text-base font-bold tracking-[0.02em]">{t('emergency.logAfterTitle')}</p>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-300">{t('emergency.logAfterDesc')}</p>
-                </button>
-              </div>
-
+            <div className="mb-6 grid gap-3 sm:mb-8 sm:grid-cols-2">
+              <button
+                onClick={() => {
+                  recordEmergencyUsage('support:log-now', { type: 'support' });
+                  handleEmergencyScenario('encounter-log');
+                }}
+                className="group relative overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-900/75 p-4 text-left text-white shadow-[0_10px_24px_rgba(2,6,23,0.14)] transition-all hover:border-slate-600/70 hover:bg-slate-900/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              >
+                <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-slate-300/30 to-transparent" />
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/35">
+                  <NotePencil size={20} weight="bold" />
+                </div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
+                <p className="mt-2 text-base font-bold tracking-[0.02em]">{t('emergency.logNowTitle')}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-300">{t('emergency.logNowDesc')}</p>
+              </button>
+              <button
+                onClick={() => {
+                  recordEmergencyUsage('support:log-after', { type: 'support' });
+                  handleEmergencyScenario('encounter-log-after');
+                }}
+                className="group relative overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-900/75 p-4 text-left text-white shadow-[0_10px_24px_rgba(2,6,23,0.14)] transition-all hover:border-slate-600/70 hover:bg-slate-900/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              >
+                <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-slate-300/30 to-transparent" />
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/35">
+                  <Clock2 size={20} weight="bold" />
+                </div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{t('emergency.secondaryActionTag')}</p>
+                <p className="mt-2 text-base font-bold tracking-[0.02em]">{t('emergency.logAfterTitle')}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-300">{t('emergency.logAfterDesc')}</p>
+              </button>
               <button
                 onClick={() => {
                   recordEmergencyUsage('support:post-encounter', { type: 'support' });
@@ -2233,7 +2287,6 @@ function App() {
                 <p className="mt-2 text-base font-bold tracking-[0.02em]">{t('emergency.postEncounterTitle')}</p>
                 <p className="mt-2 text-sm leading-relaxed text-slate-300">{t('emergency.postEncounterDesc')}</p>
               </button>
-
               <button
                 onClick={() => {
                   recordEmergencyUsage('support:check-in', { type: 'support' });
@@ -2414,9 +2467,6 @@ function App() {
               <p className="mt-3 text-center text-xs leading-relaxed text-slate-400">
                 {t('emergency.purgeDescription')}
               </p>
-            </div>
-
-              </div>
             </div>
 
             <div className="text-center">

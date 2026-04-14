@@ -11,8 +11,24 @@ import {
 
 const DB_NAME = 'SafeNeighborDB';
 const STORE_NAME = 'recordings';
+const ATTACHMENTS_STORE = 'encounterAttachments';
 const PENDING_REPORTS_STORE = 'pendingReports';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
+
+const isDesktopSafari = () => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|Edg|OPR|Chromium|Android/i.test(ua);
+  const isTouchMac = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  const isDesktopMac = /Macintosh/i.test(ua) && !isTouchMac;
+  return isSafari && isDesktopMac;
+};
+
+const blobToUint8Array = async (blob) => {
+  if (!blob) return blob;
+  const arrayBuffer = await blob.arrayBuffer();
+  return new Uint8Array(arrayBuffer);
+};
 
 // ─────────────────────────────────────────────────────────────
 // Encryption helpers
@@ -85,12 +101,102 @@ const openDB = () => {
         const objectStore = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         objectStore.createIndex('createdAt', 'createdAt', { unique: false });
       }
+      if (!db.objectStoreNames.contains(ATTACHMENTS_STORE)) {
+        const attachmentsStore = db.createObjectStore(ATTACHMENTS_STORE, { keyPath: 'id' });
+        attachmentsStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
       // v2: add pendingReports store for offline report queuing
       if (!db.objectStoreNames.contains(PENDING_REPORTS_STORE)) {
         const pendingStore = db.createObjectStore(PENDING_REPORTS_STORE, { keyPath: 'id' });
         pendingStore.createIndex('createdAt', 'createdAt', { unique: false });
       }
     };
+  });
+};
+
+// Save an encounter attachment file (with optional encryption)
+export const saveEncounterAttachment = async (attachmentData) => {
+  const db = await openDB();
+  const { blob, ...metadata } = attachmentData;
+
+  let storedData = blob;
+  let isEncrypted = false;
+  const originalMimeType = blob?.type || metadata.mimeType || 'application/octet-stream';
+
+  // Desktop Safari has been crashing the page during the attachment import path
+  // during encounter imports. Avoid both WebCrypto and Blob structured-clone
+  // storage there: keep the payload as bytes, which Safari handles more reliably.
+  if (blob && !isDesktopSafari()) {
+    const encryptResult = await encryptBlob(blob);
+    storedData = encryptResult.data;
+    isEncrypted = encryptResult.encrypted;
+  } else if (blob) {
+    storedData = await blobToUint8Array(blob);
+  }
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([ATTACHMENTS_STORE], 'readwrite');
+    const store = transaction.objectStore(ATTACHMENTS_STORE);
+
+    const attachment = {
+      id: `encatt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: new Date().toISOString(),
+      ...metadata,
+      blob: storedData,
+      _encrypted: isEncrypted,
+      _mimeType: originalMimeType,
+    };
+
+    const request = store.add(attachment);
+    request.onsuccess = () => resolve(attachment);
+    request.onerror = () => reject(request.error);
+    transaction.onerror = () => reject(transaction.error || request.error || new Error('Encounter attachment transaction failed'));
+    transaction.onabort = () => reject(transaction.error || request.error || new Error('Encounter attachment transaction aborted'));
+  });
+};
+
+export const getEncounterAttachment = async (id, decryptBlob = true) => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([ATTACHMENTS_STORE], 'readonly');
+    const store = transaction.objectStore(ATTACHMENTS_STORE);
+    const request = store.get(id);
+
+    request.onsuccess = async () => {
+      const attachment = request.result;
+      if (!attachment) {
+        resolve(null);
+        return;
+      }
+
+      if (decryptBlob && attachment.blob && attachment._encrypted) {
+        try {
+          attachment.blob = await decryptToBlob(
+            attachment.blob,
+            attachment._encrypted,
+            attachment._mimeType || 'application/octet-stream'
+          );
+        } catch (error) {
+          console.error('Failed to decrypt encounter attachment:', error);
+        }
+      }
+
+      resolve(attachment);
+    };
+
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const deleteEncounterAttachment = async (id) => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([ATTACHMENTS_STORE], 'readwrite');
+    const store = transaction.objectStore(ATTACHMENTS_STORE);
+    const request = store.delete(id);
+
+    request.onsuccess = () => resolve(true);
+    request.onerror = () => reject(request.error);
   });
 };
 

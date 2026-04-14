@@ -3,7 +3,7 @@
 // Side 1: Quick reference instructions for the person.
 // Side 2: Formal constitutional assertions to show/give to an agent.
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   IdentificationCardIcon as IdentificationCard,
@@ -14,11 +14,38 @@ import {
   ShieldCheck,
   Phone,
   DownloadSimple,
+  Crosshair,
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import useDirection from '../hooks/useDirection';
+import { reverseGeocode } from '../utils/locationShare';
+import { STATE_RESOURCES } from '../data/legalResourceData';
 import Disclaimer from './Disclaimer';
 import InstallHelp from './InstallHelp';
+
+const JURISDICTION_STORAGE_KEY = 'safeneighbor_rights_card_state';
+const STATE_NAME_MAP = (() => {
+  const map = {};
+  const abbrevs = {
+    al:'alabama',ak:'alaska',az:'arizona',ar:'arkansas',ca:'california',co:'colorado',ct:'connecticut',
+    de:'delaware',fl:'florida',ga:'georgia',hi:'hawaii',id:'idaho',il:'illinois',in:'indiana',
+    ia:'iowa',ks:'kansas',ky:'kentucky',la:'louisiana',me:'maine',md:'maryland',ma:'massachusetts',
+    mi:'michigan',mn:'minnesota',ms:'mississippi',mo:'missouri',mt:'montana',ne:'nebraska',
+    nv:'nevada',nh:'new hampshire',nj:'new jersey',nm:'new mexico',ny:'new york',nc:'north carolina',
+    nd:'north dakota',oh:'ohio',ok:'oklahoma',or:'oregon',pa:'pennsylvania',ri:'rhode island',
+    sc:'south carolina',sd:'south dakota',tn:'tennessee',tx:'texas',ut:'utah',vt:'vermont',
+    va:'virginia',wa:'washington',wv:'west virginia',wi:'wisconsin',wy:'wyoming',dc:'district of columbia',
+  };
+  Object.keys(STATE_RESOURCES).forEach((key) => { map[key] = key; });
+  Object.entries(STATE_RESOURCES).forEach(([key, value]) => { map[String(value?.name || '').trim().toLowerCase()] = key; });
+  Object.entries(abbrevs).forEach(([abbr, full]) => { map[abbr] = full; });
+  return map;
+})();
+
+const parseStateFromAddress = (stateStr) => {
+  if (!stateStr) return null;
+  return STATE_NAME_MAP[String(stateStr).trim().toLowerCase()] || null;
+};
 
 const RightsCard = ({ onBack }) => {
   const { t, i18n } = useTranslation();
@@ -26,14 +53,89 @@ const RightsCard = ({ onBack }) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const [selectedState, setSelectedState] = useState(
+    () => localStorage.getItem(JURISDICTION_STORAGE_KEY) || localStorage.getItem('safeneighbor_home_state') || ''
+  );
+  const [isLocatingState, setIsLocatingState] = useState(false);
 
   const trackEvent = (event, data) => { if (window.umami) window.umami.track(event, data); };
+  const stateOptions = useMemo(
+    () => Object.entries(STATE_RESOURCES)
+      .map(([key, value]) => ({ key, name: value.name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    []
+  );
+  const selectedStateName = selectedState ? STATE_RESOURCES[selectedState]?.name || selectedState : '';
+
+  const getJurisdictionNote = useCallback(() => {
+    if (!selectedStateName) {
+      return t('rightsCard.jurisdictionFallback', {
+        defaultValue: 'Select your state so this card follows your local context, especially if you later need recording-law details or attorney resources.',
+      });
+    }
+    return t('rightsCard.jurisdictionSelected', {
+      defaultValue: 'Using {{state}} as your jurisdiction. Core constitutional rights still apply nationwide, but recording, consent, and local enforcement rules can vary by state.',
+      state: selectedStateName,
+    });
+  }, [selectedStateName, t]);
+
+  const persistState = useCallback((stateKey) => {
+    setSelectedState(stateKey);
+    if (!stateKey) {
+      localStorage.removeItem(JURISDICTION_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(JURISDICTION_STORAGE_KEY, stateKey);
+    localStorage.setItem('safeneighbor_home_state', stateKey);
+  }, []);
+
+  const detectState = useCallback(async () => {
+    setIsLocatingState(true);
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        if (!('geolocation' in navigator)) { reject(new Error('Geolocation not supported')); return; }
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      });
+      const geo = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+      const stateKey = parseStateFromAddress(geo.state);
+      if (stateKey) {
+        persistState(stateKey);
+        trackEvent('rights_card_jurisdiction', { method: 'geolocation', state: stateKey });
+      }
+    } catch {
+      // Manual selection remains available.
+    } finally {
+      setIsLocatingState(false);
+    }
+  }, [persistState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (selectedState || !navigator.permissions?.query) return undefined;
+    navigator.permissions.query({ name: 'geolocation' })
+      .then((result) => {
+        if (!cancelled && result.state === 'granted') {
+          detectState();
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [detectState, selectedState]);
 
   // ── Plain text version for copy/email/share ──────────────
   const getPlainText = () => {
     const lines = [];
     lines.push(t('rightsCard.cardHeader'));
     lines.push('');
+    if (selectedStateName) {
+      lines.push(`${t('rightsCard.jurisdictionLabel', { defaultValue: 'Jurisdiction' })}: ${selectedStateName}`);
+      lines.push(getJurisdictionNote());
+      lines.push('');
+    }
     lines.push(`• ${t('rightsCard.right1')}`);
     lines.push(`• ${t('rightsCard.right2')}`);
     lines.push(`• ${t('rightsCard.right3')}`);
@@ -142,6 +244,7 @@ ${cardPairHtml}
     return `<div class="card-pair">
   <div class="card card-dark">
     <h3>${escape(t('rightsCard.cardHeader'))}</h3>
+    ${selectedStateName ? `<p style="font-size:6.5px;line-height:1.3;color:#cbd5e1;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.6px;">${escape(t('rightsCard.jurisdictionLabel', { defaultValue: 'Jurisdiction' }))}: ${escape(selectedStateName)}</p>` : ''}
     <ul>
       <li>${escape(t('rightsCard.right1'))}</li>
       <li>${escape(t('rightsCard.right2'))}</li>
@@ -177,6 +280,47 @@ ${cardPairHtml}
         <p className="text-slate-400 text-sm">{t('rightsCard.subtitle')}</p>
       </div>
 
+      <div className="mb-5 rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-red-300">
+              {t('rightsCard.jurisdictionLabel', { defaultValue: 'Jurisdiction' })}
+            </p>
+            <p className="mt-2 text-sm text-slate-300">
+              {getJurisdictionNote()}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={detectState}
+            disabled={isLocatingState}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-bold text-red-200 transition-colors hover:bg-red-500/15 disabled:opacity-60"
+          >
+            <Crosshair size={16} weight="bold" />
+            <span>
+              {isLocatingState
+                ? t('rightsCard.detectingJurisdiction', { defaultValue: 'Detecting…' })
+                : t('rightsCard.detectJurisdiction', { defaultValue: 'Auto-detect' })}
+            </span>
+          </button>
+        </div>
+        <div className="mt-3">
+          <select
+            value={selectedState}
+            onChange={(e) => {
+              persistState(e.target.value);
+              trackEvent('rights_card_jurisdiction', { method: 'manual', state: e.target.value || 'none' });
+            }}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm font-semibold text-white focus:border-red-500 focus:outline-none"
+          >
+            <option value="">{t('rightsCard.selectJurisdiction', { defaultValue: 'Select your state or DC' })}</option>
+            {stateOptions.map((option) => (
+              <option key={option.key} value={option.key}>{option.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Side 1 — Your Rights (dark card) */}
       <div className="mb-4">
         <div className="w-full bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800 border-2 border-red-600/40 rounded-xl p-5 sm:p-6 shadow-2xl shadow-red-900/20 relative overflow-hidden">
@@ -202,7 +346,9 @@ ${cardPairHtml}
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-700/50 flex items-center justify-between">
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">SafeNeighbor.us</span>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              {selectedStateName ? `${selectedStateName} • SafeNeighbor.us` : 'SafeNeighbor.us'}
+            </span>
             <span className="text-[10px] text-slate-600">{t('rightsCard.disclaimer')}</span>
           </div>
         </div>
