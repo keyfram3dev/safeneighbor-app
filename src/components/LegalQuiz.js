@@ -34,6 +34,11 @@ const DECK_LABELS = {
   signals: 'Signals',
   'unsafe-responses': 'Avoid Mistakes',
   'phrase-recall': 'Exact Phrases',
+  'ice-encounters': 'ICE Encounters',
+  'traffic-stops': 'Traffic Stops',
+  'protest-rights': 'Protest Rights',
+  'first-aid': 'First Aid',
+  'de-escalation': 'De-escalation',
 };
 
 const shuffle = (items) => {
@@ -128,12 +133,16 @@ const buildMixedQuiz = () => {
   const recentIds = new Set(getRecentRoundIds());
   const pickOpts = { srsData: progress.srsData || {}, lastScore: progress.lastScore };
   const countsByDeck = [
-    [legalQuizDecks.constitutional, 6],
-    [legalQuizDecks.scenarios, 6],
-    [legalQuizDecks.witnessing, 4],
-    [legalQuizDecks.signals, 4],
-    [legalQuizDecks.unsafeResponses, 4],
-    [legalQuizDecks.phraseRecall, 4],
+    [legalQuizDecks.constitutional,  4],
+    [legalQuizDecks.scenarios,       4],
+    [legalQuizDecks.witnessing,      2],
+    [legalQuizDecks.signals,         2],
+    [legalQuizDecks.unsafeResponses, 2],
+    [legalQuizDecks.phraseRecall,    2],
+    [legalQuizDecks.iceEncounters,   4],
+    [legalQuizDecks.trafficStops,    4],
+    [legalQuizDecks.protestRights,   4],
+    [legalQuizDecks.deEscalation,    2],
   ];
 
   const mixed = shuffle(
@@ -237,6 +246,41 @@ const drillConfigs = [
     description: 'Rehearse alert ladders, visible backup, and the quiet move from attention into orientation.',
     accent: 'border-blue-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-blue-950/18',
     getQuestions: () => buildDeckQuiz(legalQuizDecks.signals, 10),
+  },
+  {
+    id: 'ice-encounters',
+    title: 'ICE encounters',
+    description: 'Know your rights before, during, and after an ICE encounter — at the door, on the street, at work, and in detention.',
+    accent: 'border-orange-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-orange-950/18',
+    getQuestions: () => buildDeckQuiz(legalQuizDecks.iceEncounters, 10),
+  },
+  {
+    id: 'traffic-stops',
+    title: 'Traffic stops',
+    description: 'What to say, what to hand over, and what to refuse during a vehicle stop as a driver or passenger.',
+    accent: 'border-yellow-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-yellow-950/18',
+    getQuestions: () => buildDeckQuiz(legalQuizDecks.trafficStops, 10),
+  },
+  {
+    id: 'protest-rights',
+    title: 'Protest rights',
+    description: 'Permits, dispersal orders, recording police, arrests, and how to prepare before you hit the street.',
+    accent: 'border-purple-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-purple-950/18',
+    getQuestions: () => buildDeckQuiz(legalQuizDecks.protestRights, 10),
+  },
+  {
+    id: 'first-aid',
+    title: 'First aid',
+    description: 'Bleeding, shock, heat, seizures, overdose, tear gas exposure, and when to call 911.',
+    accent: 'border-rose-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-rose-950/18',
+    getQuestions: () => buildDeckQuiz(legalQuizDecks.firstAid, 10),
+  },
+  {
+    id: 'de-escalation',
+    title: 'De-escalation',
+    description: 'Language, body posture, active listening, bystander tactics, and when leaving is the right call.',
+    accent: 'border-teal-900/35 bg-gradient-to-br from-slate-950 via-slate-950/98 to-teal-950/18',
+    getQuestions: () => buildDeckQuiz(legalQuizDecks.deEscalation, 10),
   },
 ];
 
@@ -771,6 +815,17 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
   }, [onJumpToRights, onOpenScenarios, progress, reinforcementQuestions, startConfiguredQuiz, startStarterQuiz]);
 
   // ── SRS / Mastery stats (computed from current progress) ──
+  const deckMastery = useMemo(() => {
+    const srsData = progress.srsData || {};
+    const map = {};
+    legalQuizQuestions.forEach((q) => {
+      if (!map[q.deck]) map[q.deck] = { mastered: 0, total: 0 };
+      map[q.deck].total++;
+      if ((srsData[q.id]?.repetitions || 0) >= 5) map[q.deck].mastered++;
+    });
+    return map;
+  }, [progress]);
+
   const srsNow = Date.now();
   const srsValues = Object.values(progress.srsData || {});
   const srsDueNow = srsValues.filter((s) => s.dueDate && new Date(s.dueDate).getTime() <= srsNow).length;
@@ -1331,6 +1386,11 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
                         <p className={`mt-1 text-xs font-semibold ${stats.reinforcement > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
                           {stats.reinforcement > 0 ? `${stats.reinforcement} need reinforcement` : 'Felt steady'}
                         </p>
+                        {deckMastery[deck] && (
+                          <p className={`mt-1 text-xs ${deckMastery[deck].mastered === deckMastery[deck].total ? 'text-emerald-400' : 'text-slate-600'}`}>
+                            {deckMastery[deck].mastered}/{deckMastery[deck].total} mastered
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>

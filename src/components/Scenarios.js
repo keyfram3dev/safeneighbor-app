@@ -933,60 +933,74 @@ const Scenarios = ({ onSelectScenario, onNavigate }) => {
 
           {/* Quote block — fills the empty 6th slot on desktop */}
           <div className="scenario-section-item hidden md:flex">
-            <div className="relative flex h-full min-h-[212px] w-full flex-col justify-between overflow-hidden rounded-[28px] border border-slate-800/70 bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.07),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.92))] px-5 py-4 shadow-[0_16px_34px_rgba(2,6,23,0.16)]">
+            <div className="relative flex h-full min-h-[212px] w-full flex-col overflow-hidden rounded-[28px] border border-slate-800/70 bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.07),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.92))] px-6 py-5 shadow-[0_16px_34px_rgba(2,6,23,0.16)]">
               <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/25 to-transparent" />
               <div className="pointer-events-none absolute -bottom-14 right-0 h-32 w-32 rounded-full bg-cyan-500/8 blur-3xl" />
+              {/* Oversized decorative quote mark — upper right, breathing room on all sides */}
+              <div className="pointer-events-none absolute top-1 right-5 select-none text-[13rem] leading-none text-cyan-200/[0.06]" style={{ fontFamily: "'Cardo', Georgia, serif", fontWeight: 400 }} aria-hidden="true">"</div>
 
-              <div className="relative flex items-start justify-between gap-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-200/60">
+              {/* Top label only — no counter badge */}
+              <div className="relative">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200/55">
                   Perspective
                 </p>
-                <span className="rounded-full border border-white/10 bg-slate-950/65 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">
-                  {scenarioQuoteIndex + 1}/{SCENARIOS_DESKTOP_QUOTES.length}
-                </span>
               </div>
 
+              {/* Quote text — large, grows to fill vertical space */}
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={scenarioQuoteIndex}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.28, ease: 'easeOut' }}
-                  className="relative mt-3 flex-1"
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  className="relative mt-5 flex flex-1 flex-col justify-center"
                 >
                   <p
-                    className="max-w-[28ch] text-[1.02rem] font-medium italic leading-[1.58] tracking-[0.003em] text-slate-400/72"
+                    className="text-[1.28rem] font-medium italic leading-[1.6] tracking-[0.002em] text-slate-200/80"
                     style={{ fontFamily: '"Palatino Linotype", "Book Antiqua", "Iowan Old Style", ui-serif, Georgia, serif' }}
                   >
                     {t(SCENARIOS_DESKTOP_QUOTES[scenarioQuoteIndex].quoteKey)}
                   </p>
-                  <div className="mt-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500/85">
-                      {SCENARIOS_DESKTOP_QUOTES[scenarioQuoteIndex].theme}
-                    </p>
-                    <p className="mt-1 text-[12px] font-semibold tracking-[0.01em] text-slate-500">
-                      {t(SCENARIOS_DESKTOP_QUOTES[scenarioQuoteIndex].authorKey)}
-                    </p>
-                  </div>
                 </motion.div>
               </AnimatePresence>
 
-              <div className="relative mt-3 flex items-center justify-center">
-                <div className="flex items-center gap-2">
-                  {SCENARIOS_DESKTOP_QUOTES.map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setScenarioQuoteIndex(idx)}
-                      className={`h-2.5 rounded-full transition-all ${
-                        idx === scenarioQuoteIndex
-                          ? 'w-6 bg-cyan-300/75'
-                          : 'w-2.5 bg-slate-600/80 hover:bg-slate-500'
-                      }`}
-                      aria-label={`Show quote ${idx + 1}`}
-                    />
-                  ))}
+              {/* Bottom: attribution + dots + progress bar */}
+              <div className="relative mt-5 space-y-3">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold tracking-[0.01em] text-slate-400">
+                      {t(SCENARIOS_DESKTOP_QUOTES[scenarioQuoteIndex].authorKey)}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
+                      {SCENARIOS_DESKTOP_QUOTES[scenarioQuoteIndex].theme}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 pb-0.5">
+                    {SCENARIOS_DESKTOP_QUOTES.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setScenarioQuoteIndex(idx)}
+                        className={`rounded-full transition-all ${
+                          idx === scenarioQuoteIndex
+                            ? 'h-1.5 w-5 bg-cyan-300/60'
+                            : 'h-1.5 w-1.5 bg-slate-600/70 hover:bg-slate-500'
+                        }`}
+                        aria-label={`Show quote ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {/* Auto-advance progress bar */}
+                <div className="h-px w-full overflow-hidden rounded-full bg-slate-800/80">
+                  <motion.div
+                    key={`prog-${scenarioQuoteIndex}`}
+                    initial={{ width: '0%' }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: 6, ease: 'linear' }}
+                    className="h-full rounded-full bg-cyan-400/35"
+                  />
                 </div>
               </div>
             </div>

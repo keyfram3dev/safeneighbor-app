@@ -14,6 +14,7 @@ import { useReports } from '../contexts/ReportsContext';
 import { getLastKnownLocation } from '../utils/locationShare';
 import { calculateDistance } from '../utils/geo';
 import { readLegalQuizProgress, writeLegalQuizLaunchIntent } from '../utils/trainingLaunch';
+import { legalQuizQuestions, legalQuizDecks } from '../data/legalQuizData';
 import { Door, MapPin, User, Megaphone, Leaf, VideoCamera, Car, Shield, Eye, Buildings, ClipboardTextIcon as ClipboardText, UsersThreeIcon as UsersThree, NotePencilIcon as NotePencil, FirstAidKitIcon as FirstAidKit, PathIcon as Path, ScalesIcon as Scales, TimerIcon as Timer, IdentificationCardIcon as IdentificationCard, BookOpenTextIcon as BookOpenText, ShieldCheck } from '@phosphor-icons/react';
 
 const LAST_HOME_ACTION_KEY = 'safeneighbor_home_last_action';
@@ -636,11 +637,21 @@ const Home = ({
   const witnessingPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.witnessing);
   const signalsPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.signals);
   const phrasesPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.['phrase-recall']);
+  const iceEncountersPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.['ice-encounters']);
+  const trafficStopsPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.['traffic-stops']);
+  const protestRightsPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.['protest-rights']);
+  const firstAidPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.['first-aid']);
+  const deEscalationPracticeAgeDays = getDaysSince(legalQuizProgress?.lastReviewedByDeck?.['de-escalation']);
   const constitutionalNeedsReinforcement = (legalQuizProgress?.deckHistory?.constitutional?.needsReinforcement || 0) > 0;
   const scenariosNeedsReinforcement = (legalQuizProgress?.deckHistory?.scenarios?.needsReinforcement || 0) > 0;
   const witnessingNeedsReinforcement = (legalQuizProgress?.deckHistory?.witnessing?.needsReinforcement || 0) > 0;
   const signalsNeedsReinforcement = (legalQuizProgress?.deckHistory?.signals?.needsReinforcement || 0) > 0;
   const phrasesNeedsReinforcement = (legalQuizProgress?.deckHistory?.['phrase-recall']?.needsReinforcement || 0) > 0;
+  const iceEncountersNeedsReinforcement = (legalQuizProgress?.deckHistory?.['ice-encounters']?.needsReinforcement || 0) > 0;
+  const trafficStopsNeedsReinforcement = (legalQuizProgress?.deckHistory?.['traffic-stops']?.needsReinforcement || 0) > 0;
+  const protestRightsNeedsReinforcement = (legalQuizProgress?.deckHistory?.['protest-rights']?.needsReinforcement || 0) > 0;
+  const firstAidNeedsReinforcement = (legalQuizProgress?.deckHistory?.['first-aid']?.needsReinforcement || 0) > 0;
+  const deEscalationNeedsReinforcement = (legalQuizProgress?.deckHistory?.['de-escalation']?.needsReinforcement || 0) > 0;
   const rightsRefreshNeeded = rightsReviewAgeDays === null || rightsReviewAgeDays >= 21;
   const familyKitRefreshNeeded = setupState.familyKitReady && (familyKitReviewAgeDays === null || familyKitReviewAgeDays >= 45);
   const contactsRefreshNeeded = setupState.contactsReady && (contactsReviewAgeDays === null || contactsReviewAgeDays >= 30);
@@ -656,6 +667,21 @@ const Home = ({
   const witnessingRefreshNeeded = witnessingNeedsReinforcement || witnessingPracticeAgeDays === null || witnessingPracticeAgeDays >= 14;
   const signalsRefreshNeeded = signalsNeedsReinforcement || signalsPracticeAgeDays === null || signalsPracticeAgeDays >= 14;
   const phrasesRefreshNeeded = phrasesNeedsReinforcement || phrasesPracticeAgeDays === null || phrasesPracticeAgeDays >= 7;
+  const iceEncountersRefreshNeeded = iceEncountersNeedsReinforcement || iceEncountersPracticeAgeDays === null || iceEncountersPracticeAgeDays >= 14;
+  const trafficStopsRefreshNeeded = trafficStopsNeedsReinforcement || trafficStopsPracticeAgeDays === null || trafficStopsPracticeAgeDays >= 14;
+  const protestRightsRefreshNeeded = protestRightsNeedsReinforcement || protestRightsPracticeAgeDays === null || protestRightsPracticeAgeDays >= 14;
+  const firstAidRefreshNeeded = firstAidNeedsReinforcement || firstAidPracticeAgeDays === null || firstAidPracticeAgeDays >= 14;
+  const deEscalationRefreshNeeded = deEscalationNeedsReinforcement || deEscalationPracticeAgeDays === null || deEscalationPracticeAgeDays >= 14;
+  const deckMasteryMap = useMemo(() => {
+    const srsData = legalQuizProgress?.srsData || {};
+    const map = {};
+    legalQuizQuestions.forEach((q) => {
+      if (!map[q.deck]) map[q.deck] = { mastered: 0, total: 0 };
+      map[q.deck].total++;
+      if ((srsData[q.id]?.repetitions || 0) >= 5) map[q.deck].mastered++;
+    });
+    return map;
+  }, [legalQuizProgress]);
   const nearbyCluster = nearbyReportsCount >= 3;
   const recentCluster = recentReportsCount >= 6;
   const liveAwarenessState = nearbyCluster
@@ -1147,6 +1173,8 @@ const Home = ({
       detail: formatReviewAgeLabel(constitutionalReviewAgeDays),
       ready: constitutionalReviewAgeDays !== null && constitutionalReviewAgeDays < 14 && !constitutionalNeedsReinforcement,
       reinforcement: constitutionalNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.constitutional]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.constitutional]?.total || 0,
     },
     {
       id: 'scenarios',
@@ -1154,6 +1182,8 @@ const Home = ({
       detail: formatReviewAgeLabel(scenariosPracticeAgeDays),
       ready: !scenariosRefreshNeeded,
       reinforcement: scenariosNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.scenarios]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.scenarios]?.total || 0,
     },
     {
       id: 'witnessing',
@@ -1161,6 +1191,8 @@ const Home = ({
       detail: formatReviewAgeLabel(witnessingPracticeAgeDays),
       ready: !witnessingRefreshNeeded,
       reinforcement: witnessingNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.witnessing]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.witnessing]?.total || 0,
     },
     {
       id: 'signals',
@@ -1168,6 +1200,8 @@ const Home = ({
       detail: formatReviewAgeLabel(signalsPracticeAgeDays),
       ready: !signalsRefreshNeeded,
       reinforcement: signalsNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.signals]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.signals]?.total || 0,
     },
     {
       id: 'phrases',
@@ -1175,6 +1209,53 @@ const Home = ({
       detail: formatReviewAgeLabel(phrasesPracticeAgeDays),
       ready: !phrasesRefreshNeeded,
       reinforcement: phrasesNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.phraseRecall]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.phraseRecall]?.total || 0,
+    },
+    {
+      id: 'ice-encounters',
+      label: 'ICE',
+      detail: formatReviewAgeLabel(iceEncountersPracticeAgeDays),
+      ready: !iceEncountersRefreshNeeded,
+      reinforcement: iceEncountersNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.iceEncounters]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.iceEncounters]?.total || 0,
+    },
+    {
+      id: 'traffic-stops',
+      label: 'Traffic stops',
+      detail: formatReviewAgeLabel(trafficStopsPracticeAgeDays),
+      ready: !trafficStopsRefreshNeeded,
+      reinforcement: trafficStopsNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.trafficStops]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.trafficStops]?.total || 0,
+    },
+    {
+      id: 'protest-rights',
+      label: 'Protest',
+      detail: formatReviewAgeLabel(protestRightsPracticeAgeDays),
+      ready: !protestRightsRefreshNeeded,
+      reinforcement: protestRightsNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.protestRights]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.protestRights]?.total || 0,
+    },
+    {
+      id: 'first-aid',
+      label: 'First aid',
+      detail: formatReviewAgeLabel(firstAidPracticeAgeDays),
+      ready: !firstAidRefreshNeeded,
+      reinforcement: firstAidNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.firstAid]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.firstAid]?.total || 0,
+    },
+    {
+      id: 'de-escalation',
+      label: 'De-escalation',
+      detail: formatReviewAgeLabel(deEscalationPracticeAgeDays),
+      ready: !deEscalationRefreshNeeded,
+      reinforcement: deEscalationNeedsReinforcement,
+      mastered: deckMasteryMap[legalQuizDecks.deEscalation]?.mastered || 0,
+      total: deckMasteryMap[legalQuizDecks.deEscalation]?.total || 0,
     },
   ];
 
@@ -1814,17 +1895,22 @@ const Home = ({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-5">
+          <div className="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
             {practiceReadiness.map((item) => (
               <div key={item.id} className="rounded-2xl border border-slate-800/80 bg-slate-950/65 px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
-                  <span className={`inline-flex h-2.5 w-2.5 rounded-full ${item.ready ? 'bg-emerald-400' : item.reinforcement ? 'bg-rose-400' : 'bg-amber-400'}`} />
+                  <span className={`inline-flex h-2.5 w-2.5 flex-shrink-0 rounded-full ${item.ready ? 'bg-emerald-400' : item.reinforcement ? 'bg-rose-400' : 'bg-amber-400'}`} />
                 </div>
                 <p className={`mt-2 text-sm font-semibold ${item.ready ? 'text-emerald-100' : item.reinforcement ? 'text-rose-100' : 'text-amber-100'}`}>
                   {item.ready ? 'Fresh enough' : item.reinforcement ? 'Needs reinforcement' : 'Worth a return'}
                 </p>
                 <p className="mt-1 text-xs leading-[1.5] text-slate-500">{item.detail}</p>
+                {item.total > 0 && (
+                  <p className={`mt-1 text-xs font-semibold ${item.mastered === item.total ? 'text-emerald-400' : 'text-slate-600'}`}>
+                    {item.mastered}/{item.total} mastered
+                  </p>
+                )}
               </div>
             ))}
           </div>
