@@ -316,6 +316,7 @@ function App() {
   const [liveTrackingFailed, setLiveTrackingFailed] = useState(false);
   const [liveViewShareId, setLiveViewShareId] = useState(initialUrlState.liveViewShareId);
   const [showStopPinPrompt, setShowStopPinPrompt] = useState(false);
+  const [showShareLocationPin, setShowShareLocationPin] = useState(false);
   const [showShareWarning, setShowShareWarning] = useState(false);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [purgeAcknowledged, setPurgeAcknowledged] = useState(false);
@@ -1162,6 +1163,13 @@ function App() {
     const contacts = await getTrustedContacts();
 
     if (contacts.length === 0) {
+      // Contacts may exist but be unreadable because the master key is wrapped
+      // behind a PIN that hasn't been entered yet this session. Prompt for PIN
+      // and retry instead of falsely reporting "no contacts".
+      if (isKeyWrapped() && localStorage.getItem('safeneighbor_trusted_contacts') !== null) {
+        setShowShareLocationPin(true);
+        return;
+      }
       setLocationError('no-contacts');
       return;
     }
@@ -1606,6 +1614,38 @@ function App() {
         onClose={() => setShowOfflineLibrary(false)}
         onInstall={handleInstallBannerClick}
       />
+
+      {/* PIN prompt to unlock trusted contacts before sharing location */}
+      {showShareLocationPin && (
+        <div className="fixed inset-0 z-[90] bg-slate-950/95 flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-sm">
+            <PinEntry
+              inline
+              title={t('lock.enterPinToShare', { defaultValue: 'Enter PIN to share location' })}
+              subtitle={t('lock.pinRequiredToShare', { defaultValue: 'Your trusted contacts are encrypted. Enter your PIN to unlock and share your location.' })}
+              onUnlock={async (isDuress, pin) => {
+                if (isDuress || !pin) {
+                  setShowShareLocationPin(false);
+                  return;
+                }
+                try {
+                  await unwrapMasterKeyWithPin(pin);
+                  setShowShareLocationPin(false);
+                  await handleShareLocation();
+                } catch (err) {
+                  console.error('Failed to unwrap key for share location:', err);
+                }
+              }}
+            />
+            <button
+              onClick={() => setShowShareLocationPin(false)}
+              className="mt-4 w-full text-slate-500 hover:text-slate-300 text-sm font-medium uppercase tracking-wider transition-colors text-center py-2"
+            >
+              {t('lock.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* PIN prompt to stop live tracking */}
       {showStopPinPrompt && (
