@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { CheckCircle, XCircle, X, ArrowClockwise, Scroll, Lightning, ShieldCheck, CaretRight, ArrowLeft, Bell, BellSlash, ChartBar } from '@phosphor-icons/react';
 import {
@@ -385,6 +385,11 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
   const [remindersEnabled, setRemindersEnabled] = useState(() => localStorage.getItem('safeneighbor_training_reminders') === 'on');
   const [reminderLoading, setReminderLoading] = useState(false);
   const [reminderStatus, setReminderStatus] = useState(null); // 'success' | 'error' | null
+  const scrollContainerRef = useRef(null);
+
+  const scrollQuizToTop = () => {
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -559,6 +564,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
     if (currentQuestion.type === 'multipleChoice' && !selectedChoiceId) return;
     if (currentQuestion.type === 'phraseRecall' && !phraseAnswer.length) return;
     setSubmitted(true);
+    scrollQuizToTop();
   };
 
   const finalizeQuiz = (nextResults) => {
@@ -662,6 +668,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
 
     if (index === questions.length - 1) {
       finalizeQuiz(nextResults);
+      scrollQuizToTop();
       return;
     }
 
@@ -670,6 +677,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
     setPhraseAnswer([]);
     setConfidenceLevel(null);
     setSubmitted(false);
+    scrollQuizToTop();
   };
 
   const correctCount = results.filter((result) => result.correct).length;
@@ -1001,7 +1009,7 @@ function LegalQuiz({ isOpen, onClose, onJumpToRights, onOpenScenarios, launchInt
             </div>
           </div>
 
-          <div className="overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
+          <div ref={scrollContainerRef} className="overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
             {mode === 'intro' && (
               <motion.div
                 variants={staggerContainer}
